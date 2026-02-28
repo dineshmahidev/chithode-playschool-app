@@ -1,0 +1,11 @@
+check.js
+check_brackets.py
+credentials.md
+.gemini/
+.agents/
+.agent/
+_agents/
+_agent/
+*.md
+*.js
+*.py

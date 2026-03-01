@@ -109,7 +109,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
 
   return (
     <View className={`flex-1 ${colors.background} justify-center items-center`}>
-      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style="light" backgroundColor="#F472B6" />
 
       {/* Floating Animated Bubbles */}
       {floatingBubbles.map((bubble, index) => (
@@ -151,7 +151,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
             {/* Email Input */}
             <View className="mb-6">
               <Text className={`${colors.textSecondary} font-black uppercase text-[10px] tracking-widest mb-3 ml-1`}>Username</Text>
-              <View className={`${theme === 'dark' ? 'bg-[#3e3e34]' : 'bg-yellow-50/50'} flex-row items-center rounded-2xl px-5 py-2 border-2 ${theme === 'dark' ? 'border-[#4e4e44]' : 'border-transparent'}`}>
+              <View className={`${theme === 'dark' ? 'bg-[#3e3e34]' : 'bg-gray-100/50'} flex-row items-center rounded-2xl px-5 py-2 border-2 ${theme === 'dark' ? 'border-[#4e4e44]' : 'border-gray-200/50'}`}>
                 <Text className="text-2xl mr-3 font-mono">👤</Text>
                 <TextInput
                   className={`flex-1 h-12 font-bold ${colors.text}`}
@@ -167,7 +167,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
             {/* Password Input */}
             <View className="mb-8">
               <Text className={`${colors.textSecondary} font-black uppercase text-[10px] tracking-widest mb-3 ml-1`}>Password</Text>
-              <View className={`${theme === 'dark' ? 'bg-[#3e3e34]' : 'bg-yellow-50/50'} flex-row items-center rounded-2xl px-5 py-2 border-2 ${theme === 'dark' ? 'border-[#4e4e44]' : 'border-transparent'}`}>
+              <View className={`${theme === 'dark' ? 'bg-[#3e3e34]' : 'bg-gray-100/50'} flex-row items-center rounded-2xl px-5 py-2 border-2 ${theme === 'dark' ? 'border-[#4e4e44]' : 'border-gray-200/50'}`}>
                 <Text className="text-2xl mr-3 font-mono">🔒</Text>
                 <TextInput
                   className={`flex-1 h-12 font-bold ${colors.text}`}

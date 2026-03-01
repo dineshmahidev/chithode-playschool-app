@@ -15,6 +15,9 @@ class AttendanceController extends Controller
         if ($request->has('student_id')) {
             $query->where('student_id', $request->student_id);
         }
+        if ($request->has('user_role')) {
+            $query->where('user_role', $request->user_role);
+        }
         if ($request->has('date')) {
             $query->where('date', $request->date);
         }
@@ -33,6 +36,8 @@ class AttendanceController extends Controller
             'picked_by_type' => 'nullable|string',
             'dropped_by_name' => 'nullable|string',
             'picked_by_name' => 'nullable|string',
+            'user_role' => 'nullable|string',
+            'remarks' => 'nullable|string',
         ]);
 
         $attendance = Attendance::updateOrCreate(

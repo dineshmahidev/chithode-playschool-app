@@ -32,6 +32,7 @@ class FeeController extends Controller
             'amount' => 'required|numeric',
             'status' => 'required|string',
             'date' => 'required|string',
+            'due_date' => 'nullable|string',
             'notes' => 'nullable|string',
         ]);
 

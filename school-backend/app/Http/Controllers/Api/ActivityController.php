@@ -5,12 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Activity;
+use App\Models\Comment;
 
 class ActivityController extends Controller
 {
     public function index()
     {
-        return response()->json(Activity::with('students')->latest()->get());
+        return response()->json(Activity::with(['students', 'comments.user'])->latest()->get());
     }
 
     public function store(Request $request)
@@ -29,7 +30,7 @@ class ActivityController extends Controller
         $activity = Activity::create($validated);
         $activity->students()->sync($request->student_ids);
 
-        return response()->json($activity->load('students'), 201);
+        return response()->json($activity->load(['students', 'comments.user']), 201);
     }
 
     public function destroy($id)
@@ -39,5 +40,27 @@ class ActivityController extends Controller
         $activity->delete();
 
         return response()->json(['message' => 'Activity deleted successfully']);
+    }
+
+    public function like($id)
+    {
+        $activity = Activity::findOrFail($id);
+        $activity->increment('likes_count');
+        return response()->json($activity->load(['students', 'comments.user']));
+    }
+
+    public function comment(Request $request, $id)
+    {
+        $request->validate([
+            'text' => 'required|string',
+        ]);
+
+        $comment = Comment::create([
+            'activity_id' => $id,
+            'user_id' => $request->user()->id,
+            'text' => $request->text,
+        ]);
+
+        return response()->json($comment->load('user'), 201);
     }
 }

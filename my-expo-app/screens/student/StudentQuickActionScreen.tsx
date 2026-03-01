@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,9 +15,23 @@ interface StudentQuickActionScreenProps {
 }
 
 export default function StudentQuickActionScreen({ navigation }: StudentQuickActionScreenProps) {
-  const { user } = useAuth();
+  const { user, fees: allFees } = useAuth();
   const { colors } = useTheme();
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  const myFees = useMemo(() => {
+    if (!user) return [];
+    return allFees.filter(f => 
+      f.student_id === user.studentId || 
+      (user.id && f.student_id === user.id.toString())
+    );
+  }, [allFees, user]);
+
+  const totalPaid = useMemo(() => {
+    return myFees
+      .filter(f => f.status === 'paid')
+      .reduce((sum, f) => sum + f.amount, 0);
+  }, [myFees]);
 
   // Update clock every second
   useEffect(() => {
@@ -73,15 +87,6 @@ export default function StudentQuickActionScreen({ navigation }: StudentQuickAct
       screen: 'liveCamera'
     },
     {
-      id: 'homework',
-      title: 'View Homework',
-      subtitle: 'Check teacher assignments',
-      icon: 'book-open-page-variant',
-      color: 'bg-pink-600',
-      iconColor: '#FFFFFF',
-      screen: 'homework'
-    },
-    {
       id: 'emergency',
       title: 'Emergency Contact',
       subtitle: 'Call guardians quickly',
@@ -135,7 +140,7 @@ export default function StudentQuickActionScreen({ navigation }: StudentQuickAct
                 <Text className={`text-sm ${colors.textSecondary} mb-2`}>View payment details</Text>
                 <View className="flex-row items-center">
                   <View className="bg-green-500/20 px-3 py-1 rounded-full">
-                    <Text className="text-green-700 text-xs font-black">₹15,000 Paid</Text>
+                    <Text className="text-green-700 text-xs font-black">₹{totalPaid.toLocaleString()} Paid</Text>
                   </View>
                 </View>
               </View>

@@ -689,7 +689,7 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
   return (
     <SafeAreaView 
         className={`flex-1 ${colors.background}`}
-        style={{ backgroundColor: appTheme === 'dark' ? '#121212' : '#FEFBEA' }}
+        style={{ backgroundColor: appTheme === 'dark' ? '#121212' : '#FFFFFF' }}
     >
       {/* Header */}
       <View className="px-6 pt-4 pb-2">

@@ -1,77 +1,177 @@
-import React, { useState, memo, useCallback, useMemo } from 'react';
+import React, { useState, memo, useCallback, useMemo, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  Alert, FlatList, Modal, KeyboardAvoidingView, Platform,
-  ActivityIndicator,
+  Alert, FlatList, Platform, ActivityIndicator, Image, Modal
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth, Transaction } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface NavigationProps { navigate: (screen: string) => void; goBack: () => void; }
 interface IncomeExpenseScreenProps { navigation: NavigationProps; }
 
-// ─── Tiny date input (YYYY-MM-DD) ─────────────────────────────────────────────
-// ─── DD / MM / YYYY box date picker ─────────────────────────────────────────
-function MiniDatePicker({ label, value, onChange, theme }: {
-  label: string; value: string; onChange: (v: string) => void; theme: string;
+// ─── Professional Header Component ───────────────────────────────────
+const ScreenHeader = ({ navigation, theme, colors }: { navigation: any, theme: string, colors: any }) => (
+  <View className="flex-row items-center justify-between mb-6">
+    <View>
+      <TouchableOpacity 
+        onPress={() => navigation.goBack()} 
+        className={`mb-4 ${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} w-12 h-12 rounded-2xl items-center justify-center border shadow-sm`}
+      >
+        <MaterialCommunityIcons name="arrow-left" size={28} color={theme === 'dark' ? '#FFF' : '#000'} />
+      </TouchableOpacity>
+      <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>School</Text>
+      <Text className="text-2xl font-bold text-brand-pink tracking-tight">Finance Audit 💎</Text>
+    </View>
+    <View className="bg-brand-pink w-20 h-20 rounded-3xl items-center justify-center shadow-lg border-4 border-white rotate-3">
+       <MaterialCommunityIcons name="finance" size={48} color="white" />
+    </View>
+  </View>
+);
+
+// ─── Balance Summary Card Component ──────────────────────────────────
+const SummaryDashboard = ({ net, totalIncome, totalExpense, colors, theme, onPrint, pdfLoading, rupee }: any) => (
+  <View className="mb-8 mt-2">
+      <View className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} rounded-[40px] p-8 border shadow-xl`}>
+          <View className="flex-row items-center justify-between mb-8">
+              <View>
+                  <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-1`}>Total Net Balance</Text>
+                  <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>{rupee(net)}</Text>
+              </View>
+              <TouchableOpacity 
+                onPress={onPrint} 
+                disabled={pdfLoading}
+                className="w-16 h-16 rounded-2xl bg-brand-pink items-center justify-center shadow-lg shadow-brand-pink/20"
+              >
+                  {pdfLoading ? <ActivityIndicator color="white" /> : <MaterialCommunityIcons name="file-chart" size={32} color="white" />}
+              </TouchableOpacity>
+          </View>
+
+          <View className="flex-row justify-between pt-6 border-t border-gray-100 dark:border-gray-800">
+              <View className="items-center">
+                  <Text className="text-green-500 font-black text-xl">{rupee(totalIncome)}</Text>
+                  <Text className={`text-[8px] font-black uppercase tracking-widest ${colors.textTertiary}`}>Total Revenue</Text>
+              </View>
+              <View className="items-center">
+                  <Text className="text-red-500 font-black text-xl">{rupee(totalExpense)}</Text>
+                  <Text className={`text-[8px] font-black uppercase tracking-widest ${colors.textTertiary}`}>Total Expenses</Text>
+              </View>
+          </View>
+      </View>
+  </View>
+);
+
+// ─── Professional Date Picker (Matches App Theme) ──────────────────────────────────
+function ProfDatePicker({ label, value, onChange, theme, colors }: {
+  label: string; value: string; onChange: (v: string) => void; theme: string; colors: any;
 }) {
-  // value is YYYY-MM-DD, parse back for display
-  const parts = value ? value.split('-') : ['', '', ''];
-  const [day,   setDay]   = useState(parts[2] || '');
-  const [month, setMonth] = useState(parts[1] || '');
-  const [year,  setYear]  = useState(parts[0] || '');
-
-  const commit = (d: string, m: string, y: string) => {
-    if (d.length === 2 && m.length === 2 && y.length === 4) {
-      onChange(`${y}-${m}-${d}`);
-    } else if (!d && !m && !y) {
-      onChange('');
-    }
-  };
-
-  const box: any = {
-    borderWidth: 1.5, borderRadius: 12, paddingVertical: 11,
-    textAlign: 'center', fontSize: 13, fontWeight: '700',
-    color: theme === 'dark' ? '#fff' : '#111',
-    backgroundColor: theme === 'dark' ? '#1e1e1c' : '#F9FAFB',
-    borderColor: value ? '#F472B6' : (theme === 'dark' ? '#3a3a38' : '#E5E7EB'),
-  };
+  const [show, setShow] = useState(false);
+  const dateValue = value ? new Date(value) : new Date();
 
   return (
     <View style={{ flex: 1 }}>
-      <Text style={{ fontSize: 9, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase',
-        color: value ? '#F472B6' : '#9CA3AF', marginBottom: 6 }}>{label}</Text>
-      <View style={{ flexDirection: 'row', gap: 4 }}>
-        <TextInput style={{ ...box, flex: 1 }} placeholder="DD" placeholderTextColor="#9CA3AF"
-          keyboardType="numeric" maxLength={2} value={day}
-          onChangeText={v => { setDay(v); commit(v, month, year); }} />
-        <TextInput style={{ ...box, flex: 1.1 }} placeholder="MM" placeholderTextColor="#9CA3AF"
-          keyboardType="numeric" maxLength={2} value={month}
-          onChangeText={v => { setMonth(v); commit(day, v, year); }} />
-        <TextInput style={{ ...box, flex: 2 }} placeholder="YYYY" placeholderTextColor="#9CA3AF"
-          keyboardType="numeric" maxLength={4} value={year}
-          onChangeText={v => { setYear(v); commit(day, month, v); }} />
-      </View>
+      <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-2 ml-1`}>{label}</Text>
+      <TouchableOpacity 
+        activeOpacity={0.8}
+        onPress={() => setShow(true)}
+        className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} p-4 rounded-2xl border flex-row items-center justify-between`}
+      >
+        <Text className={`font-black ${value ? colors.text : colors.textTertiary}`}>
+          {value || 'Select Date'}
+        </Text>
+        <MaterialCommunityIcons name="calendar-edit" size={18} color="#F472B6" />
+      </TouchableOpacity>
+      {show && (
+        <DateTimePicker
+          value={dateValue}
+          mode="date"
+          display="default"
+          onChange={(_, d) => {
+            setShow(Platform.OS === 'ios');
+            if (d) {
+              const year = d.getFullYear();
+              const month = String(d.getMonth() + 1).padStart(2, '0');
+              const day = String(d.getDate()).padStart(2, '0');
+              onChange(`${year}-${month}-${day}`);
+            }
+          }}
+        />
+      )}
     </View>
   );
 }
 
-// ─── Isolated New Entry Form (memo — fixes render loop) ───────────────────────
-const NewEntryForm = memo(({ theme, colors, onSubmit, isSubmitting }: {
-  theme: string; colors: any; onSubmit: (t: Omit<Transaction, 'id'>) => void; isSubmitting: boolean;
+const DropdownSelect = ({ label, value, options, onSelect, colors, theme, icon }: any) => {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <View className="mb-6">
+      <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-2 ml-1`}>{label}</Text>
+      <TouchableOpacity 
+        onPress={() => setIsOpen(true)}
+        activeOpacity={0.8}
+        className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} p-4 rounded-2xl border flex-row items-center justify-between shadow-sm`}
+      >
+        <View className="flex-row items-center">
+          <View className={`w-8 h-8 rounded-lg items-center justify-center mr-3 ${value === 'income' ? 'bg-green-500/10' : (value === 'expense' ? 'bg-red-500/10' : 'bg-brand-pink/10')}`}>
+            <MaterialCommunityIcons name={icon || "layers-outline"} size={18} color={value === 'income' ? '#10B981' : (value === 'expense' ? '#EF4444' : '#F472B6')} />
+          </View>
+          <Text className={`font-black ${value ? colors.text : colors.textTertiary} capitalize`}>{value || 'Select'}</Text>
+        </View>
+        <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textTertiary} />
+      </TouchableOpacity>
+
+      <Modal visible={isOpen} transparent animationType="fade">
+        <TouchableOpacity activeOpacity={1} onPress={() => setIsOpen(false)} className="flex-1 bg-black/60 items-center justify-center px-6">
+          <View className={`${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-white'} w-full rounded-[32px] p-6 shadow-2xl`}>
+            <Text className={`text-xl font-black ${colors.text} mb-4 text-center`}>Select {label}</Text>
+            {options.map((opt: any) => (
+              <TouchableOpacity
+                key={opt.value}
+                onPress={() => { onSelect(opt.value); setIsOpen(false); }}
+                className={`flex-row items-center p-4 rounded-2xl mb-2 ${value === opt.value ? 'bg-brand-pink' : (theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100')}`}
+              >
+                <MaterialCommunityIcons name={opt.icon} size={20} color={value === opt.value ? 'white' : colors.textTertiary} />
+                <Text className={`ml-3 font-black ${value === opt.value ? 'text-white' : colors.text}`}>{opt.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
+  );
+};
+
+// ─── Next-Gen Form (Matches App Structure) ───────────────────────
+const NewEntryForm = memo(({ theme, colors, onSubmit, isSubmitting, initialData, onCancel }: {
+  theme: string; colors: any; onSubmit: (t: Omit<Transaction, 'id'>) => void; isSubmitting: boolean; 
+  initialData?: Transaction | null; onCancel?: () => void;
 }) => {
-  const [name,     setName]     = useState('');
-  const [amount,   setAmount]   = useState('');
-  const [category, setCategory] = useState('');
-  const [type,     setType]     = useState<'income' | 'expense'>('income');
+  const [name,     setName]     = useState(initialData?.name || '');
+  const [amount,   setAmount]   = useState(initialData?.amount?.toString() || '');
+  const [category, setCategory] = useState(initialData?.category || '');
+  const [type,     setType]     = useState<'income' | 'expense'>(initialData?.type || 'income');
+  const [date,     setDate]     = useState(initialData?.date || (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })());
+
+  useEffect(() => {
+    if (initialData) {
+      setName(initialData.name);
+      setAmount(initialData.amount.toString());
+      setCategory(initialData.category);
+      setType(initialData.type);
+      setDate(initialData.date);
+    }
+  }, [initialData]);
 
   const handleSubmit = useCallback(() => {
     if (!name.trim() || !amount || !category.trim()) {
-      Alert.alert('Missing Fields', 'Please fill all fields');
+      Alert.alert('Missing Fields', 'Please complete the details to post the entry.');
       return;
     }
     onSubmit({
@@ -79,151 +179,159 @@ const NewEntryForm = memo(({ theme, colors, onSubmit, isSubmitting }: {
       amount:   parseFloat(amount),
       category: category.trim(),
       type,
-      date: (() => {
-        const d = new Date();
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      })(),
+      date,
     });
-    setName(''); setAmount(''); setCategory('');
-  }, [name, amount, category, type, onSubmit]);
-
-  const inp: any = {
-    borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 14, fontWeight: '700',
-    color: theme === 'dark' ? '#fff' : '#111',
-    backgroundColor: theme === 'dark' ? '#1e1e1c' : '#F9FAFB',
-    borderColor: theme === 'dark' ? '#3a3a38' : '#E5E7EB',
-  };
+    if (!initialData) {
+      setName(''); setAmount(''); setCategory('');
+    }
+  }, [name, amount, category, type, date, onSubmit, initialData]);
 
   return (
-    <ScrollView style={{ flex: 1, paddingHorizontal: 24 }}
-      keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingTop: 20, paddingBottom: 60 }}>
+    <View style={{ flex: 1 }}>
+      <DropdownSelect 
+        label="Transaction Type"
+        value={type}
+        options={[
+          { label: 'Income', value: 'income', icon: 'trending-up' },
+          { label: 'Expense', value: 'expense', icon: 'trending-down' }
+        ]}
+        onSelect={setType}
+        colors={colors}
+        theme={theme}
+        icon={type === 'income' ? 'trending-up' : 'trending-down'}
+      />
 
-      {/* Income / Expense toggle */}
-      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 22 }}>
-        <TouchableOpacity activeOpacity={0.8}
-          onPress={() => setType('income')}
-          style={{
-            flex: 1, paddingVertical: 16, borderRadius: 18, alignItems: 'center',
-            flexDirection: 'row', justifyContent: 'center', gap: 8,
-            backgroundColor: type === 'income' ? '#10B981' : (theme === 'dark' ? '#1e1e1c' : '#F9FAFB'),
-            borderWidth: 2, borderColor: type === 'income' ? '#10B981' : (theme === 'dark' ? '#3a3a38' : '#E5E7EB'),
-          }}>
-          <MaterialCommunityIcons name="arrow-bottom-left" size={20}
-            color={type === 'income' ? 'white' : '#10B981'} />
-          <Text style={{ fontWeight: '900', color: type === 'income' ? 'white' : '#10B981' }}>INCOME</Text>
-        </TouchableOpacity>
-        <TouchableOpacity activeOpacity={0.8}
-          onPress={() => setType('expense')}
-          style={{
-            flex: 1, paddingVertical: 16, borderRadius: 18, alignItems: 'center',
-            flexDirection: 'row', justifyContent: 'center', gap: 8,
-            backgroundColor: type === 'expense' ? '#EF4444' : (theme === 'dark' ? '#1e1e1c' : '#F9FAFB'),
-            borderWidth: 2, borderColor: type === 'expense' ? '#EF4444' : (theme === 'dark' ? '#3a3a38' : '#E5E7EB'),
-          }}>
-          <MaterialCommunityIcons name="arrow-top-right" size={20}
-            color={type === 'expense' ? 'white' : '#EF4444'} />
-          <Text style={{ fontWeight: '900', color: type === 'expense' ? 'white' : '#EF4444' }}>EXPENSE</Text>
-        </TouchableOpacity>
+      <View className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} rounded-[40px] p-8 border shadow-xl`}>
+          <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-6 text-center`}>
+            Transaction Entry
+          </Text>
+
+          <View className="mb-6">
+            <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-2`}>Description</Text>
+            <TextInput 
+                value={name} onChangeText={setName} 
+                placeholder="Ex: Tuition Fees" 
+                placeholderTextColor={theme === 'dark' ? '#4b4b4b' : '#E5E7EB'}
+                className={`text-xl font-black ${colors.text}`}
+            />
+            <View className="h-[1px] bg-gray-100 dark:bg-gray-800 mt-2" />
+          </View>
+
+          <View className="flex-row gap-6 mb-6">
+            <View className="flex-1">
+                <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-2`}>Amount (₹)</Text>
+                <TextInput 
+                    value={amount} onChangeText={setAmount} 
+                    placeholder="0.00" 
+                    keyboardType="numeric"
+                    placeholderTextColor={theme === 'dark' ? '#4b4b4b' : '#E5E7EB'}
+                    className={`text-2xl font-black ${type === 'income' ? 'text-green-500' : 'text-red-500'}`}
+                />
+                <View className="h-[1px] bg-gray-100 dark:bg-gray-800 mt-2" />
+            </View>
+            <View className="flex-1">
+                <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-2`}>Category</Text>
+                <TouchableOpacity 
+                  onPress={() => Alert.alert('Pick Category', 'Select transaction classification', [
+                    { text: 'Salaries', onPress: () => setCategory('Salaries') },
+                    { text: 'Fees Revenue', onPress: () => setCategory('Fees') },
+                    { text: 'Maintenance', onPress: () => setCategory('Maintenance') },
+                    { text: 'Stationery', onPress: () => setCategory('Stationery') },
+                    { text: 'Other', onPress: () => setCategory('Miscellaneous') },
+                    { text: 'Cancel', style: 'cancel' }
+                  ])}
+                  className={`p-3 rounded-2xl border ${colors.border} flex-row justify-between items-center`}
+                >
+                  <Text className={`font-black text-xs ${category ? colors.text : colors.textTertiary}`}>{category || 'Select Type'}</Text>
+                  <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textTertiary} />
+                </TouchableOpacity>
+            </View>
+          </View>
+
+          <View className="mb-8">
+            <ProfDatePicker label="Date Selection" value={date} onChange={setDate} theme={theme} colors={colors} />
+          </View>
+
+          <TouchableOpacity 
+            onPress={handleSubmit} 
+            disabled={isSubmitting} 
+            activeOpacity={0.8}
+            className={`bg-brand-pink py-6 rounded-[28px] items-center justify-center flex-row shadow-lg shadow-brand-pink/30`}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <>
+                <MaterialCommunityIcons name={initialData ? "sync" : "plus-circle"} size={22} color="white" />
+                <Text className="text-white font-black text-lg ml-2 uppercase tracking-widest">{initialData ? 'Update Record' : 'Post Transaction'}</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {initialData && (
+             <TouchableOpacity onPress={onCancel} className="mt-4 items-center">
+                <Text className={`font-black ${colors.textTertiary} text-[10px] uppercase tracking-widest`}>Cancel Editing</Text>
+             </TouchableOpacity>
+          )}
       </View>
-
-      <Text style={{ fontSize: 9, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase',
-        color: '#9CA3AF', marginBottom: 8 }}>Description *</Text>
-      <TextInput style={{ ...inp, marginBottom: 16 }} placeholder="e.g. Monthly Rent"
-        placeholderTextColor="#9CA3AF" value={name} onChangeText={setName} />
-
-      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 9, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase',
-            color: '#9CA3AF', marginBottom: 8 }}>Amount (₹) *</Text>
-          <TextInput style={inp} placeholder="0.00" placeholderTextColor="#9CA3AF"
-            keyboardType="numeric" value={amount} onChangeText={setAmount} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 9, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase',
-            color: '#9CA3AF', marginBottom: 8 }}>Category *</Text>
-          <TextInput style={inp} placeholder="e.g. Utility" placeholderTextColor="#9CA3AF"
-            value={category} onChangeText={setCategory} />
-        </View>
-      </View>
-
-      <TouchableOpacity onPress={handleSubmit} disabled={isSubmitting} activeOpacity={0.85}
-        style={{
-          backgroundColor: type === 'income' ? '#10B981' : '#EF4444',
-          paddingVertical: 20, borderRadius: 22, alignItems: 'center',
-          flexDirection: 'row', justifyContent: 'center',
-          shadowColor: type === 'income' ? '#10B981' : '#EF4444',
-          shadowOpacity: 0.4, shadowOffset: { width: 0, height: 6 }, shadowRadius: 12, elevation: 8,
-          marginTop: 8,
-        }}>
-        {isSubmitting ? <ActivityIndicator color="white" /> : (
-          <>
-            <MaterialCommunityIcons name="plus-circle" size={22} color="white" />
-            <Text style={{ color: 'white', fontWeight: '900', fontSize: 16, marginLeft: 10 }}>
-              Save Transaction
-            </Text>
-          </>
-        )}
-      </TouchableOpacity>
-    </ScrollView>
+    </View>
   );
 });
 
-// ─── History item ──────────────────────────────────────────────────────────────
-const TxItem = memo(({ item, colors, theme, onDelete }: { item: Transaction; colors: any; theme: string; onDelete: (id: string) => void }) => (
-  <View style={{
-    backgroundColor: theme === 'dark' ? '#1a1a18' : '#fff',
-    borderRadius: 20, marginBottom: 10, overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: item.type === 'income'
-      ? (theme === 'dark' ? '#064e3b' : '#D1FAE5')
-      : (theme === 'dark' ? '#450a0a' : '#FEE2E2'),
-  }}>
-    <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4,
-      backgroundColor: item.type === 'income' ? '#10B981' : '#EF4444' }} />
-    <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, paddingLeft: 18 }}>
-      <View style={{
-        width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
-        backgroundColor: item.type === 'income' ? '#D1FAE5' : '#FEE2E2',
-      }}>
-        <MaterialCommunityIcons name={item.type === 'income' ? 'arrow-bottom-left' : 'arrow-top-right'}
-          size={22} color={item.type === 'income' ? '#10B981' : '#EF4444'} />
-      </View>
-      <View style={{ flex: 1, marginLeft: 14 }}>
-        <Text style={{ fontWeight: '900', fontSize: 14, color: theme === 'dark' ? '#fff' : '#111' }}>
-          {item.name}
-        </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
-          <Text style={{ fontSize: 11, color: '#9CA3AF', fontWeight: '600' }}>{item.category}</Text>
-          <View style={{ width: 3, height: 3, borderRadius: 99, backgroundColor: '#D1D5DB', marginHorizontal: 6 }} />
-          <Text style={{ fontSize: 11, color: '#9CA3AF', fontWeight: '600' }}>{item.date}</Text>
+// ─── Daily Log Item (Matches Attendance Log Style) ───────────────────────────────────
+const TxItem = memo(({ item, theme, colors, onDelete, onEdit }: { item: Transaction; theme: string; colors: any; onDelete: (id: string) => void; onEdit: (t: Transaction) => void; }) => (
+    <TouchableOpacity 
+        activeOpacity={0.8} 
+        onPress={() => onEdit(item)}
+        className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} p-5 mb-4 border rounded-[32px] shadow-sm`}
+    >
+        <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center">
+                <View className={`${item.type === 'income' ? 'bg-green-500' : 'bg-red-500'} w-14 h-14 rounded-[20px] items-center justify-center mr-4 shadow-sm`}>
+                    <MaterialCommunityIcons name={item.type === 'income' ? 'arrow-down-bold' : 'arrow-up-bold'} size={28} color="white" />
+                </View>
+                <View>
+                    <Text className={`font-black ${colors.text} text-base mb-0.5`}>{item.name}</Text>
+                    <View className="flex-row items-center">
+                        <View className={`${item.type === 'income' ? 'bg-green-50' : 'bg-red-50'} px-2 py-0.5 rounded-md`}>
+                            <Text className={`text-[8px] font-black uppercase tracking-widest ${item.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{item.category}</Text>
+                        </View>
+                        <View className="w-1 h-1 rounded-full bg-gray-300 mx-2" />
+                        <Text className={`text-[10px] font-black uppercase ${colors.textTertiary}`}>{item.date}</Text>
+                    </View>
+                </View>
+            </View>
+            
+            <View className="items-end">
+                <Text className={`font-black text-lg ${item.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
+                    {item.type === 'income' ? '+' : '-'} ₹{item.amount.toLocaleString()}
+                </Text>
+                <View className="flex-row mt-2">
+                    <TouchableOpacity onPress={() => onEdit(item)} className="mr-3">
+                        <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textTertiary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => onDelete(item.id)}>
+                        <MaterialCommunityIcons name="trash-can-outline" size={16} color="#F87171" />
+                    </TouchableOpacity>
+                </View>
+            </View>
         </View>
-      </View>
-      <Text style={{ fontWeight: '900', fontSize: 16,
-        color: item.type === 'income' ? '#10B981' : '#EF4444' }}>
-        {item.type === 'income' ? '+' : '-'}₹{item.amount.toLocaleString()}
-      </Text>
-      <TouchableOpacity onPress={() => onDelete(item.id)} style={{ marginLeft: 10, padding: 4 }}>
-        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FCA5A5" />
-      </TouchableOpacity>
-    </View>
-  </View>
+    </TouchableOpacity>
 ));
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function IncomeExpenseScreen({ navigation }: IncomeExpenseScreenProps) {
-  const { transactions, addTransaction, deleteTransaction } = useAuth();
-  const { colors, theme } = useTheme();
+  const { transactions, addTransaction, deleteTransaction, updateTransaction } = useAuth();
+  const { theme, colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
-  const [activeTab,    setActiveTab]    = useState<'entry' | 'history'>('history');
+  const [activeTab,    setActiveTab]    = useState<'history' | 'entry'>('history');
+  const [editingItem,  setEditingItem]  = useState<Transaction | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fromDate,     setFromDate]     = useState('');
   const [toDate,       setToDate]       = useState('');
   const [typeFilter,   setTypeFilter]   = useState<'all' | 'income' | 'expense'>('all');
   const [pdfLoading,   setPdfLoading]   = useState(false);
 
-  // ── Filtered data ──
   const filtered = useMemo(() => {
     let list = [...transactions];
     if (typeFilter !== 'all') list = list.filter(t => t.type === typeFilter);
@@ -236,254 +344,208 @@ export default function IncomeExpenseScreen({ navigation }: IncomeExpenseScreenP
   const totalExpense = useMemo(() => filtered.filter(t => t.type === 'expense').reduce((s, t) => s + parseFloat(t.amount as any || 0), 0), [filtered]);
   const net          = totalIncome - totalExpense;
 
-  // ── Add ──
-  const handleAddSubmit = useCallback(async (data: Omit<Transaction, 'id'>) => {
+  const handleApplyAction = useCallback(async (data: Omit<Transaction, 'id'>) => {
     setIsSubmitting(true);
     try {
-      await addTransaction({ ...data, id: Date.now().toString() });
+      if (editingItem) {
+        await updateTransaction(editingItem.id, data);
+        Alert.alert('Updated ✅', 'The transaction record has been updated.');
+      } else {
+        await addTransaction({ ...data, id: Date.now().toString() });
+        Alert.alert('Posted 🚀', 'New transaction has been recorded.');
+      }
+      setEditingItem(null);
       setActiveTab('history');
-      Alert.alert('Saved! ✅', 'Transaction recorded.');
-    } catch {
-      Alert.alert('Error', 'Failed to save transaction.');
+    } catch (err) {
+      console.error('Transaction Action Error:', err);
+      Alert.alert('Error ❌', 'Failed to save the transaction.');
     } finally {
       setIsSubmitting(false);
     }
-  }, [addTransaction]);
+  }, [addTransaction, updateTransaction, editingItem]);
 
-  // ── Delete ──
   const handleDelete = useCallback((id: string) => {
-    Alert.alert('Delete', 'Remove this transaction?', [
+    Alert.alert('Delete Record?', 'Are you sure you want to remove this entry from the database? 🗑️', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
         try {
           await deleteTransaction(id);
-          Alert.alert('Success', 'Transaction deleted successfully! 🗑️');
-        } catch (error) {
-          Alert.alert('Error', 'Failed to delete transaction.');
+          Alert.alert('Deleted', 'Record removed successfully.');
+        } catch (err) {
+          Alert.alert('Error', 'Failed to delete record.');
         }
       }},
     ]);
   }, [deleteTransaction]);
 
-  // ── PDF with current filters ──
+  const handleEdit = useCallback((t: Transaction) => {
+    setEditingItem(t);
+    setActiveTab('entry');
+  }, []);
+
   const generatePDF = useCallback(async () => {
     setPdfLoading(true);
-    const periodLabel = fromDate || toDate
-      ? `Period: ${fromDate || 'Start'} → ${toDate || 'Now'}`
-      : 'All Time';
     const html = `
-      <html><head><style>
-        body { font-family: Helvetica, sans-serif; padding: 40px; color: #1F2937; margin: 0; }
-        .header { text-align: center; margin-bottom: 32px; border-bottom: 3px solid #F472B6; padding-bottom: 20px; }
-        .school { font-size: 26px; font-weight: 800; color: #F472B6; }
-        .subtitle { font-size: 13px; color: #6B7280; letter-spacing: 2px; text-transform: uppercase; margin-top: 6px; }
-        .period { font-size: 11px; color: #9CA3AF; margin-top: 4px; }
-        .cards { display: flex; gap: 16px; margin-bottom: 32px; }
-        .card { flex: 1; padding: 18px; border-radius: 16px; color: white; text-align: center; }
-        .label { font-size: 10px; font-weight: 700; text-transform: uppercase; opacity: 0.85; }
-        .value { font-size: 22px; font-weight: 900; margin-top: 6px; }
-        .inc { background:#10B981; } .exp { background:#EF4444; } .net { background: ${net >= 0 ? '#3B82F6' : '#F97316'}; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th { padding: 12px 15px; text-align: left; border-bottom: 2px solid #E5E7EB;
-             color: #9CA3AF; text-transform: uppercase; font-size: 9px; letter-spacing: 1px; }
-        td { padding: 13px 15px; border-bottom: 1px solid #F3F4F6; }
-        .in  { color: #10B981; font-weight: 800; }
-        .ex  { color: #EF4444; font-weight: 800; }
-        .amt { font-weight: 900; }
-        .footer { margin-top: 40px; text-align: center; font-size: 10px; color: #9CA3AF; }
-      </style></head><body>
-        <div class="header">
-          <div class="school">Kids Academy 👑</div>
-          <div class="subtitle">Financial Transaction Report</div>
-          <div class="period">${periodLabel} &nbsp;·&nbsp; ${filtered.length} transactions</div>
+      <html><body style="font-family: sans-serif; padding: 40px; color: #1F2937;">
+        <h1 style="color:#F472B6; text-align:center; font-size:32px; font-weight:900;">Academic Financial Audit</h1>
+        <hr style="border:0; border-top:2px solid #E5E7EB; margin:20px 0;"/>
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; margin:40px 0;">
+          <div style="background:#f0fdf4; padding:24px; border-radius:16px; border:1px solid #bbf7d0; text-align:center;">
+            <div style="font-size:10px; font-weight:900; color:#166534; text-transform:uppercase; letter-spacing:2px;">Total Income</div>
+            <div style="font-size:24px; font-weight:900; color:#14532D; margin-top:8px;">₹${totalIncome.toLocaleString()}</div>
+          </div>
+          <div style="background:#fef2f2; padding:24px; border-radius:16px; border:1px solid #fecaca; text-align:center;">
+             <div style="font-size:10px; font-weight:900; color:#991b1b; text-transform:uppercase; letter-spacing:2px;">Total Expense</div>
+             <div style="font-size:24px; font-weight:900; color:#7f1d1d; margin-top:8px;">₹${totalExpense.toLocaleString()}</div>
+          </div>
+          <div style="background:#eff6ff; padding:24px; border-radius:16px; border:1px solid #bfdbfe; text-align:center;">
+             <div style="font-size:10px; font-weight:900; color:#1e40af; text-transform:uppercase; letter-spacing:2px;">Net Balance</div>
+             <div style="font-size:24px; font-weight:900; color:#1e3a8a; margin-top:8px;">₹${net.toLocaleString()}</div>
+          </div>
         </div>
-        <div class="cards">
-          <div class="card inc"><div class="label">Total Income</div><div class="value">₹${totalIncome.toLocaleString()}</div></div>
-          <div class="card exp"><div class="label">Total Expense</div><div class="value">₹${totalExpense.toLocaleString()}</div></div>
-          <div class="card net"><div class="label">Net ${net >= 0 ? 'Profit' : 'Loss'}</div><div class="value">₹${Math.abs(net).toLocaleString()}</div></div>
-        </div>
-        <table>
-          <thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Type</th><th style="text-align:right">Amount</th></tr></thead>
-          <tbody>
-            ${filtered.map(t => `
-              <tr>
-                <td>${t.date}</td>
-                <td>${t.name}</td>
-                <td>${t.category}</td>
-                <td class="${t.type === 'income' ? 'in' : 'ex'}">${t.type.toUpperCase()}</td>
-                <td class="amt" style="text-align:right;color:${t.type === 'income' ? '#10B981' : '#EF4444'}">
-                  ${t.type === 'income' ? '+' : '-'}₹${t.amount.toLocaleString()}
-                </td>
-              </tr>`).join('')}
-          </tbody>
+        <table style="width:100%; border-collapse:collapse; margin-top:40px;">
+          <tr style="background:#F9FAFB; text-align:left; border-bottom:2px solid #E5E7EB;">
+            <th style="padding:16px; font-size:10px; font-weight:900; color:#9CA3AF; text-transform:uppercase;">Date</th>
+            <th style="padding:16px; font-size:10px; font-weight:900; color:#9CA3AF; text-transform:uppercase;">Description</th>
+            <th style="padding:16px; font-size:10px; font-weight:900; color:#9CA3AF; text-transform:uppercase;">Type</th>
+            <th style="padding:16px; font-size:10px; font-weight:900; color:#9CA3AF; text-transform:uppercase; text-align:right;">Amount</th>
+          </tr>
+          ${filtered.map(t => `<tr style="border-bottom:1px solid #F3F4F6;">
+            <td style="padding:16px; font-weight:700;">${t.date}</td>
+            <td style="padding:16px; font-weight:700;">${t.name}<br/><span style="font-size:10px; color:#9CA3AF; font-weight:400;">${t.category.toUpperCase()}</span></td>
+            <td style="padding:16px; font-weight:900; color:${t.type === 'income' ? '#10B981' : '#EF4444'};">${t.type.toUpperCase()}</td>
+            <td style="padding:16px; font-weight:900; text-align:right;">₹${t.amount.toLocaleString()}</td>
+          </tr>`).join('')}
         </table>
-        <div class="footer">Generated ${new Date().toLocaleString()} · Kids Academy Management System</div>
+        <div style="margin-top:60px; text-align:center; font-size:10px; color:#9CA3AF; font-weight:900; letter-spacing:2px; text-transform:uppercase;">
+           Official Institutional Document • Generated ${new Date().toLocaleDateString()}
+        </div>
       </body></html>`;
     try {
       const { uri } = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-    } catch {
-      Alert.alert('Error', 'Failed to generate PDF');
-    } finally {
-      setPdfLoading(false);
-    }
-  }, [filtered, totalIncome, totalExpense, net, fromDate, toDate]);
+      await Sharing.shareAsync(uri);
+    } catch { Alert.alert('Error', 'Audit report generation failed.'); }
+    finally { setPdfLoading(false); }
+  }, [filtered, totalIncome, totalExpense, net]);
 
-  const clearRange = useCallback(() => { setFromDate(''); setToDate(''); setTypeFilter('all'); }, []);
+  const rupee = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
-  const renderItem = useCallback(({ item }: { item: Transaction }) => (
-    <TxItem item={item} colors={colors} theme={theme} onDelete={handleDelete} />
-  ), [colors, theme, handleDelete]);
-
-  const rupee = (n: number) => `₹${Math.round(n).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  const renderTabSelector = () => (
+    <View className="flex-row gap-4 mb-6">
+      <TouchableOpacity 
+        onPress={() => { setActiveTab('history'); setEditingItem(null); }}
+        className={`flex-1 py-4 rounded-[24px] items-center justify-center border shadow-sm ${activeTab === 'history' ? 'bg-brand-pink border-brand-pink shadow-brand-pink/20' : (theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100')}`}
+      >
+        <Text className={`font-black text-[10px] uppercase tracking-widest ${activeTab === 'history' ? 'text-white' : colors.textSecondary}`}>Records Log</Text>
+      </TouchableOpacity>
+      <TouchableOpacity 
+        onPress={() => setActiveTab('entry')}
+        className={`flex-1 py-4 rounded-[24px] items-center justify-center border shadow-sm ${activeTab === 'entry' ? 'bg-brand-pink border-brand-pink shadow-brand-pink/20' : (theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100')}`}
+      >
+        <Text className={`font-black text-[10px] uppercase tracking-widest ${activeTab === 'entry' ? 'text-white' : colors.textSecondary}`}>{editingItem ? 'Edit Entry' : 'Manual Entry'}</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme === 'dark' ? '#111' : '#F9FAFB' }}>
-
-      {/* ── Header ── */}
-      <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{
-            width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
-            backgroundColor: theme === 'dark' ? '#1e1e1c' : '#fff',
-            borderWidth: 1.5, borderColor: theme === 'dark' ? '#3a3a38' : '#E5E7EB',
-          }}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={theme === 'dark' ? '#fff' : '#111'} />
-          </TouchableOpacity>
-
-          <Text style={{ fontSize: 20, fontWeight: '900', color: theme === 'dark' ? '#fff' : '#111' }}>
-            Finance Hub 💸
-          </Text>
-
-          <TouchableOpacity onPress={generatePDF} disabled={pdfLoading} style={{
-            width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
-            backgroundColor: '#F472B6',
-            shadowColor: '#F472B6', shadowOpacity: 0.4, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 6,
-          }}>
-            {pdfLoading
-              ? <ActivityIndicator color="white" size="small" />
-              : <MaterialCommunityIcons name="file-pdf-box" size={24} color="white" />}
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Summary Cards ── */}
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 18 }}>
-          {[
-            { label: 'Income',  value: rupee(totalIncome),      color: '#10B981', bg: '#ECFDF5', icon: 'arrow-bottom-left' },
-            { label: 'Expense', value: rupee(totalExpense),     color: '#EF4444', bg: '#FEF2F2', icon: 'arrow-top-right' },
-            { label: net >= 0 ? 'Profit' : 'Loss', value: rupee(Math.abs(net)), color: net >= 0 ? '#3B82F6' : '#F97316', bg: net >= 0 ? '#EFF6FF' : '#FFF7ED', icon: net >= 0 ? 'trending-up' : 'trending-down' },
-          ].map(c => (
-            <View key={c.label} style={{
-              flex: 1, backgroundColor: c.bg, borderRadius: 20, padding: 14,
-              borderWidth: 1.5, borderColor: c.color + '33',
-            }}>
-              <MaterialCommunityIcons name={c.icon as any} size={18} color={c.color} />
-              <Text style={{ fontSize: 14, fontWeight: '900', color: c.color, marginTop: 6 }}>{c.value}</Text>
-              <Text style={{ fontSize: 9, fontWeight: '900', color: c.color, opacity: 0.7, marginTop: 2, letterSpacing: 1 }}>
-                {c.label.toUpperCase()}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {/* ── Tab toggle ── */}
-        <View style={{
-          flexDirection: 'row', gap: 0,
-          backgroundColor: theme === 'dark' ? '#1e1e1c' : '#F3F4F6',
-          borderRadius: 18, padding: 5,
-          borderWidth: 1.5, borderColor: theme === 'dark' ? '#3a3a38' : '#E5E7EB',
-        }}>
-          {(['history', 'entry'] as const).map(tab => (
-            <TouchableOpacity key={tab} activeOpacity={0.7}
-              onPress={() => setActiveTab(tab)}
-              style={{
-                flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center',
-                backgroundColor: activeTab === tab ? '#F472B6' : 'transparent',
-              }}>
-              <Text style={{ fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1,
-                color: activeTab === tab ? 'white' : (theme === 'dark' ? '#6B7280' : '#9CA3AF') }}>
-                {tab === 'history' ? '📋 History' : '➕ New Entry'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* ── History tab ── */}
+    <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF', paddingTop: insets.top }}>
+      
       {activeTab === 'history' ? (
         <FlatList
           data={filtered}
           keyExtractor={item => item.id}
-          renderItem={renderItem}
-          keyboardShouldPersistTaps="handled"
+          renderItem={({item}) => (
+            <TxItem item={item} theme={theme} colors={colors} onDelete={handleDelete} onEdit={handleEdit} />
+          )}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}
           ListHeaderComponent={
-            <View style={{ marginBottom: 14 }}>
-              {/* Date range picker */}
-              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
-                <MiniDatePicker label="From Date" value={fromDate} onChange={setFromDate} theme={theme} />
-                <MiniDatePicker label="To Date"   value={toDate}   onChange={setToDate}   theme={theme} />
-              </View>
+            <View className="pt-4">
+               {/* Rollable Header */}
+               <ScreenHeader navigation={navigation} theme={theme} colors={colors} />
+               
+               {/* Rollable Dashboard */}
+               <SummaryDashboard 
+                  net={net} 
+                  totalIncome={totalIncome} 
+                  totalExpense={totalExpense} 
+                  colors={colors} 
+                  theme={theme} 
+                  onPrint={generatePDF} 
+                  pdfLoading={pdfLoading} 
+                  rupee={rupee} 
+               />
 
-              {/* Type filter chips */}
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-                {(['all', 'income', 'expense'] as const).map(t => (
-                  <TouchableOpacity key={t} activeOpacity={0.7}
-                    onPress={() => setTypeFilter(t)}
-                    style={{
-                      paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-                      backgroundColor: typeFilter === t
-                        ? (t === 'income' ? '#10B981' : t === 'expense' ? '#EF4444' : '#F472B6')
-                        : (theme === 'dark' ? '#1e1e1c' : '#F3F4F6'),
-                      borderWidth: 1.5,
-                      borderColor: typeFilter === t
-                        ? (t === 'income' ? '#10B981' : t === 'expense' ? '#EF4444' : '#F472B6')
-                        : (theme === 'dark' ? '#3a3a38' : '#E5E7EB'),
-                    }}>
-                    <Text style={{ fontSize: 10, fontWeight: '900', textTransform: 'uppercase',
-                      color: typeFilter === t ? 'white' : '#9CA3AF' }}>
-                      {t === 'all' ? 'All' : t === 'income' ? '↙ Income' : '↗ Expense'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+               {/* Rollable Tab Selector */}
+               {renderTabSelector()}
 
-                {(fromDate || toDate || typeFilter !== 'all') && (
-                  <TouchableOpacity onPress={clearRange} style={{
-                    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
-                    backgroundColor: theme === 'dark' ? '#2a2a28' : '#F3F4F6',
-                    borderWidth: 1.5, borderColor: theme === 'dark' ? '#3a3a38' : '#E5E7EB',
-                    flexDirection: 'row', alignItems: 'center', gap: 4,
-                  }}>
-                    <MaterialCommunityIcons name="close" size={12} color="#9CA3AF" />
-                    <Text style={{ fontSize: 10, fontWeight: '900', color: '#9CA3AF' }}>CLEAR</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+               {/* Rollable Filters */}
+               <View className="mb-6">
+                  <Text className={`text-xs font-black uppercase tracking-widest ${colors.textTertiary} mb-4`}>Filter Records</Text>
+                  <View className="flex-row gap-4 mb-6">
+                      <ProfDatePicker label="From Date" value={fromDate} onChange={setFromDate} theme={theme} colors={colors} />
+                      <ProfDatePicker label="To Date" value={toDate} onChange={setToDate} theme={theme} colors={colors} />
+                  </View>
 
-              {/* Result count */}
-              <Text style={{ fontSize: 11, fontWeight: '700', color: '#9CA3AF' }}>
-                Showing {filtered.length} transaction{filtered.length !== 1 ? 's' : ''}
-                {(fromDate || toDate) ? ` · ${fromDate || '...'} → ${toDate || '...'}` : ''}
-              </Text>
+                  <View className="flex-row gap-3">
+                    {(['all', 'income', 'expense'] as const).map(f => (
+                      <TouchableOpacity 
+                        key={f} 
+                        onPress={() => setTypeFilter(f)}
+                        className={`py-3 px-6 rounded-2xl border ${typeFilter === f ? 'bg-brand-pink/10 border-brand-pink' : (theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100')}`}
+                      >
+                        <Text className={`font-black text-[10px] uppercase tracking-widest ${typeFilter === f ? 'text-brand-pink' : colors.textSecondary}`}>{f}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    {(fromDate || toDate || typeFilter !== 'all') && (
+                      <TouchableOpacity 
+                        onPress={() => { setFromDate(''); setToDate(''); setTypeFilter('all'); }}
+                        className="ml-auto w-10 h-10 border border-red-100 bg-red-50 rounded-xl items-center justify-center"
+                      >
+                        <MaterialCommunityIcons name="refresh" size={18} color="#EF4444" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+               </View>
             </View>
           }
           ListEmptyComponent={
-            <View style={{ alignItems: 'center', paddingTop: 60, opacity: 0.3 }}>
-              <MaterialCommunityIcons name="cash-remove" size={64} color="#9CA3AF" />
-              <Text style={{ fontWeight: '900', marginTop: 12, color: '#9CA3AF' }}>No transactions found</Text>
+            <View className="items-center py-20 opacity-30">
+               <MaterialCommunityIcons name="database-off-outline" size={64} color={colors.textTertiary} />
+               <Text className={`font-black uppercase tracking-[3px] mt-4 ${colors.textTertiary} text-center`}>No Financial Records</Text>
             </View>
           }
         />
       ) : (
-        /* ── New Entry tab — isolated in memo ── */
-        <NewEntryForm
-          theme={theme}
-          colors={colors}
-          onSubmit={handleAddSubmit}
-          isSubmitting={isSubmitting}
-        />
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          className="flex-1"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 4, paddingBottom: 100 }}
+        >
+           <ScreenHeader navigation={navigation} theme={theme} colors={colors} />
+           {renderTabSelector()}
+           <SummaryDashboard 
+              net={net} 
+              totalIncome={totalIncome} 
+              totalExpense={totalExpense} 
+              colors={colors} 
+              theme={theme} 
+              onPrint={generatePDF} 
+              pdfLoading={pdfLoading} 
+              rupee={rupee} 
+           />
+           <NewEntryForm 
+              theme={theme} 
+              colors={colors}
+              onSubmit={handleApplyAction} 
+              isSubmitting={isSubmitting} 
+              initialData={editingItem}
+              onCancel={() => { setEditingItem(null); setActiveTab('history'); }} 
+           />
+        </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }

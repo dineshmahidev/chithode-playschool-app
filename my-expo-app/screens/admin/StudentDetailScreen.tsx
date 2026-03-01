@@ -17,7 +17,7 @@ interface StudentDetailScreenProps {
 
 export default function StudentDetailScreen({ navigation, route }: StudentDetailScreenProps) {
   const { studentId } = route?.params || {};
-  const { users } = useAuth();
+  const { users, user } = useAuth();
   const { colors, theme } = useTheme();
 
   const student = users.find(u => u.id === studentId);
@@ -39,11 +39,15 @@ export default function StudentDetailScreen({ navigation, route }: StudentDetail
     );
   }
 
-  const renderInfoRow = (label: string, value: string | undefined, icon: string, color: string = colors.textTertiary, isPhone: boolean = false) => (
+  const renderInfoRow = (label: string, value: string | undefined, icon: string, color: string = colors.textTertiary, isPhone: boolean = false, photo?: string) => (
     <View className="mb-8 w-full">
       <View className="flex-row items-start">
-        <View className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'} w-12 h-12 rounded-2xl items-center justify-center mr-4 shadow-sm`}>
-          <MaterialCommunityIcons name={icon as any} size={24} color={color} />
+        <View className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'} w-12 h-12 rounded-2xl items-center justify-center mr-4 shadow-sm overflow-hidden`}>
+          {photo ? (
+            <Image source={{ uri: photo }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+          ) : (
+            <MaterialCommunityIcons name={icon as any} size={24} color={color} />
+          )}
         </View>
         <View className="flex-1">
           <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-1`}>{label}</Text>
@@ -76,17 +80,19 @@ export default function StudentDetailScreen({ navigation, route }: StudentDetail
               onPress={() => navigation.goBack()} 
               className={`${colors.surface} w-12 h-12 rounded-2xl items-center justify-center border ${colors.border} shadow-sm`}
             >
-              <MaterialCommunityIcons name="arrow-left" size={28} color={theme === 'dark' ? '#FFF' : '#000'} />
+              <MaterialCommunityIcons name="arrow-left" size={28} color={colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity 
-              onPress={() => navigation.navigate('profile', { studentId: student.id })}
-              className="bg-brand-yellow px-6 h-12 rounded-2xl items-center justify-center shadow-lg shadow-amber-200 border-2 border-white"
-            >
-              <View className="flex-row items-center">
-                <MaterialCommunityIcons name="pencil" size={18} color="#92400E" />
-                <Text className="text-amber-900 font-black ml-2 uppercase text-xs tracking-widest">Edit</Text>
-              </View>
-            </TouchableOpacity>
+            {user?.role !== 'teacher' && (
+              <TouchableOpacity 
+                onPress={() => navigation.navigate('profile', { studentId: student.id })}
+                className={`bg-brand-yellow px-6 h-12 rounded-2xl items-center justify-center shadow-lg border-2 ${theme === 'dark' ? 'border-gray-800' : 'border-white'}`}
+              >
+                <View className="flex-row items-center">
+                  <MaterialCommunityIcons name="pencil" size={18} color="#92400E" />
+                  <Text className="text-amber-900 font-black ml-2 uppercase text-xs tracking-widest">Edit</Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Profile Card - Fixed Image Container and Tag Position */}
@@ -94,11 +100,11 @@ export default function StudentDetailScreen({ navigation, route }: StudentDetail
             <View style={{ width: 200, height: 200, alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
               {/* Main Photo Circle */}
               <View 
-                className="bg-brand-pink border-4 border-white shadow-2xl overflow-hidden" 
+                className={`bg-brand-pink border-4 ${theme === 'dark' ? 'border-gray-800' : 'border-white'} shadow-2xl overflow-hidden`} 
                 style={{ width: 192, height: 192, borderRadius: 96, alignItems: 'center', justifyContent: 'center' }}
               >
-                {student.studentPhoto ? (
-                  <Image source={{ uri: student.studentPhoto }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                {student.avatar ? (
+                  <Image source={{ uri: student.avatar }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                 ) : (
                   <MaterialCommunityIcons name="account" size={100} color="white" />
                 )}
@@ -106,7 +112,7 @@ export default function StudentDetailScreen({ navigation, route }: StudentDetail
               
               {/* Verified Badge - Positioned perfectly at bottom right of the circle */}
               <View 
-                className="absolute bg-green-500 items-center justify-center border-4 border-white shadow-lg z-20"
+                className={`absolute bg-green-500 items-center justify-center border-4 ${theme === 'dark' ? 'border-gray-800' : 'border-white'} shadow-lg z-20`}
                 style={{ 
                   width: 52, 
                   height: 52, 
@@ -151,20 +157,20 @@ export default function StudentDetailScreen({ navigation, route }: StudentDetail
             </View>
             
             <View className="mb-2">
-              <Text className="text-gray-400 font-bold text-[10px] uppercase mb-8 ml-1 tracking-[4px]">Paternal Records</Text>
-              {renderInfoRow('Father Name', student.fatherName, 'account-tie', colors.textSecondary)}
+              <Text className={`font-bold text-[10px] uppercase mb-8 ml-1 tracking-[4px] ${theme === 'dark' ? colors.textTertiary : 'text-gray-400'}`}>Paternal Records</Text>
+              {renderInfoRow('Father Name', student.fatherName, 'account-tie', colors.textSecondary, false, student.fatherPhoto)}
               {renderInfoRow('Father Phone', student.fatherPhone, 'phone', '#22C55E', true)}
             </View>
 
-            <View className="pt-8 border-t border-gray-100 mb-2">
-              <Text className="text-gray-400 font-bold text-[10px] uppercase mb-8 ml-1 tracking-[4px]">Maternal Records</Text>
-              {renderInfoRow('Mother Name', student.motherName, 'account-female', colors.textSecondary)}
+            <View className={`pt-8 border-t ${theme === 'dark' ? 'border-gray-800' : 'border-gray-100'} mb-2`}>
+              <Text className={`font-bold text-[10px] uppercase mb-8 ml-1 tracking-[4px] ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Maternal Records</Text>
+              {renderInfoRow('Mother Name', student.motherName, 'account-outline', colors.textSecondary, false, student.motherPhoto)}
               {renderInfoRow('Mother Phone', student.motherPhone, 'phone', '#22C55E', true)}
             </View>
 
-            <View className="pt-8 border-t border-gray-100">
-              <Text className="text-gray-400 font-bold text-[10px] uppercase mb-8 ml-1 tracking-[4px]">Legal Guardian</Text>
-              {renderInfoRow('Guardian Name', student.parentName, 'account-group', colors.textSecondary)}
+            <View className={`pt-8 border-t ${theme === 'dark' ? 'border-gray-800' : 'border-gray-100'}`}>
+              <Text className={`font-bold text-[10px] uppercase mb-8 ml-1 tracking-[4px] ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Legal Guardian</Text>
+              {renderInfoRow('Guardian Name', student.parentName, 'account-group', colors.textSecondary, false, student.guardianPhoto)}
               {renderInfoRow('Guardian Phone', student.guardianPhone, 'phone', '#22C55E', true)}
             </View>
           </View>

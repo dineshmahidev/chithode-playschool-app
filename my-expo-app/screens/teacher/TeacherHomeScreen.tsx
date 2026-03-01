@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Image, Dimensions } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Image, Dimensions, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import api from '../../services/api';
 
 interface NavigationProps {
   navigate: (screen: string) => void;
@@ -15,7 +16,7 @@ interface TeacherHomeScreenProps {
 }
 
 export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps) {
-  const { user, announcements, updateAvatar } = useAuth();
+  const { user, announcements, updateAvatar, users } = useAuth();
   const { colors, theme } = useTheme();
   
   // Filter announcements for teachers
@@ -25,26 +26,138 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [clockInTime, setClockInTime] = useState<string | null>(null);
   const [clockOutTime, setClockOutTime] = useState<string | null>(null);
-  const [remarks, setRemarks] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [studentStats, setStudentStats] = useState({ total: 0, present: 0 });
+  const [todaySchedule, setTodaySchedule] = useState<any>(null);
 
-  const handleClockIn = () => {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-    setClockInTime(timeString);
-    setIsClockedIn(true);
-    Alert.alert('Success 🎉', `You clocked in at ${timeString}`);
+  const fetchStudentStats = useCallback(async () => {
+    try {
+      const response = await api.get('/attendance');
+      const today = new Date().toISOString().split('T')[0];
+      const todayRecords = response.data.filter((r: any) => r.date === today && r.user_role === 'student');
+      const presentCount = todayRecords.filter((r: any) => r.status === 'present').length;
+      
+      const totalStudents = users.filter(u => u.role === 'student').length;
+      setStudentStats({ 
+        total: totalStudents || 0,
+        present: presentCount 
+      });
+    } catch (err) {
+      console.error('Fetch Stats Error:', err);
+    }
+  }, [users]);
+
+  const fetchTimetable = useCallback(async () => {
+    try {
+      const response = await api.get('/timetable');
+      const todayNum = new Date().getDay();
+      const dayIndex = todayNum === 0 ? 6 : todayNum - 1;
+      const filtered = response.data.filter((s: any) => s.day === dayIndex);
+      
+      if (filtered.length > 0) {
+        // Function to convert "HH:MM AM/PM" to total minutes for comparison
+        const timeToMinutes = (timeStr: string) => {
+          const [time, period] = timeStr.split(' ');
+          let [hours, minutes] = time.split(':').map(Number);
+          if (period === 'PM' && hours !== 12) hours += 12;
+          if (period === 'AM' && hours === 12) hours = 0;
+          return hours * 60 + minutes;
+        };
+
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        
+        // Sort by time
+        const sorted = filtered.sort((a: any, b: any) => timeToMinutes(a.time) - timeToMinutes(b.time));
+        
+        // Find first session that hasn't finished yet (assuming 1 hour duration or just start time)
+        const currentOrNext = sorted.find((s: any) => timeToMinutes(s.time) >= nowMinutes - 30); // 30 min grace period
+        
+        setTodaySchedule(currentOrNext || null);
+      } else {
+        setTodaySchedule(null);
+      }
+    } catch (err) {
+      console.error('Fetch Timetable Error:', err);
+    }
+  }, []);
+
+  const fetchTodayAttendance = useCallback(async () => {
+    if (!user) return;
+    try {
+      setIsLoading(true);
+      const today = new Date().toISOString().split('T')[0];
+      const response = await api.get(`/attendance?student_id=${user.id}&date=${today}`);
+      if (response.data && response.data.length > 0) {
+        const record = response.data.find((r: any) => r.user_role === 'teacher' || !r.user_role); // fallback
+        if (record) {
+          setClockInTime(record.in_time);
+          setClockOutTime(record.out_time);
+          setIsClockedIn(!!record.in_time && !record.out_time);
+        }
+      }
+      await Promise.all([
+        fetchStudentStats(),
+        fetchTimetable()
+      ]);
+    } catch (err) {
+      console.error('Fetch Attendance Error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, fetchStudentStats]);
+
+  useEffect(() => {
+    fetchTodayAttendance();
+  }, [fetchTodayAttendance]);
+
+  const handleClockIn = async () => {
+    if (!user) return;
+    try {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      const today = now.toISOString().split('T')[0];
+      
+      const payload = {
+        student_id: user.id,
+        date: today,
+        status: 'present',
+        in_time: timeString,
+        user_role: 'teacher'
+      };
+
+      await api.post('/attendance', payload);
+      setClockInTime(timeString);
+      setIsClockedIn(true);
+      Alert.alert('Success 🎉', `You clocked in at ${timeString}`);
+    } catch (err) {
+      Alert.alert('Error', 'Failed to clock in. Please try again.');
+    }
   };
 
-  const handleClockOut = () => {
-    if (!remarks.trim()) {
-      Alert.alert('Wait! 🛑', 'Please enter your daily remarks/completed tasks before clocking out.');
-      return;
+  const handleClockOut = async () => {
+    if (!user) return;
+    try {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      const today = now.toISOString().split('T')[0];
+      
+      const payload = {
+        student_id: user.id,
+        date: today,
+        status: 'present',
+        in_time: clockInTime,
+        out_time: timeString,
+        user_role: 'teacher'
+      };
+
+      await api.post('/attendance', payload);
+      setClockOutTime(timeString);
+      setIsClockedIn(false);
+      Alert.alert('Done! 👋', `You clocked out at ${timeString}. Great job today!`);
+    } catch (err) {
+      Alert.alert('Error', 'Failed to clock out.');
     }
-    const now = new Date();
-    const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-    setClockOutTime(timeString);
-    setIsClockedIn(false);
-    Alert.alert('Done! 👋', `You clocked out at ${timeString}. Great job today!`);
   };
 
   const renderAnnouncements = (list: any[], sectionTitle: string, hint: string) => (
@@ -55,53 +168,32 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
           <Text className={`text-xs font-bold ${colors.textTertiary}`}>Swipe for more</Text>
         )}
       </View>
-      
-      <ScrollView 
-        horizontal 
-        pagingEnabled 
-        showsHorizontalScrollIndicator={false}
-        className="overflow-hidden rounded-[32px]"
-      >
-        {list.length > 0 ? (
-          list.map((item) => (
-            <TouchableOpacity 
-              key={item.id}
-              activeOpacity={0.9}
-              style={{ width: Dimensions.get('window').width - 48, aspectRatio: 16 / 9 }}
-              className="mr-3 bg-brand-pink relative overflow-hidden rounded-[32px] border-4 border-white shadow-xl"
-              onPress={() => Alert.alert(item.title, item.content)}
-            >
-              {item.image ? (
-                <Image 
-                  source={{ uri: item.image }} 
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View className="flex-1 items-center justify-center bg-brand-pink/20">
-                  <MaterialCommunityIcons name="bullhorn-outline" size={64} color="#F472B6" />
-                </View>
-              )}
-              
-              <View className="absolute inset-0 bg-black/30 justify-end p-6">
-                <View className="bg-white/20 self-start px-3 py-1 rounded-full mb-2">
-                  <Text className="text-white text-[10px] font-black uppercase tracking-widest">{item.date}</Text>
-                </View>
-                <Text className="text-white text-2xl font-black tracking-tighter" numberOfLines={2}>
-                  {item.title}
-                </Text>
-                <View className="flex-row items-center mt-1">
-                  <MaterialCommunityIcons name="account-circle-outline" size={14} color="white" />
-                  <Text className="text-white/80 text-xs font-bold ml-1">{item.author || 'Admin'}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))
-        ) : (
-          <View 
+      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} className="overflow-hidden rounded-[32px]">
+        {list.length > 0 ? list.map((item) => (
+          <TouchableOpacity 
+            key={item.id} activeOpacity={0.9}
             style={{ width: Dimensions.get('window').width - 48, aspectRatio: 16 / 9 }}
-            className="bg-brand-pink/10 items-center justify-center rounded-[32px] border-4 border-white border-dashed"
+            className="mr-3 bg-brand-pink relative overflow-hidden rounded-[32px] border-4 border-white shadow-xl"
+            onPress={() => Alert.alert(item.title, item.content)}
           >
+            {item.image ? <Image source={{ uri: item.image }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : (
+              <View className="flex-1 items-center justify-center bg-brand-pink/20">
+                <MaterialCommunityIcons name="bullhorn-outline" size={64} color="#F472B6" />
+              </View>
+            )}
+            <View className="absolute inset-0 bg-black/30 justify-end p-6">
+              <View className="bg-white/20 self-start px-3 py-1 rounded-full mb-2">
+                <Text className="text-white text-[10px] font-black uppercase tracking-widest">{item.date}</Text>
+              </View>
+              <Text className="text-white text-2xl font-black tracking-tighter" numberOfLines={2}>{item.title}</Text>
+              <View className="flex-row items-center mt-1">
+                <MaterialCommunityIcons name="account-circle-outline" size={14} color="white" />
+                <Text className="text-white/80 text-xs font-bold ml-1">{item.author || 'Admin'}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )) : (
+          <View style={{ width: Dimensions.get('window').width - 48, aspectRatio: 16 / 9 }} className="bg-brand-pink/10 items-center justify-center rounded-[32px] border-4 border-white border-dashed">
             <MaterialCommunityIcons name="bullhorn-variant-outline" size={48} color="#F472B6" />
             <Text className={`mt-4 font-bold ${colors.textTertiary}`}>No current {hint}</Text>
           </View>
@@ -109,6 +201,7 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
       </ScrollView>
     </View>
   );
+
 
   return (
     <ScrollView className={`flex-1 ${colors.background}`} showsVerticalScrollIndicator={false}>
@@ -139,49 +232,70 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
         </View>
       </View>
 
-      {/* ── Top Announcements (Legacy Place) ── */}
+      {/* ── Top Announcements  ── */}
       {teacherNotices.length > 0 && renderAnnouncements(teacherNotices, 'Admin Notices', 'notices')}
+
 
       {/* Quick Stats */}
       <View className="px-6 py-4">
         <View className="flex-row justify-between">
-          <View className={`${colors.surface} p-5 rounded-[28px] shadow-sm flex-1 mr-2 border ${colors.border}`}>
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('studentList')}
+            activeOpacity={0.7}
+            className={`${colors.surface} p-5 rounded-[28px] shadow-sm flex-1 mr-2 border ${colors.border}`}
+          >
             <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-4xl font-black text-yellow-600 font-mono">25</Text>
+              <Text className="text-4xl font-black text-yellow-600 font-mono">{studentStats.total}</Text>
               <View className={`${theme === 'dark' ? 'bg-yellow-500/10' : 'bg-yellow-100/50'} p-2 rounded-2xl`}>
                 <MaterialCommunityIcons name="account-group" size={28} color="#B45309" />
               </View>
             </View>
             <Text className={`${colors.textSecondary} text-[10px] font-black uppercase tracking-widest`}>My Students</Text>
-          </View>
-          <View className={`${colors.surface} p-5 rounded-[28px] shadow-sm flex-1 ml-2 border ${colors.border}`}>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('takeAttendance')}
+            activeOpacity={0.7}
+            className={`${colors.surface} p-5 rounded-[28px] shadow-sm flex-1 ml-2 border ${colors.border}`}
+          >
             <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-4xl font-black text-brand-pink font-mono">22</Text>
+              <Text className="text-4xl font-black text-brand-pink font-mono">{studentStats.present}</Text>
               <View className={`${theme === 'dark' ? 'bg-pink-500/10' : 'bg-pink-100/50'} p-2 rounded-2xl`}>
                 <MaterialCommunityIcons name="account-check" size={28} color="#F472B6" />
               </View>
             </View>
             <Text className={`${colors.textSecondary} text-[10px] font-black uppercase tracking-widest`}>Present</Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
 
       {/* Today's Schedule */}
-      <View className="mx-6 mt-2 bg-brand-pink rounded-2xl p-5 shadow-lg">
+      <View className={`mx-6 mt-2 ${todaySchedule ? todaySchedule.color || 'bg-brand-pink' : 'bg-gray-400'} rounded-2xl p-5 shadow-lg`}>
         <View className="flex-row items-center justify-between">
-          <View>
+          <View className="flex-1 mr-4">
             <View className="flex-row items-center mb-1">
               <MaterialCommunityIcons name="calendar-clock" size={16} color="white" />
-              <Text className="text-white font-bold uppercase text-xs tracking-wider ml-2">Today's Schedule</Text>
+              <Text className="text-white font-bold uppercase text-xs tracking-wider ml-2">
+                {todaySchedule ? "Next Session" : "Today's Schedule"}
+              </Text>
             </View>
-            <Text className="text-white text-xl font-bold mt-1">Math Class</Text>
-            <View className="flex-row items-center mt-1 opacity-90">
-              <MaterialCommunityIcons name="clock-outline" size={14} color="white" />
-              <Text className="text-white text-sm ml-1">10:00 AM - Room 201</Text>
-            </View>
+            <Text className="text-white text-xl font-bold mt-1" numberOfLines={1}>
+              {todaySchedule ? todaySchedule.activity : "No schedule mentioned"}
+            </Text>
+            {todaySchedule && (
+              <View className="flex-row items-center mt-1 opacity-90">
+                <MaterialCommunityIcons name="clock-outline" size={14} color="white" />
+                <Text className="text-white text-sm ml-1" numberOfLines={1}>
+                  {todaySchedule.time} • {todaySchedule.room || 'Classroom'}
+                </Text>
+              </View>
+            )}
           </View>
           <View className="bg-white/20 p-3 rounded-2xl">
-            <MaterialCommunityIcons name="book-open-variant" size={32} color="white" />
+            <MaterialCommunityIcons 
+              name={todaySchedule ? (todaySchedule.icon || "book-open-variant") : "calendar-blank"} 
+              size={32} 
+              color="white" 
+            />
           </View>
         </View>
       </View>
@@ -190,18 +304,16 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
       <View className="px-6 py-6" id="teacher-actions">
         <Text className={`text-lg font-semibold ${colors.text} mb-4`}>Quick Actions</Text>
         <View className="flex-row justify-between">
-          {/* Attendance Action */}
           <TouchableOpacity
             className={`${colors.surface} py-5 px-2 rounded-2xl shadow-sm items-center w-[31%] border ${colors.border}`}
-            onPress={() => console.log('Attendance')}
+            onPress={() => navigation.navigate('takeAttendance')}
           >
             <View className="bg-brand-pink/10 p-3 rounded-full mb-2">
               <MaterialCommunityIcons name="calendar-check" size={26} color="#F472B6" />
             </View>
-            <Text className={`text-[11px] font-bold ${colors.text} text-center`}>Attendance</Text>
+            <Text className={`text-[11px] font-bold ${colors.text} text-center`}>Take Attendance</Text>
           </TouchableOpacity>
 
-          {/* Post Activity Action */}
           <TouchableOpacity
             className={`${colors.surface} py-5 px-2 rounded-2xl shadow-sm items-center w-[31%] border ${colors.border}`}
             onPress={() => navigation.navigate('postActivity')}
@@ -212,7 +324,6 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
             <Text className={`text-[11px] font-bold ${colors.text} text-center`}>Post Activity</Text>
           </TouchableOpacity>
 
-          {/* Kids Activity Action */}
           <TouchableOpacity
             className={`${colors.surface} py-5 px-2 rounded-2xl shadow-sm items-center w-[31%] border ${colors.border}`}
             onPress={() => navigation.navigate('activityFeed')}
@@ -220,74 +331,64 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
             <View className={`${theme === 'dark' ? 'bg-amber-500/10' : 'bg-yellow-100'} p-3 rounded-full mb-2`}>
               <MaterialCommunityIcons name="newspaper-variant-outline" size={26} color="#B45309" />
             </View>
-            <Text className={`text-[11px] font-bold ${colors.text} text-center`}>Kids Activity</Text>
+            <Text className={`text-[11px] font-bold ${colors.text} text-center`}>Activity Feed</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Official Attendance & Remarks */}
+      {/* Official Attendance - Modified to exclude remarks as requested */}
       <View className="px-6 pb-12">
         <View className={`${colors.surface} p-6 rounded-[32px] shadow-xl border ${colors.border}`}>
           <Text className={`text-xl font-black ${colors.text} mb-4`}>Teacher Duty Log</Text>
           
-          <View className="flex-row justify-between mb-6">
-            <View className={`${theme === 'dark' ? 'bg-amber-900/10' : 'bg-yellow-50/50'} p-4 rounded-2xl flex-1 mr-2 items-center`}>
-              <Text className={`text-[10px] font-black uppercase text-amber-600 tracking-widest`}>Clock In</Text>
-              <Text className={`text-xl font-black ${colors.text} mt-1`}>{clockInTime || '--:--'}</Text>
-            </View>
-            <View className={`${theme === 'dark' ? 'bg-pink-900/10' : 'bg-pink-50/50'} p-4 rounded-2xl flex-1 ml-2 items-center`}>
-              <Text className={`text-[10px] font-black uppercase text-brand-pink tracking-widest`}>Clock Out</Text>
-              <Text className={`text-xl font-black ${colors.text} mt-1`}>{clockOutTime || '--:--'}</Text>
-            </View>
-          </View>
-
-          {/* Remark Input */}
-          <Text className={`text-sm font-bold ${colors.textSecondary} mb-2 ml-1 ${!clockInTime ? 'opacity-50' : ''}`}>
-            Daily Remarks / Completion {!clockInTime && '(Clock in first)'}
-          </Text>
-          <TextInput
-            className={`p-4 rounded-2xl font-medium border mb-6 ${theme === 'dark' ? 'bg-[#3e3e34] border-[#4e4e44] text-cream' : 'bg-gray-50 border-gray-100 text-gray-800'} ${(!clockInTime || !!clockOutTime) ? 'opacity-50' : ''}`}
-            placeholder={clockInTime ? "What tasks were completed today? ✏️" : "Clock in to enter remarks..."}
-            placeholderTextColor={theme === 'dark' ? '#6B7280' : '#9CA3AF'}
-            multiline
-            numberOfLines={4}
-            value={remarks}
-            onChangeText={setRemarks}
-            textAlignVertical="top"
-            editable={!!clockInTime && !clockOutTime}
-          />
-
-          {!clockInTime ? (
-            <TouchableOpacity
-              onPress={handleClockIn}
-              className="bg-brand-pink py-5 rounded-2xl items-center shadow-lg active:scale-95"
-            >
-              <View className="flex-row items-center">
-                <MaterialCommunityIcons name="login" size={24} color="white" />
-                <Text className="text-white font-black text-lg ml-2">Start Duty (Clock In)</Text>
-              </View>
-            </TouchableOpacity>
-          ) : !clockOutTime ? (
-            <TouchableOpacity
-              onPress={handleClockOut}
-              className="bg-brand-yellow py-5 rounded-2xl items-center shadow-lg active:scale-95"
-            >
-              <View className="flex-row items-center">
-                <MaterialCommunityIcons name="logout" size={24} color="#92400E" />
-                <Text className="text-amber-900 font-black text-lg ml-2">End Duty (Clock Out)</Text>
-              </View>
-            </TouchableOpacity>
+          {isLoading ? (
+            <ActivityIndicator size="large" color="#F472B6" className="my-10" />
           ) : (
-            <View className="bg-green-100 py-5 rounded-2xl items-center border border-green-200">
-               <View className="flex-row items-center">
-                <MaterialCommunityIcons name="check-decagram" size={24} color="#059669" />
-                <Text className="text-green-700 font-black text-lg ml-2">Duty Completed! ✨</Text>
+            <>
+              <View className="flex-row justify-between mb-8">
+                <View className={`${theme === 'dark' ? 'bg-amber-900/10' : 'bg-yellow-50/50'} p-4 rounded-2xl flex-1 mr-2 items-center`}>
+                  <Text className={`text-[10px] font-black uppercase text-amber-600 tracking-widest`}>Clock In</Text>
+                  <Text className={`text-xl font-black ${colors.text} mt-1`}>{clockInTime || '--:--'}</Text>
+                </View>
+                <View className={`${theme === 'dark' ? 'bg-pink-900/10' : 'bg-pink-50/50'} p-4 rounded-2xl flex-1 ml-2 items-center`}>
+                  <Text className={`text-[10px] font-black uppercase text-brand-pink tracking-widest`}>Clock Out</Text>
+                  <Text className={`text-xl font-black ${colors.text} mt-1`}>{clockOutTime || '--:--'}</Text>
+                </View>
               </View>
-            </View>
+
+              {!clockInTime ? (
+                <TouchableOpacity
+                  onPress={handleClockIn}
+                  className="bg-brand-pink py-5 rounded-2xl items-center shadow-lg active:scale-95"
+                >
+                  <View className="flex-row items-center">
+                    <MaterialCommunityIcons name="login" size={24} color="white" />
+                    <Text className="text-white font-black text-lg ml-2 uppercase tracking-widest">Start Duty</Text>
+                  </View>
+                </TouchableOpacity>
+              ) : !clockOutTime ? (
+                <TouchableOpacity
+                  onPress={handleClockOut}
+                  className="bg-brand-yellow py-5 rounded-2xl items-center shadow-lg active:scale-95"
+                >
+                  <View className="flex-row items-center">
+                    <MaterialCommunityIcons name="logout" size={24} color="#92400E" />
+                    <Text className="text-amber-900 font-black text-lg ml-2 uppercase tracking-widest">End Duty</Text>
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <View className="bg-green-100 py-6 rounded-2xl items-center border border-green-200">
+                   <View className="flex-row items-center">
+                    <MaterialCommunityIcons name="check-decagram" size={28} color="#059669" />
+                    <Text className="text-green-700 font-black text-lg ml-2">Duty Logged Successfully! ✨</Text>
+                  </View>
+                </View>
+              )}
+            </>
           )}
         </View>
 
-        {/* ── Empty Announcements (Bottom Place) ── */}
+        {/* ── Empty Announcements ── */}
         {teacherNotices.length === 0 && renderAnnouncements(teacherNotices, 'Admin Notices', 'notices')}
       </View>
     </ScrollView>

@@ -75,9 +75,9 @@ export default function AdminAccountScreen({ navigation }: AdminAccountScreenPro
   };
 
   return (
-    <SafeAreaView 
+    <View 
         className={`flex-1 ${colors.background}`}
-        style={{ backgroundColor: theme === 'dark' ? '#1c1c14' : '#FEFBEA' }}
+        style={{ backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}
     >
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Header */}
@@ -162,6 +162,6 @@ export default function AdminAccountScreen({ navigation }: AdminAccountScreenPro
             </TouchableOpacity>
         </View>
         </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

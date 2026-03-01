@@ -28,6 +28,7 @@ const AddAnnouncementForm = memo(({
   const [title,   setTitle]   = useState('');
   const [content, setContent] = useState('');
   const [image,   setImage]   = useState('');
+  const [date,    setDate]    = useState(new Date().toISOString().split('T')[0]);
   const [target,  setTarget]  = useState<'all' | 'student' | 'teacher'>('all');
 
   const pickImage = useCallback(async () => {
@@ -54,16 +55,17 @@ const AddAnnouncementForm = memo(({
   const handlePost = useCallback(() => {
     if (!title.trim())   { Alert.alert('Missing Title', 'Please enter a title'); return; }
     if (!content.trim()) { Alert.alert('Missing Content', 'Please enter a message'); return; }
+    if (!date.trim())    { Alert.alert('Missing Date', 'Please enter a date'); return; }
     onSubmit({
       id:      `ann_${Date.now()}`,
       title:   title.trim(),
       content: content.trim(),
       image:   image || undefined,
-      date:    new Date().toLocaleDateString(),
+      date:    date.trim(),
       target,
       author:  userName,
     });
-  }, [title, content, image, target, userName, onSubmit]);
+  }, [title, content, image, date, target, userName, onSubmit]);
 
   const chipStyle = useCallback((active: boolean) => ({
     flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center' as const,
@@ -132,6 +134,24 @@ const AddAnnouncementForm = memo(({
                 </Text>
               </TouchableOpacity>
             ))}
+          </View>
+
+          {/* ── Event Date ── */}
+          <Text style={{
+            fontSize: 10, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase',
+            color: '#9CA3AF', marginBottom: 8,
+          }}>
+            Event Date *
+          </Text>
+          <View style={{ ...inputStyle, marginBottom: 18, flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: theme === 'dark' ? '#1e1e1c' : '#F9FAFB', borderColor: theme === 'dark' ? '#3a3a38' : '#E5E7EB' }}>
+            <MaterialCommunityIcons name="calendar-clock" size={20} color="#F472B6" style={{ marginRight: 10 }} />
+            <TextInput
+              style={{ flex: 1, color: theme === 'dark' ? '#fff' : '#111', fontWeight: '700', fontSize: 15 }}
+              placeholder="e.g. 2026-03-15"
+              placeholderTextColor="#9CA3AF"
+              value={date}
+              onChangeText={setDate}
+            />
           </View>
 
           {/* ── Headline ── */}
@@ -335,7 +355,8 @@ export default function AnnouncementsScreen({ navigation }: AnnouncementsScreenP
                     {item.target}
                   </Text>
                 </View>
-                <View className="bg-white/20 px-3 py-1 rounded-full">
+                <View className="bg-white/20 px-3 py-1 rounded-full flex-row items-center">
+                  <MaterialCommunityIcons name="calendar-edit" size={12} color="white" style={{ marginRight: 4 }} />
                   <Text className="text-white text-[10px] font-black uppercase tracking-widest">{item.date}</Text>
                 </View>
               </View>

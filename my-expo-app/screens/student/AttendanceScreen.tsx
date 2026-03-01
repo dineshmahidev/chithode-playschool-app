@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image, Dimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import api from '../../services/api';
 
 interface NavigationProps {
   navigate: (screen: string) => void;
@@ -14,246 +15,298 @@ interface AttendanceScreenProps {
   navigation: NavigationProps;
 }
 
+interface BackendRecord {
+  id: number;
+  student_id: number;
+  date: string;
+  status: 'present' | 'absent' | 'late';
+  in_time: string | null;
+  out_time: string | null;
+  dropped_by_type: string | null;
+  picked_by_type: string | null;
+  dropped_by_name: string | null;
+  picked_by_name: string | null;
+}
+
+const { width } = Dimensions.get('window');
+
 export default function AttendanceScreen({ navigation }: AttendanceScreenProps) {
   const { user } = useAuth();
   const { colors, theme } = useTheme();
   
-  // Month picker state
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedYear] = useState(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [records, setRecords] = useState<BackendRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  // Generate attendance data for the selected month
-  const generateAttendanceData = () => {
+  const fetchAttendance = useCallback(async () => {
+    if (!user) return;
+    try {
+      setIsLoading(true);
+      // Backend uses user.id as the student_id in attendance table
+      const response = await api.get(`/attendance?student_id=${user.id}`);
+      setRecords(response.data);
+    } catch (error) {
+      console.error('Error fetching attendance:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchAttendance();
+  }, [fetchAttendance]);
+
+  const attendanceData = useMemo(() => {
     const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-    const attendanceRecords = [];
-    const guardians = ['Father', 'Mother'];
+    const result = [];
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    
+    // Create a map for quick lookup
+    const recordMap: Record<string, BackendRecord> = {};
+    records.forEach(r => {
+      recordMap[r.date] = r;
+    });
 
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(selectedYear, selectedMonth, day);
-      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-      const isWeekend = dayName === 'Sat' || dayName === 'Sun';
-      const isPast = date <= new Date();
-      
-      // Generate mock data
-      let status = 'absent';
-      let clockIn = null;
-      let clockOut = null;
-      let clockInBy = null;
-      let clockOutBy = null;
+      const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dateObj = new Date(selectedYear, selectedMonth, day);
+      dateObj.setHours(0,0,0,0);
+      const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+      const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+      const record = recordMap[dateStr];
 
-      if (isPast && !isWeekend) {
-        const random = Math.random();
-        if (random > 0.1) { // 90% attendance
-          status = 'present';
-          clockIn = `0${8 + Math.floor(Math.random() * 2)}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')} AM`;
-          clockOut = `0${3 + Math.floor(Math.random() * 2)}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')} PM`;
-          clockInBy = guardians[Math.floor(Math.random() * guardians.length)];
-          clockOutBy = guardians[Math.floor(Math.random() * guardians.length)];
-        }
+      let derivedStatus = 'not_marked';
+      if (record) {
+        derivedStatus = record.status;
       } else if (isWeekend) {
-        status = 'holiday';
-      } else {
-        status = 'upcoming';
+        derivedStatus = 'holiday';
+      } else if (dateObj.getTime() > today.getTime()) {
+        derivedStatus = 'upcoming';
+      } else if (dateObj.getTime() === today.getTime()) {
+        derivedStatus = 'pending'; 
       }
 
-      attendanceRecords.push({
+      result.push({
         day,
         dayName,
-        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        status,
-        clockIn,
-        clockOut,
-        clockInBy,
-        clockOutBy,
+        date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        fullDate: dateStr,
+        status: derivedStatus,
+        clockIn: record?.in_time,
+        clockOut: record?.out_time,
+        clockInBy: record?.dropped_by_name || record?.dropped_by_type,
+        clockOutBy: record?.picked_by_name || record?.picked_by_type,
         isWeekend
       });
     }
 
-    return attendanceRecords;
-  };
+    return result;
+  }, [records, selectedMonth, selectedYear]);
 
-  const attendanceData = generateAttendanceData();
-  const presentDays = attendanceData.filter(d => d.status === 'present').length;
-  const totalDays = attendanceData.filter(d => d.status !== 'holiday' && d.status !== 'upcoming').length;
-  const attendancePercentage = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
+  const stats = useMemo(() => {
+    // Only count recorded entries for stats to be "Real"
+    const relevant = attendanceData.filter(d => 
+        (d.status === 'present' || d.status === 'absent' || d.status === 'late')
+    );
+    const present = relevant.filter(d => d.status === 'present' || d.status === 'late').length;
+    const total = relevant.length;
+    return {
+      present,
+      absent: relevant.filter(d => d.status === 'absent').length,
+      total,
+      percentage: total > 0 ? Math.round((present / total) * 100) : 0,
+      holidays: attendanceData.filter(d => d.status === 'holiday').length
+    };
+  }, [attendanceData]);
 
-  const getStatusColor = (status: string) => {
+  const getStatusStyle = (status: string) => {
     switch (status) {
-      case 'present': return 'bg-green-500';
-      case 'absent': return 'bg-red-500';
-      case 'holiday': return 'bg-gray-400';
-      case 'upcoming': return 'bg-blue-400';
-      default: return 'bg-gray-400';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'present': return 'Present';
-      case 'absent': return 'Absent';
-      case 'holiday': return 'Holiday';
-      case 'upcoming': return 'Upcoming';
-      default: return 'N/A';
+      case 'present': return { bg: 'bg-green-500', text: 'text-green-500', lightBg: 'bg-green-500/10', icon: 'check-circle' as const };
+      case 'late': return { bg: 'bg-amber-500', text: 'text-amber-500', lightBg: 'bg-amber-500/10', icon: 'clock-alert' as const };
+      case 'absent': return { bg: 'bg-red-500', text: 'text-red-500', lightBg: 'bg-red-500/10', icon: 'close-circle' as const };
+      case 'holiday': return { bg: 'bg-gray-400', text: 'text-gray-400', lightBg: 'bg-gray-400/10', icon: 'island' as const };
+      case 'pending': return { bg: 'bg-brand-yellow', text: 'text-brand-yellow', lightBg: 'bg-brand-yellow/10', icon: 'clock-outline' as const };
+      case 'not_marked': return { bg: 'bg-gray-300', text: 'text-gray-400', lightBg: 'bg-gray-300/10', icon: 'minus-circle-outline' as const };
+      default: return { bg: 'bg-blue-400', text: 'text-blue-400', lightBg: 'bg-blue-400/10', icon: 'calendar-clock' as const };
     }
   };
 
   return (
     <SafeAreaView className={`flex-1 ${colors.background}`}>
-      {/* Header */}
-      <View className="px-6 pt-4 pb-4">
+      <View className="px-6 pt-4 pb-6">
         <View className="flex-row items-center justify-between">
-          <View className="flex-1">
+          <View>
             <TouchableOpacity 
               onPress={() => navigation.goBack()} 
-              className={`mb-4 ${colors.surface} w-12 h-12 rounded-2xl items-center justify-center border ${colors.border}`}
-              activeOpacity={0.7}
+              className={`mb-4 ${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} w-12 h-12 rounded-2xl items-center justify-center border shadow-sm`}
             >
               <MaterialCommunityIcons name="arrow-left" size={28} color={theme === 'dark' ? '#FFF' : '#000'} />
             </TouchableOpacity>
             <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>My</Text>
-            <Text className="text-2xl font-bold text-brand-pink">Attendance 📅</Text>
+            <Text className="text-2xl font-bold text-brand-pink tracking-tight">Attendance 📅</Text>
           </View>
-          <View className="bg-blue-500 w-16 h-16 rounded-3xl items-center justify-center">
-            <MaterialCommunityIcons name="calendar-check" size={32} color="white" />
+          <View className="bg-brand-pink w-20 h-20 rounded-3xl items-center justify-center shadow-lg border-4 border-white rotate-3">
+             <MaterialCommunityIcons name="calendar-check" size={48} color="white" />
           </View>
         </View>
       </View>
 
-      <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
-        {/* Attendance Summary */}
-        <View className={`${colors.surface} rounded-[28px] p-6 mb-6 border ${colors.border}`}>
-          <View className="flex-row items-center justify-between mb-4">
-            <View>
-              <Text className={`text-sm ${colors.textSecondary} uppercase font-bold tracking-wider`}>
-                Attendance Rate
-              </Text>
-              <Text className={`text-5xl font-black ${colors.text} mt-2`}>{attendancePercentage}%</Text>
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <View className="px-6 mb-8">
+            <View className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} rounded-[40px] p-8 border shadow-xl`}>
+                <View className="flex-row items-center justify-between mb-8">
+                    <View>
+                        <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-1`}>Monthly Performance</Text>
+                        <Text className={`text-5xl font-black ${colors.text}`}>{stats.percentage}%</Text>
+                    </View>
+                    <View className="w-20 h-20 rounded-full items-center justify-center border-8 border-brand-pink/10">
+                        <View style={{ width: '100%', height: '100%', borderRadius: 100, borderLeftColor: '#F472B6', borderLeftWidth: 8, position: 'absolute', transform: [{ rotate: `${(stats.percentage / 100) * 360}deg` }] }} />
+                        <MaterialCommunityIcons name="trophy" size={32} color="#F472B6" />
+                    </View>
+                </View>
+
+                <View className="flex-row justify-between pt-6 border-t border-gray-100 dark:border-gray-800">
+                    <View className="items-center">
+                        <Text className="text-green-500 font-black text-xl">{stats.present}</Text>
+                        <Text className={`text-[8px] font-black uppercase tracking-widest ${colors.textTertiary}`}>Present</Text>
+                    </View>
+                    <View className="items-center">
+                        <Text className="text-red-500 font-black text-xl">{stats.absent}</Text>
+                        <Text className={`text-[8px] font-black uppercase tracking-widest ${colors.textTertiary}`}>Absent</Text>
+                    </View>
+                    <View className="items-center">
+                        <Text className={`text-xl font-black ${colors.text}`}>{stats.holidays}</Text>
+                        <Text className={`text-[8px] font-black uppercase tracking-widest ${colors.textTertiary}`}>Holidays</Text>
+                    </View>
+                </View>
             </View>
-            <View className="items-end">
-              <View className="bg-green-500/20 px-4 py-2 rounded-full mb-2">
-                <Text className="text-green-700 text-sm font-black">{presentDays} Days</Text>
-              </View>
-              <Text className={`text-xs ${colors.textTertiary}`}>Present</Text>
-            </View>
-          </View>
-          
-          <View className={`border-t ${colors.border} pt-4`}>
-            <View className="flex-row justify-between">
-              <View>
-                <Text className={`text-xs ${colors.textSecondary}`}>Total Days</Text>
-                <Text className={`text-lg font-black ${colors.text}`}>{totalDays}</Text>
-              </View>
-              <View>
-                <Text className={`text-xs ${colors.textSecondary}`}>Absent</Text>
-                <Text className={`text-lg font-black text-red-600`}>{totalDays - presentDays}</Text>
-              </View>
-              <View>
-                <Text className={`text-xs ${colors.textSecondary}`}>Holidays</Text>
-                <Text className={`text-lg font-black ${colors.text}`}>
-                  {attendanceData.filter(d => d.status === 'holiday').length}
-                </Text>
-              </View>
-            </View>
-          </View>
         </View>
 
-        {/* Month Picker */}
-        <View className="mb-4">
-          <Text className={`text-sm ${colors.textSecondary} font-bold mb-3 uppercase tracking-wider`}>
-            Select Month
-          </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {months.map((month, index) => (
-              <TouchableOpacity
-                key={index}
-                onPress={() => setSelectedMonth(index)}
-                className={`${selectedMonth === index ? 'bg-brand-pink' : colors.surface} px-5 py-3 rounded-2xl mr-3 border ${selectedMonth === index ? 'border-brand-pink' : colors.border}`}
-                activeOpacity={0.7}
-              >
-                <Text className={`font-bold ${selectedMonth === index ? 'text-white' : colors.text}`}>
-                  {month}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Attendance List */}
-        <Text className={`text-xl font-black ${colors.text} mb-4 ml-1 uppercase tracking-widest opacity-60`}>
-          Daily Records
-        </Text>
-
-        {attendanceData.map((record) => (
-          <View 
-            key={record.day} 
-            className={`${colors.surface} rounded-2xl p-4 mb-3 border ${colors.border}`}
-          >
-            <View className="flex-row items-center justify-between mb-3">
-              <View className="flex-row items-center">
-                <View className={`${getStatusColor(record.status)} w-12 h-12 rounded-full items-center justify-center mr-4`}>
-                  <Text className="text-white font-black text-lg">{record.day}</Text>
+        <View className="px-6 mb-8">
+            <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-3`}>Report Period</Text>
+            <TouchableOpacity 
+                onPress={() => setShowMonthDropdown(!showMonthDropdown)}
+                activeOpacity={0.8}
+                className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} p-5 rounded-[28px] border shadow-sm flex-row items-center justify-between`}
+            >
+                <View className="flex-row items-center">
+                    <View className="bg-brand-pink/10 p-2.5 rounded-xl mr-4">
+                        <MaterialCommunityIcons name="calendar-month" size={24} color="#F472B6" />
+                    </View>
+                    <View>
+                        <Text className={`text-lg font-black ${colors.text}`}>{months[selectedMonth]}</Text>
+                        <Text className={`text-[10px] font-bold ${colors.textTertiary} uppercase tracking-widest`}>Academic Year {selectedYear}</Text>
+                    </View>
                 </View>
-                <View>
-                  <Text className={`font-black ${colors.text} text-base`}>{record.dayName}</Text>
-                  <Text className={`text-xs ${colors.textSecondary}`}>{record.date}</Text>
-                </View>
-              </View>
-              <View className={`${getStatusColor(record.status)}/20 px-3 py-1 rounded-full`}>
-                <Text className={`${getStatusColor(record.status).replace('bg-', 'text-')} text-xs font-black uppercase`}>
-                  {getStatusText(record.status)}
-                </Text>
-              </View>
-            </View>
+                <MaterialCommunityIcons 
+                    name={showMonthDropdown ? "chevron-up" : "chevron-down"} 
+                    size={28} 
+                    color={theme === 'dark' ? '#4b4b4b' : '#E5E7EB'} 
+                />
+            </TouchableOpacity>
 
-            {/* Clock In/Out Times */}
-            {record.status === 'present' && (
-              <View className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'} rounded-xl p-3`}>
-                <View className="flex-row justify-between">
-                  <View className="flex-1 mr-2">
-                    <View className="flex-row items-center mb-1">
-                      <MaterialCommunityIcons name="clock-in" size={16} color="#10B981" />
-                      <Text className={`text-xs ${colors.textSecondary} ml-2 uppercase font-bold`}>Clock In</Text>
-                    </View>
-                    <Text className={`text-lg font-black text-green-600`}>{record.clockIn}</Text>
-                    <View className="flex-row items-center mt-2">
-                      <MaterialCommunityIcons 
-                        name={record.clockInBy === 'Father' ? 'account-tie' : 'account-heart'} 
-                        size={14} 
-                        color={record.clockInBy === 'Father' ? '#3B82F6' : '#EC4899'} 
-                      />
-                      <Text className={`text-xs ${colors.textTertiary} ml-1 font-bold`}>
-                        by {record.clockInBy}
-                      </Text>
-                    </View>
-                  </View>
-                  <View className="flex-1 ml-2">
-                    <View className="flex-row items-center mb-1">
-                      <MaterialCommunityIcons name="clock-out" size={16} color="#EC4899" />
-                      <Text className={`text-xs ${colors.textSecondary} ml-2 uppercase font-bold`}>Clock Out</Text>
-                    </View>
-                    <Text className={`text-lg font-black text-pink-600`}>{record.clockOut}</Text>
-                    <View className="flex-row items-center mt-2">
-                      <MaterialCommunityIcons 
-                        name={record.clockOutBy === 'Father' ? 'account-tie' : 'account-heart'} 
-                        size={14} 
-                        color={record.clockOutBy === 'Father' ? '#3B82F6' : '#EC4899'} 
-                      />
-                      <Text className={`text-xs ${colors.textTertiary} ml-1 font-bold`}>
-                        by {record.clockOutBy}
-                      </Text>
-                    </View>
-                  </View>
+            {showMonthDropdown && (
+                <View 
+                    style={{ borderRadius: 35 }}
+                    className={`mt-3 ${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} border shadow-2xl p-4 flex-row flex-wrap justify-between`}
+                >
+                    {months.map((month, index) => (
+                        <TouchableOpacity
+                            key={index}
+                            onPress={() => {
+                                setSelectedMonth(index);
+                                setShowMonthDropdown(false);
+                            }}
+                            className={`w-[31%] py-3 mb-2 rounded-[18px] items-center ${selectedMonth === index ? 'bg-brand-pink shadow-md shadow-brand-pink/20' : (theme === 'dark' ? 'bg-black/20' : 'bg-gray-50')}`}
+                        >
+                            <Text className={`text-[10px] font-black uppercase tracking-tighter ${selectedMonth === index ? 'text-white' : colors.textSecondary}`}>
+                                {month.substring(0, 3)}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                    <TouchableOpacity 
+                        onPress={() => {
+                            setSelectedMonth(new Date().getMonth());
+                            setShowMonthDropdown(false);
+                        }}
+                        className={`w-full py-3 mt-2 rounded-[18px] items-center border border-dashed ${theme === 'dark' ? 'border-gray-800/50 bg-gray-900/40' : 'border-brand-pink/20 bg-brand-pink/5'}`}
+                    >
+                        <Text className="text-brand-pink font-black text-[10px] uppercase tracking-widest">Jump to Today</Text>
+                    </TouchableOpacity>
                 </View>
-              </View>
             )}
-          </View>
-        ))}
+        </View>
 
+        <View className="px-6 mb-10">
+            <View className="flex-row items-center justify-between mb-6">
+                <Text className={`text-xs font-black uppercase tracking-widest ${colors.textTertiary}`}>Daily Log</Text>
+                {isLoading && <ActivityIndicator size="small" color="#F472B6" />}
+            </View>
+
+            {attendanceData.map((record) => {
+                const style = getStatusStyle(record.status);
+                return (
+                    <View 
+                        key={record.fullDate}
+                        style={{ borderRadius: 32 }}
+                        className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} p-5 mb-4 border shadow-sm`}
+                    >
+                        <View className="flex-row items-center justify-between">
+                            <View className="flex-row items-center">
+                                <View className={`${style.bg} w-14 h-14 rounded-[20px] items-center justify-center mr-4 shadow-sm`}>
+                                    <Text className="text-white font-black text-xl">{record.day}</Text>
+                                </View>
+                                <View>
+                                    <Text className={`font-black ${colors.text} text-base mb-0.5`}>{record.dayName}</Text>
+                                    <View className="flex-row items-center">
+                                        <MaterialCommunityIcons name={style.icon as any} size={12} color={style.text.replace('text-', '')} />
+                                        <Text className={`text-[10px] font-black uppercase ml-1 ${style.text}`}>{record.status.replace('_', ' ')}</Text>
+                                    </View>
+                                </View>
+                            </View>
+                            
+                            {record.clockIn && (
+                                <View className="items-end">
+                                    <View className="flex-row items-center mb-1">
+                                        <MaterialCommunityIcons name="login" size={10} color="#10B981" />
+                                        <Text className="text-[10px] font-black text-green-500 ml-1 uppercase">{record.clockIn}</Text>
+                                    </View>
+                                    {record.clockOut && (
+                                        <View className="flex-row items-center">
+                                            <MaterialCommunityIcons name="logout" size={10} color="#F472B6" />
+                                            <Text className="text-[10px] font-black text-brand-pink ml-1 uppercase">{record.clockOut}</Text>
+                                        </View>
+                                    )}
+                                </View>
+                            )}
+                        </View>
+
+                        {record.clockIn && (
+                            <View className={`mt-4 pt-4 border-t ${theme === 'dark' ? 'border-gray-800' : 'border-gray-50'} flex-row justify-between`}>
+                                <View className="flex-row items-center">
+                                    <MaterialCommunityIcons name="account-heart-outline" size={14} color={colors.textTertiary} />
+                                    <Text className={`text-[9px] font-bold ${colors.textTertiary} ml-1 italic`}>Dropped: {record.clockInBy || 'Parent'}</Text>
+                                </View>
+                                {record.clockOut && (
+                                    <View className="flex-row items-center">
+                                        <MaterialCommunityIcons name="account-check-outline" size={14} color={colors.textTertiary} />
+                                        <Text className={`text-[9px] font-bold ${colors.textTertiary} ml-1 italic`}>Picked: {record.clockOutBy || 'Parent'}</Text>
+                                    </View>
+                                )}
+                            </View>
+                        )}
+                    </View>
+                );
+            })}
+        </View>
         <View className="h-20" />
       </ScrollView>
     </SafeAreaView>

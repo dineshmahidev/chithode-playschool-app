@@ -27,6 +27,22 @@ export default function AdminQuickActionScreen({ navigation }: AdminQuickActionS
       action: () => navigation.navigate('studentList')
     },
     {
+      id: 'teacherAttendanceReport',
+      title: 'Staff Attendance',
+      subtitle: 'Monthly teacher logs',
+      icon: 'account-tie',
+      color: 'bg-indigo-600',
+      action: () => navigation.navigate('teacherAttendanceReport')
+    },
+    {
+      id: 'studentAttendanceReport',
+      title: 'Attendance Report',
+      subtitle: 'Monthly student tracking',
+      icon: 'file-chart',
+      color: 'bg-green-600',
+      action: () => navigation.navigate('studentAttendanceReport')
+    },
+    {
       id: 'takeAttendance',
       title: 'Take Attendance',
       subtitle: 'Record student presence',
@@ -109,9 +125,9 @@ export default function AdminQuickActionScreen({ navigation }: AdminQuickActionS
   ];
 
   return (
-    <SafeAreaView 
+    <View 
         className={`flex-1 ${colors.background}`}
-        style={{ backgroundColor: theme === 'dark' ? '#121212' : '#FEFBEA' }}
+        style={{ backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}
     >
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Header */}
@@ -138,19 +154,20 @@ export default function AdminQuickActionScreen({ navigation }: AdminQuickActionS
         </View>
 
         {/* Live Camera Feature - Prominent Card */}
-        <View className="px-6 mt-4">
+        {/* Live Camera Feature - Prominent Card */}
+        <View className="px-6 mt-6 mb-6">
             <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={() => navigation.navigate('liveCamera')}
-                className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-red-100'} p-6 rounded-[35px] border-2 shadow-xl shadow-red-500/10 overflow-hidden`}
+                className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-red-50'} p-7 rounded-[40px] border-2 shadow-2xl shadow-red-500/10 overflow-hidden`}
             >
                 {/* Decorative background glow */}
-                <View className="absolute -top-20 -right-20 w-40 h-40 bg-red-500/10 rounded-full blur-3xl" />
+                <View className="absolute -top-20 -right-20 w-48 h-48 bg-red-500/10 rounded-full blur-3xl" />
                 
-                <View className="flex-row items-center justify-between mb-4">
+                <View className="flex-row items-center justify-between mb-5">
                     <View className="flex-row items-center">
-                        <View className="bg-red-500 p-3 rounded-2xl shadow-lg shadow-red-500/40">
-                            <MaterialCommunityIcons name="video-outline" size={28} color="white" />
+                        <View className="bg-red-500 p-4 rounded-2xl shadow-lg shadow-red-500/40">
+                            <MaterialCommunityIcons name="broadcast" size={30} color="white" />
                         </View>
                         <View className="ml-4">
                             <Text className={`text-xl font-black ${colors.text} tracking-tight`}>Live Monitoring</Text>
@@ -160,19 +177,59 @@ export default function AdminQuickActionScreen({ navigation }: AdminQuickActionS
                             </View>
                         </View>
                     </View>
-                    <View className="bg-red-600 px-3 py-1.5 rounded-full flex-row items-center">
-                        <View className="w-1.5 h-1.5 rounded-full bg-white mr-1.5" />
-                        <Text className="text-white font-black text-[9px] uppercase tracking-tighter">LIVE</Text>
+                    <View className="bg-red-600 px-4 py-2 rounded-full flex-row items-center">
+                        <View className="w-1.5 h-1.5 rounded-full bg-white mr-2" />
+                        <Text className="text-white font-black text-[10px] uppercase tracking-tighter">LIVE</Text>
                     </View>
                 </View>
 
-                <View className={`${theme === 'dark' ? 'bg-gray-900/50' : 'bg-red-50/50'} p-4 rounded-2xl border ${theme === 'dark' ? 'border-gray-800' : 'border-red-100'}`}>
-                    <Text className={`text-xs ${colors.textSecondary} font-bold leading-5`}>
+                <View className={`${theme === 'dark' ? 'bg-black/20' : 'bg-red-50/50'} p-5 rounded-3xl border ${theme === 'dark' ? 'border-gray-800' : 'border-red-100'}`}>
+                    <Text className={`text-xs ${colors.textSecondary} font-bold leading-5 opacity-90`}>
                         Access your surveillance feeds, manage camera URLs, and monitor student areas in real-time.
                     </Text>
-                    <View className="flex-row items-center mt-3">
-                        <Text className="text-red-500 font-black text-[10px] uppercase">Access Terminal</Text>
-                        <MaterialCommunityIcons name="chevron-right" size={14} color="#EF4444" className="ml-1" />
+                    <View className="flex-row items-center mt-4">
+                        <Text className="text-red-500 font-black text-[10px] uppercase tracking-widest">Access Terminal</Text>
+                        <MaterialCommunityIcons name="chevron-right" size={16} color="#EF4444" className="ml-1" />
+                    </View>
+                </View>
+            </TouchableOpacity>
+        </View>
+
+        {/* Kids Activity Highlight Features - Prominent Card */}
+        <View className="px-6 mb-6">
+            <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => navigation.navigate('activityFeed')}
+                className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-pink-50'} p-7 rounded-[40px] border-2 shadow-2xl shadow-pink-500/10 overflow-hidden`}
+            >
+                {/* Decorative background glow */}
+                <View className="absolute -top-20 -right-20 w-48 h-48 bg-pink-500/10 rounded-full blur-3xl" />
+                
+                <View className="flex-row items-center justify-between mb-5">
+                    <View className="flex-row items-center">
+                        <View className="bg-brand-pink p-4 rounded-2xl shadow-lg shadow-pink-500/40">
+                            <MaterialCommunityIcons name="image-multiple" size={30} color="white" />
+                        </View>
+                        <View className="ml-4">
+                            <Text className={`text-xl font-black ${colors.text} tracking-tight`}>Daily Highlights</Text>
+                            <View className="flex-row items-center mt-1">
+                                <View className="w-2 h-2 rounded-full bg-brand-pink mr-2" />
+                                <Text className="text-brand-pink font-black text-[10px] uppercase tracking-widest">Social Feed</Text>
+                            </View>
+                        </View>
+                    </View>
+                    <View className="bg-brand-pink/20 px-4 py-2 rounded-full border border-brand-pink/10">
+                        <MaterialCommunityIcons name="heart" size={16} color="#F472B6" />
+                    </View>
+                </View>
+
+                <View className={`${theme === 'dark' ? 'bg-black/20' : 'bg-pink-50/50'} p-5 rounded-3xl border ${theme === 'dark' ? 'border-gray-800' : 'border-pink-100'}`}>
+                    <Text className={`text-xs ${colors.textSecondary} font-bold leading-5 opacity-90`}>
+                        Browse school activities, interact with parent posts, and build the school's digital scrapbook.
+                    </Text>
+                    <View className="flex-row items-center mt-4">
+                        <Text className="text-brand-pink font-black text-[10px] uppercase tracking-widest">Open Highlights</Text>
+                        <MaterialCommunityIcons name="chevron-right" size={16} color="#F472B6" className="ml-1" />
                     </View>
                 </View>
             </TouchableOpacity>
@@ -202,6 +259,6 @@ export default function AdminQuickActionScreen({ navigation }: AdminQuickActionS
             </View>
         </View>
         </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

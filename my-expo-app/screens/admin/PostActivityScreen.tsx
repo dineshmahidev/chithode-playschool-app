@@ -102,9 +102,10 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: type === 'image' ? ImagePicker.MediaTypeOptions.Images : ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: true,
+      allowsEditing: false,
       aspect: [4, 3],
-      quality: 0.8,
+      quality: 0.4, // Reduced quality to compress file size
+      videoExportPreset: ImagePicker.VideoExportPreset.MediumQuality, // Specific to video compression
     });
 
     if (!result.canceled) {
@@ -176,12 +177,15 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
                     setSelectedStudentIds(students.map(s => s.id));
                   }
                 }}
-                className="items-center mr-4"
+                className="items-center mr-5"
               >
-                <View className={`w-16 h-16 rounded-2xl items-center justify-center border-2 border-dashed ${selectedStudentIds.length === students.length ? 'border-brand-pink bg-brand-pink/10' : (theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-300 bg-gray-50')}`}>
-                   <MaterialCommunityIcons name="check-all" size={24} color={selectedStudentIds.length === students.length ? '#F472B6' : (theme === 'dark' ? '#4B5563' : '#9CA3AF')} />
+                <View 
+                  style={{ width: 96, height: 96, borderRadius: 32 }}
+                  className={`items-center justify-center border-2 border-dashed ${selectedStudentIds.length === students.length ? 'border-brand-pink bg-brand-pink/10' : (theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-300 bg-gray-50')}`}
+                >
+                   <MaterialCommunityIcons name="check-all" size={32} color={selectedStudentIds.length === students.length ? '#F472B6' : (theme === 'dark' ? '#4B5563' : '#9CA3AF')} />
                 </View>
-                <Text className={`text-[10px] font-black mt-2 uppercase ${selectedStudentIds.length === students.length ? 'text-brand-pink' : colors.textTertiary}`}>Select All</Text>
+                <Text className={`text-[11px] font-black mt-2 uppercase ${selectedStudentIds.length === students.length ? 'text-brand-pink' : colors.textTertiary}`}>Select All</Text>
               </TouchableOpacity>
 
               {students.map((student) => {
@@ -190,22 +194,25 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
                   <TouchableOpacity 
                     key={student.id} 
                     onPress={() => toggleStudentSelection(student.id)}
-                    className="items-center mr-4"
+                    className="items-center mr-5"
                   >
-                    <View className={`w-16 h-16 rounded-2xl items-center justify-center overflow-hidden border-2 ${isSelected ? 'border-brand-pink' : (theme === 'dark' ? 'border-gray-700' : 'border-white')} shadow-sm ${theme === 'dark' ? 'bg-gray-800' : 'bg-brand-pink/10'}`}>
+                    <View 
+                      style={{ width: 96, height: 96, borderRadius: 32 }}
+                      className={`items-center justify-center overflow-hidden border-2 ${isSelected ? 'border-brand-pink' : (theme === 'dark' ? 'border-gray-700' : 'border-white')} shadow-md ${theme === 'dark' ? 'bg-gray-800' : 'bg-brand-pink/5'}`}
+                    >
                       {student.avatar ? (
                         <Image source={{ uri: student.avatar }} className="w-full h-full" />
                       ) : (
-                        <MaterialCommunityIcons name="account" size={32} color="#F472B6" />
+                        <MaterialCommunityIcons name="account" size={48} color="#F472B6" />
                       )}
                       {isSelected && (
-                        <View className="absolute inset-0 bg-brand-pink/20 items-center justify-center">
-                          <MaterialCommunityIcons name="check-circle" size={28} color="#FFF" />
+                        <View className="absolute inset-0 bg-brand-pink/30 items-center justify-center">
+                          <MaterialCommunityIcons name="check-circle" size={42} color="#FFF" />
                         </View>
                       )}
                     </View>
-                    <Text className={`text-[10px] font-black mt-2 text-center w-16 ${isSelected ? 'text-brand-pink' : colors.textTertiary}`} numberOfLines={1}>{student.name.split(' ')[0]}</Text>
-                    <Text className={`text-[8px] font-bold uppercase ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{student.student_id || student.id}</Text>
+                    <Text className={`text-[11px] font-black mt-2 text-center w-24 ${isSelected ? 'text-brand-pink' : colors.text}`} numberOfLines={1}>{student.name.split(' ')[0]}</Text>
+                    <Text className={`text-[9px] font-bold uppercase mt-1 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{student.studentId || student.id}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -213,14 +220,17 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
           </View>
 
           {/* Description */}
-          <View className="mb-6">
-            <Text className={`text-xs font-black uppercase tracking-widest ${colors.textTertiary} mb-3 ml-1`}>Description</Text>
-            <View className={`${colors.surface} rounded-3xl px-5 py-4 border ${colors.border}`}>
+          <View className="mb-8">
+            <Text className={`text-xs font-black uppercase tracking-widest ${colors.textTertiary} mb-3 ml-1`}>Activity Details</Text>
+            <View 
+              style={{ borderRadius: 40 }}
+              className={`${colors.surface} px-6 py-6 border ${colors.border} shadow-sm`}
+            >
               <TextInput
-                className={`flex-1 h-32 font-bold ${colors.text} text-base`}
+                className={`w-full h-60 font-bold ${colors.text} text-base`}
                 value={description}
                 onChangeText={setDescription}
-                placeholder="What did the kids do today?"
+                placeholder="Describe the magical moments of the day..."
                 placeholderTextColor={theme === 'dark' ? '#6B7280' : '#9CA3AF'}
                 multiline
                 textAlignVertical="top"
@@ -229,22 +239,35 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
           </View>
 
           {/* Media Upload */}
-          <View className="mb-8">
-            <Text className={`text-xs font-black uppercase tracking-widest ${colors.textTertiary} mb-3 ml-1`}>Select Media</Text>
-            <View className="flex-row gap-4">
+          <View className="mb-10">
+            <Text className={`text-xs font-black uppercase tracking-widest ${colors.textTertiary} mb-4 ml-1`}>Add Media Content</Text>
+            <View className="flex-row items-center">
               <TouchableOpacity 
                 onPress={() => pickMedia('image')}
-                className={`flex-1 h-24 rounded-3xl border-2 border-dashed items-center justify-center ${mediaType === 'image' && mediaUrl ? 'bg-brand-pink/10 border-brand-pink' : (theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-300 bg-gray-50')}`}
+                activeOpacity={0.8}
+                style={{ borderRadius: 32, height: 128, marginRight: 20 }}
+                className={`flex-1 border-2 items-center justify-center shadow-lg ${mediaType === 'image' && mediaUrl ? 'bg-brand-pink border-brand-pink' : (theme === 'dark' ? 'border-gray-700 bg-[#2d2d24]' : 'border-white bg-white shadow-brand-pink/10')}`}
               >
-                <MaterialCommunityIcons name="image-outline" size={32} color={mediaType === 'image' && mediaUrl ? '#F472B6' : (theme === 'dark' ? '#4B5563' : '#9CA3AF')} />
-                <Text className={`text-[10px] font-black mt-1 uppercase ${mediaType === 'image' && mediaUrl ? 'text-brand-pink' : colors.textTertiary}`}>Add Image</Text>
+                <View className={`${mediaType === 'image' && mediaUrl ? 'bg-white/20' : 'bg-brand-pink/10'} p-4 rounded-3xl mb-1`}>
+                   <MaterialCommunityIcons name="image-album" size={32} color={mediaType === 'image' && mediaUrl ? '#FFF' : '#F472B6'} />
+                </View>
+                <Text className={`text-[11px] font-black uppercase tracking-widest ${mediaType === 'image' && mediaUrl ? 'text-white' : 'text-brand-pink'}`}>
+                  Photo
+                </Text>
               </TouchableOpacity>
+
               <TouchableOpacity 
                 onPress={() => pickMedia('video')}
-                className={`flex-1 h-24 rounded-3xl border-2 border-dashed items-center justify-center ${mediaType === 'video' && mediaUrl ? 'bg-blue-500/10 border-blue-500' : (theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-300 bg-gray-50')}`}
+                activeOpacity={0.8}
+                style={{ borderRadius: 32, height: 128 }}
+                className={`flex-1 border-2 items-center justify-center shadow-lg ${mediaType === 'video' && mediaUrl ? 'bg-blue-500 border-blue-500' : (theme === 'dark' ? 'border-gray-700 bg-[#2d2d24]' : 'border-white bg-white shadow-blue-500/10')}`}
               >
-                <MaterialCommunityIcons name="video-outline" size={32} color={mediaType === 'video' && mediaUrl ? '#3B82F6' : (theme === 'dark' ? '#4B5563' : '#9CA3AF')} />
-                <Text className={`text-[10px] font-black mt-1 uppercase ${mediaType === 'video' && mediaUrl ? 'text-blue-500' : colors.textTertiary}`}>Add Video</Text>
+                <View className={`${mediaType === 'video' && mediaUrl ? 'bg-white/20' : 'bg-blue-100'} p-4 rounded-3xl mb-1`}>
+                   <MaterialCommunityIcons name="video-vintage" size={32} color={mediaType === 'video' && mediaUrl ? '#FFF' : '#3B82F6'} />
+                </View>
+                <Text className={`text-[11px] font-black uppercase tracking-widest ${mediaType === 'video' && mediaUrl ? 'text-white' : 'text-blue-600'}`}>
+                  Video
+                </Text>
               </TouchableOpacity>
             </View>
 

@@ -35,6 +35,7 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
 
   const [presentToday, setPresentToday] = useState<number>(0);
   const [attendanceLoaded, setAttendanceLoaded] = useState(false);
+  const [todaySchedule, setTodaySchedule] = useState<any>(null);
 
   const getTodayDateString = () => {
     const d = new Date();
@@ -57,7 +58,37 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
     }
   }, [todayStr]);
 
-  useEffect(() => { fetchTodayAttendance(); }, [fetchTodayAttendance]);
+  const fetchTimetable = useCallback(async () => {
+    try {
+      const response = await api.get('/timetable');
+      const todayNum = new Date().getDay();
+      const dayIndex = todayNum === 0 ? 6 : todayNum - 1;
+      const filtered = response.data.filter((s: any) => s.day === dayIndex);
+      
+      if (filtered.length > 0) {
+        const timeToMinutes = (timeStr: string) => {
+          const [time, period] = timeStr.split(' ');
+          let [hours, minutes] = time.split(':').map(Number);
+          if (period === 'PM' && hours !== 12) hours += 12;
+          if (period === 'AM' && hours === 12) hours = 0;
+          return hours * 60 + minutes;
+        };
+        const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+        const sorted = filtered.sort((a: any, b: any) => timeToMinutes(a.time) - timeToMinutes(b.time));
+        const currentOrNext = sorted.find((s: any) => timeToMinutes(s.time) >= nowMinutes - 30);
+        setTodaySchedule(currentOrNext || null);
+      } else {
+        setTodaySchedule(null);
+      }
+    } catch (err) {
+      console.error('Fetch Timetable Error:', err);
+    }
+  }, []);
+
+  useEffect(() => { 
+    fetchTodayAttendance(); 
+    fetchTimetable();
+  }, [fetchTodayAttendance, fetchTimetable]);
 
   const handleQuickAction = (screen: string | null) => {
     if (screen) {
@@ -67,76 +98,94 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
     }
   };
 
-  const renderAnnouncements = (list: any[], sectionTitle: string, hint: string) => (
-    <View className="px-6 mt-4">
-      <View className="flex-row items-center justify-between mb-4">
-        <Text className={`text-xl font-black ${colors.text}`}>{sectionTitle} 📢</Text>
-        {list.length > 1 && (
-          <Text className={`text-xs font-bold ${colors.textTertiary}`}>Swipe for more</Text>
-        )}
-      </View>
-      
-      <ScrollView 
-        horizontal 
-        pagingEnabled 
-        showsHorizontalScrollIndicator={false}
-        className="overflow-hidden rounded-[32px]"
-      >
+  const renderAnnouncements = (list: any[], sectionTitle: string, hint: string) => {
+    const screenWidth = Dimensions.get('window').width;
+    const cardWidth = screenWidth - 100;
+
+    return (
+      <View className="mt-4">
+        <View className="flex-row items-center justify-between mb-4 px-6">
+          <Text className={`text-xl font-black ${colors.text}`}>{sectionTitle} 📢</Text>
+          {list.length > 1 && (
+            <Text className={`text-xs font-bold ${colors.textTertiary}`}>Swipe for more</Text>
+          )}
+        </View>
+        
         {list.length > 0 ? (
-          list.map((item) => (
-            <TouchableOpacity 
-              key={item.id}
-              activeOpacity={0.9}
-              style={{ width: Dimensions.get('window').width - 48, aspectRatio: 16 / 9 }}
-              className={`mr-3 bg-brand-pink relative overflow-hidden rounded-[32px] border-4 ${theme === 'dark' ? 'border-gray-800' : 'border-white'} shadow-xl`}
-              onPress={() => Alert.alert(item.title, item.content)}
-            >
-              {item.image ? (
-                <Image 
-                  source={{ uri: item.image }} 
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View className="flex-1 items-center justify-center bg-brand-pink/20">
-                  <MaterialCommunityIcons name="bullhorn-outline" size={64} color="#F472B6" />
-                </View>
-              )}
-              
-              <View className="absolute inset-0 bg-black/40 justify-end p-6">
-                <View className="bg-white/20 self-start px-3 py-1 rounded-full mb-2">
-                  <Text className="text-white text-[10px] font-black uppercase tracking-widest">{item.date}</Text>
-                </View>
-                <Text className="text-white text-2xl font-black tracking-tighter" numberOfLines={2}>
-                  {item.title}
-                </Text>
-                <View className="flex-row items-center mt-1">
-                  <MaterialCommunityIcons name="account-circle-outline" size={14} color="white" />
-                  <Text className="text-white/80 text-xs font-bold ml-1">{item.author || 'Admin'}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))
-        ) : (
-          <View 
-            style={{ width: Dimensions.get('window').width - 48, aspectRatio: 16 / 9 }}
-            className={`bg-brand-pink/10 items-center justify-center rounded-[32px] border-4 border-dashed ${theme === 'dark' ? 'border-gray-800' : 'border-white'}`}
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 50, paddingBottom: 24 }}
+            decelerationRate="fast"
+            snapToInterval={cardWidth + 16} // cardWidth + gap
           >
-            <MaterialCommunityIcons name="bullhorn-variant-outline" size={48} color="#F472B6" />
-            <Text className={`mt-4 font-bold ${colors.textTertiary}`}>No current {hint}</Text>
+            {list.map((item, index) => (
+              <TouchableOpacity 
+                key={item.id}
+                activeOpacity={0.9}
+                style={{ width: cardWidth, aspectRatio: 16 / 9 }}
+                className={`${index === list.length - 1 ? '' : 'mr-4'} bg-brand-pink relative overflow-hidden rounded-[32px] border-2 ${theme === 'dark' ? 'border-gray-800' : 'border-white'} shadow-xl`}
+                onPress={() => Alert.alert(item.title, item.content)}
+              >
+                {item.image ? (
+                  <Image 
+                    source={{ uri: item.image }} 
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View className="flex-1 items-center justify-center bg-brand-pink/20">
+                    <MaterialCommunityIcons name="bullhorn-outline" size={64} color="#F472B6" />
+                  </View>
+                )}
+                
+                <View className="absolute inset-0 bg-black/30 justify-end p-6">
+                  <View className="bg-white/20 self-start px-3 py-1 rounded-full mb-2 flex-row items-center">
+                    <MaterialCommunityIcons name="calendar-edit" size={12} color="white" style={{ marginRight: 4 }} />
+                    <Text className="text-white text-[10px] font-black uppercase tracking-widest">{item.date}</Text>
+                  </View>
+                  <Text className="text-white text-2xl font-black tracking-tighter" numberOfLines={2}>
+                    {item.title}
+                  </Text>
+                  <View className="flex-row items-center mt-1">
+                    <MaterialCommunityIcons name="account-circle-outline" size={14} color="white" />
+                    <Text className="text-white/80 text-xs font-bold ml-1">{item.author || 'Admin'}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        ) : (
+          <View className="items-center px-6 pb-8">
+            <View 
+              style={{ 
+                width: cardWidth, 
+                aspectRatio: 16 / 10,
+                elevation: 10
+              }}
+              className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-brand-pink/30'} items-center justify-center rounded-[32px] border-2 border-dashed shadow-xl`}
+            >
+              <View className="items-center justify-center">
+                <View className={`${theme === 'dark' ? 'bg-pink-500/10' : 'bg-brand-pink/10'} w-24 h-24 rounded-full items-center justify-center mb-5 border ${theme === 'dark' ? 'border-pink-500/20' : 'border-brand-pink/20'}`}>
+                  <MaterialCommunityIcons name="bullhorn-variant-outline" size={48} color="#F472B6" />
+                </View>
+                <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>All caught up! ✨</Text>
+                <Text className={`mt-2 font-black text-brand-pink/40 uppercase text-[9px] tracking-[4px]`}>No current {hint}</Text>
+              </View>
+            </View>
           </View>
         )}
-      </ScrollView>
-    </View>
-  );
+      </View>
+    );
+  };
 
   return (
-    <SafeAreaView 
-        className={`flex-1 ${colors.background}`}
-        style={{ backgroundColor: theme === 'dark' ? '#121212' : '#FEFBEA' }}
+    <View 
+        className={`flex-1 ${theme === 'dark' ? 'bg-[#121212]' : 'bg-white'}`}
+        style={{ backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}
     >
         <ScrollView
-        className="flex-1"
+        className={`flex-1 ${theme === 'dark' ? '' : 'bg-white'}`}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 60 }}
         >
@@ -195,16 +244,56 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
             </View>
         </View>
 
-        {announcements.length > 0 && renderAnnouncements(announcements, 'Announcements', 'announcements')}
+        {/* ── Today's Schedule ── */}
+        <TouchableOpacity 
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('timetable')}
+            className={`mx-6 mt-4 ${todaySchedule ? todaySchedule.color || 'bg-brand-pink' : 'bg-gray-400'} rounded-[32px] p-6 shadow-xl relative overflow-hidden`}
+        >
+            <View className="flex-row items-center justify-between relative z-10">
+                <View className="flex-1 mr-4">
+                    <View className="flex-row items-center mb-1">
+                        <MaterialCommunityIcons name="calendar-clock" size={16} color="white" />
+                        <Text className="text-white font-black uppercase text-[10px] tracking-widest ml-2 opacity-80">
+                            {todaySchedule ? "Next Session" : "Today's Schedule"}
+                        </Text>
+                    </View>
+                    <Text className="text-white text-2xl font-black mt-1" numberOfLines={1}>
+                        {todaySchedule ? todaySchedule.activity : "No sessions mentioned"}
+                    </Text>
+                    {todaySchedule && (
+                        <View className="flex-row items-center mt-2 bg-white/20 self-start px-3 py-1 rounded-full">
+                            <MaterialCommunityIcons name="clock-outline" size={14} color="white" />
+                            <Text className="text-white text-xs font-bold ml-1.5" numberOfLines={1}>
+                                {todaySchedule.time} • {todaySchedule.room || 'Classroom'}
+                            </Text>
+                        </View>
+                    )}
+                </View>
+                <View className="bg-white/30 w-16 h-16 rounded-[24px] items-center justify-center">
+                    <MaterialCommunityIcons 
+                        name={todaySchedule ? (todaySchedule.icon || "book-open-variant") : "calendar-blank"} 
+                        size={36} 
+                        color="white" 
+                    />
+                </View>
+            </View>
+            {/* Background pattern */}
+            <View className="absolute -bottom-4 -right-4 opacity-10">
+                <MaterialCommunityIcons name="school" size={120} color="white" />
+            </View>
+        </TouchableOpacity>
+
+        {(announcements?.length ?? 0) > 0 && renderAnnouncements(announcements, 'Announcements', 'announcements')}
 
         {/* ── Core Management ── */}
         <View className="px-6 py-6">
             <Text className={`text-lg font-black ${colors.text} mb-4 uppercase tracking-widest text-[10px]`}>Core Management</Text>
             <View className="flex-row justify-between">
                 {[
-                    { label: 'Users', icon: 'account-multiple-plus', color: '#F472B6', bg: 'bg-brand-pink/10', screen: 'userManagement' },
+                    { label: 'Finance', icon: 'cash-register', color: '#10B981', bg: 'bg-green-100/10', screen: 'incomeExpense' },
                     { label: 'Fees', icon: 'cash-multiple', color: '#EAB308', bg: 'bg-brand-yellow/10', screen: 'feesManagement' },
-                    { label: 'Timetable', icon: 'calendar-clock', color: '#6366F1', bg: 'bg-indigo-100/10', screen: 'timetable' }
+                    { label: 'Activity', icon: 'camera-plus-outline', color: '#F472B6', bg: 'bg-brand-pink/10', screen: 'postActivity' }
                 ].map((action, idx) => (
                     <TouchableOpacity
                         key={idx}
@@ -225,30 +314,30 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
             <Text className={`text-xl font-black ${colors.text} mb-6 tracking-tight`}>School Overview 📊</Text>
 
             <View className="flex-row justify-between">
-                {/* Fee Status Card */}
+                {/* Fees Overview Card */}
                 <TouchableOpacity 
                     activeOpacity={0.8}
                     onPress={() => handleQuickAction('feesManagement')}
-                    className={`flex-1 rounded-[32px] border mr-2 ${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-amber-100'} overflow-hidden shadow-sm`}
+                    className={`flex-1 rounded-[32px] border mr-2 ${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-brand-yellow/20'} overflow-hidden shadow-sm`}
                 >
-                    <View className="h-1.5 bg-amber-500" />
+                    <View className="h-1.5 bg-brand-yellow" />
                     <View className="p-5">
-                        <View className={`w-12 h-12 rounded-2xl items-center justify-center mb-4 ${theme === 'dark' ? 'bg-amber-500/10' : 'bg-amber-50'}`}>
-                            <MaterialCommunityIcons name="cash-check" size={26} color={theme === 'dark' ? '#FBBF24' : '#B45309'} />
+                        <View className={`w-12 h-12 rounded-2xl items-center justify-center mb-4 ${theme === 'dark' ? 'bg-brand-yellow/10' : 'bg-brand-yellow/10'}`}>
+                            <MaterialCommunityIcons name="cash-check" size={26} color="#EAB308" />
                         </View>
                         <Text 
-                            style={{ color: theme === 'dark' ? '#FBBF24' : '#B45309' }}
+                            style={{ color: '#EAB308' }}
                             className="text-[10px] font-black uppercase tracking-widest mb-2"
                         >
-                            Fee Collection
+                            Monthly Fees
                         </Text>
                         <View className="flex-row items-end mb-1">
-                            <Text style={{ color: theme === 'dark' ? '#FBBF24' : '#B45309' }} className="text-3xl font-black">{paidFeeCount}</Text>
+                            <Text style={{ color: '#EAB308' }} className="text-3xl font-black">{paidFeeCount}</Text>
                             <Text className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mb-1 ml-1`}>/ {totalFeeCount}</Text>
                         </View>
-                        <Text className={`text-[10px] font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'} mb-4`}>Students Paid</Text>
-                        <View className={`h-1.5 rounded-full ${theme === 'dark' ? 'bg-gray-800' : 'bg-amber-100/50'} overflow-hidden`}>
-                            <View style={{ width: `${totalFeeCount > 0 ? (paidFeeCount / totalFeeCount) * 100 : 0}%` }} className="h-full bg-amber-500 rounded-full" />
+                        <Text className={`text-[10px] font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'} mb-4`}>Fees Collected</Text>
+                        <View className={`h-1.5 rounded-full ${theme === 'dark' ? 'bg-gray-800' : 'bg-brand-yellow/10'} overflow-hidden`}>
+                            <View style={{ width: `${totalFeeCount > 0 ? (paidFeeCount / totalFeeCount) * 100 : 0}%` }} className="h-full bg-brand-yellow rounded-full" />
                         </View>
                     </View>
                 </TouchableOpacity>
@@ -294,7 +383,9 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
                 </View>
             </TouchableOpacity>
         </View>
+
+        {(announcements?.length ?? 0) === 0 && renderAnnouncements(announcements ?? [], 'Announcements', 'announcements')}
         </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

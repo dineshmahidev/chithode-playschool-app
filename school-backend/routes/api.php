@@ -45,10 +45,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/activities', [ActivityController::class, 'index']);
     Route::post('/activities', [ActivityController::class, 'store']);
     Route::delete('/activities/{id}', [ActivityController::class, 'destroy']);
+    Route::post('/activities/{id}/like', [ActivityController::class, 'like']);
+    Route::post('/activities/{id}/comment', [ActivityController::class, 'comment']);
 
     // Transactions (Finance)
     Route::get('/transactions', [TransactionController::class, 'index']);
     Route::post('/transactions', [TransactionController::class, 'store']);
+    Route::put('/transactions/{id}', [TransactionController::class, 'update']);
     Route::delete('/transactions/{id}', [TransactionController::class, 'destroy']);
 
     // Homework

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, Modal } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -18,54 +18,48 @@ interface MyFeesScreenProps {
 
 export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
   const { colors, theme } = useTheme();
-  const { user } = useAuth();
+  const { user, fees: allFees, feeStructures } = useAuth();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'history'>('dashboard');
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
-  const feeDetails = [
-    { id: '1', title: 'Tuition Fee', amount: 10000, paid: 10000, status: 'paid' },
-    { id: '2', title: 'Transport Fee', amount: 3000, paid: 3000, status: 'paid' },
-    { id: '3', title: 'Activity Fee', amount: 2000, paid: 2000, status: 'paid' },
-    { id: '4', title: 'Library Fee', amount: 500, paid: 0, status: 'pending' },
-  ];
+  const myFees = useMemo(() => {
+    if (!user) return [];
+    return allFees.filter(f => 
+      f.student_id === user.studentId || 
+      (user.id && f.student_id === user.id.toString())
+    );
+  }, [allFees, user]);
 
-  const paymentHistory = [
-    { 
-      id: '1', 
-      month: 'January 2026', 
-      amount: 5000, 
-      date: 'Jan 15, 2026', 
-      invoiceNo: 'INV-2026-001', 
-      status: 'paid',
+  const feeDetails = useMemo(() => {
+    return feeStructures.map(fs => {
+      const paidForCategory = myFees
+        .filter(f => f.type === fs.name && f.status === 'paid')
+        .reduce((sum, f) => sum + f.amount, 0);
+      
+      return {
+        id: fs.id,
+        title: fs.name,
+        amount: fs.amount,
+        paid: paidForCategory,
+        status: paidForCategory >= fs.amount ? 'paid' : 'pending'
+      };
+    });
+  }, [feeStructures, myFees]);
+
+  const paymentHistory = useMemo(() => {
+    return myFees.map(f => ({
+      id: f.id,
+      month: f.date,
+      amount: f.amount,
+      date: f.date,
+      invoiceNo: `INV-2026-${f.id.toString().padStart(3, '0')}`,
+      status: f.status,
       paymentType: 'Online',
-      transactionId: 'TXN2026001234567',
-      feeCategories: ['Tuition Fee: ₹3,000', 'Transport Fee: ₹1,500', 'Activity Fee: ₹500']
-    },
-    { 
-      id: '2', 
-      month: 'December 2025', 
-      amount: 5000, 
-      date: 'Dec 15, 2025', 
-      invoiceNo: 'INV-2025-012', 
-      status: 'paid',
-      paymentType: 'Cash',
-      transactionId: null,
-      feeCategories: ['Tuition Fee: ₹3,500', 'Transport Fee: ₹1,500']
-    },
-    { 
-      id: '3', 
-      month: 'November 2025', 
-      amount: 5000, 
-      date: 'Nov 15, 2025', 
-      invoiceNo: 'INV-2025-011', 
-      status: 'paid',
-      paymentType: 'Card',
-      transactionId: 'TXN2025011987654',
-      feeCategories: ['Tuition Fee: ₹3,500', 'Transport Fee: ₹1,500']
-    },
-    { id: '4', month: 'October 2025', amount: 0, date: '-', invoiceNo: '-', status: 'pending', paymentType: null, transactionId: null, feeCategories: [] },
-  ];
+      transactionId: `TXN${f.id}${Date.now().toString().slice(-6)}`,
+      feeCategories: [`${f.type}: ₹${f.amount.toLocaleString()}`]
+    }));
+  }, [myFees]);
 
   const totalAmount = feeDetails.reduce((sum, fee) => sum + fee.amount, 0);
   const totalPaid = feeDetails.reduce((sum, fee) => sum + fee.paid, 0);
@@ -395,32 +389,39 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
               Fee Breakdown
             </Text>
 
-            {feeDetails.map((fee) => (
-              <View 
-                key={fee.id} 
-                className={`${colors.surface} rounded-2xl p-5 mb-4 border ${colors.border}`}
-              >
-                <View className="flex-row items-center justify-between mb-3">
-                  <View className="flex-1">
-                    <Text className={`font-black ${colors.text} text-base mb-1`}>{fee.title}</Text>
-                    <Text className={`text-sm ${colors.textSecondary}`}>
-                      Paid: ₹{fee.paid.toLocaleString()} / ₹{fee.amount.toLocaleString()}
-                    </Text>
+            {feeDetails.length > 0 ? (
+              feeDetails.map((fee) => (
+                <View 
+                  key={fee.id} 
+                  className={`${colors.surface} rounded-2xl p-5 mb-4 border ${colors.border}`}
+                >
+                  <View className="flex-row items-center justify-between mb-3">
+                    <View className="flex-1">
+                      <Text className={`font-black ${colors.text} text-base mb-1`}>{fee.title}</Text>
+                      <Text className={`text-sm ${colors.textSecondary}`}>
+                        Paid: ₹{fee.paid.toLocaleString()} / ₹{fee.amount.toLocaleString()}
+                      </Text>
+                    </View>
+                    <View className={`${fee.status === 'paid' ? 'bg-green-500' : 'bg-orange-500'} px-3 py-1 rounded-full`}>
+                      <Text className="text-white text-xs font-black uppercase">{fee.status}</Text>
+                    </View>
                   </View>
-                  <View className={`${fee.status === 'paid' ? 'bg-green-500' : 'bg-orange-500'} px-3 py-1 rounded-full`}>
-                    <Text className="text-white text-xs font-black uppercase">{fee.status}</Text>
+                  
+                  {/* Progress Bar */}
+                  <View className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'} h-2 rounded-full overflow-hidden`}>
+                    <View 
+                      className="bg-green-500 h-full rounded-full" 
+                      style={{ width: `${(fee.paid / fee.amount) * 100}%` }}
+                    />
                   </View>
                 </View>
-                
-                {/* Progress Bar */}
-                <View className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'} h-2 rounded-full overflow-hidden`}>
-                  <View 
-                    className="bg-green-500 h-full rounded-full" 
-                    style={{ width: `${(fee.paid / fee.amount) * 100}%` }}
-                  />
-                </View>
+              ))
+            ) : (
+              <View className={`${colors.surface} rounded-3xl p-10 items-center justify-center border border-dashed ${colors.border}`}>
+                <MaterialCommunityIcons name="currency-inr-off" size={48} color={colors.textTertiary} />
+                <Text className={`mt-4 font-bold ${colors.textSecondary} text-center`}>No fee structures defined yet</Text>
               </View>
-            ))}
+            )}
           </>
         ) : (
           <>
@@ -429,63 +430,70 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
               Payment History
             </Text>
 
-            {paymentHistory.map((payment) => (
-              <View 
-                key={payment.id} 
-                className={`${colors.surface} rounded-2xl p-5 mb-4 border ${colors.border}`}
-              >
-                <View className="flex-row items-center justify-between mb-3">
-                  <View className="flex-1">
-                    <Text className={`font-black ${colors.text} text-lg mb-1`}>{payment.month}</Text>
-                    <Text className={`text-sm ${colors.textSecondary}`}>{payment.date}</Text>
-                  </View>
-                  <View className={`${payment.status === 'paid' ? 'bg-green-500' : 'bg-orange-500'} px-3 py-1 rounded-full`}>
-                    <Text className="text-white text-xs font-black uppercase">{payment.status}</Text>
-                  </View>
-                </View>
-
-                {payment.status === 'paid' ? (
-                  <>
-                    <View className="flex-row items-center mb-3">
-                      <MaterialCommunityIcons name="receipt" size={16} color="#10B981" />
-                      <Text className={`text-sm ${colors.textSecondary} ml-2`}>Invoice: {payment.invoiceNo}</Text>
+            {paymentHistory.length > 0 ? (
+              paymentHistory.map((payment) => (
+                <View 
+                  key={payment.id} 
+                  className={`${colors.surface} rounded-2xl p-5 mb-4 border ${colors.border}`}
+                >
+                  <View className="flex-row items-center justify-between mb-3">
+                    <View className="flex-1">
+                      <Text className={`font-black ${colors.text} text-lg mb-1`}>{payment.month}</Text>
+                      <Text className={`text-sm ${colors.textSecondary}`}>{payment.date}</Text>
                     </View>
+                    <View className={`${payment.status === 'paid' ? 'bg-green-500' : 'bg-orange-500'} px-3 py-1 rounded-full`}>
+                      <Text className="text-white text-xs font-black uppercase">{payment.status}</Text>
+                    </View>
+                  </View>
 
-                    <View className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'} rounded-xl p-3 mb-3`}>
-                      <View className="flex-row justify-between items-center">
-                        <Text className={`${colors.textSecondary} text-sm font-bold`}>Amount Paid</Text>
-                        <Text className="text-green-600 font-black text-2xl">₹{payment.amount.toLocaleString()}</Text>
+                  {payment.status === 'paid' ? (
+                    <>
+                      <View className="flex-row items-center mb-3">
+                        <MaterialCommunityIcons name="receipt" size={16} color="#10B981" />
+                        <Text className={`text-sm ${colors.textSecondary} ml-2`}>Invoice: {payment.invoiceNo}</Text>
                       </View>
-                    </View>
 
-                    {/* Action Buttons */}
-                    <View className="flex-row justify-between">
-                      <TouchableOpacity
-                        onPress={() => handleViewInvoice(payment)}
-                        className="flex-1 mr-2 bg-blue-500 py-3 rounded-xl flex-row items-center justify-center"
-                        activeOpacity={0.7}
-                      >
-                        <MaterialCommunityIcons name="eye" size={18} color="white" />
-                        <Text className="text-white font-black ml-2">View</Text>
-                      </TouchableOpacity>
+                      <View className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'} rounded-xl p-3 mb-3`}>
+                        <View className="flex-row justify-between items-center">
+                          <Text className={`${colors.textSecondary} text-sm font-bold`}>Amount Paid</Text>
+                          <Text className="text-green-600 font-black text-2xl">₹{payment.amount.toLocaleString()}</Text>
+                        </View>
+                      </View>
 
-                      <TouchableOpacity
-                        onPress={() => handleDownloadInvoice(payment)}
-                        className="flex-1 ml-2 bg-green-500 py-3 rounded-xl flex-row items-center justify-center"
-                        activeOpacity={0.7}
-                      >
-                        <MaterialCommunityIcons name="download" size={18} color="white" />
-                        <Text className="text-white font-black ml-2">Download</Text>
-                      </TouchableOpacity>
+                      {/* Action Buttons */}
+                      <View className="flex-row justify-between">
+                        <TouchableOpacity
+                          onPress={() => handleViewInvoice(payment)}
+                          className="flex-1 mr-2 bg-blue-500 py-3 rounded-xl flex-row items-center justify-center"
+                          activeOpacity={0.7}
+                        >
+                          <MaterialCommunityIcons name="eye" size={18} color="white" />
+                          <Text className="text-white font-black ml-2">View</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={() => handleDownloadInvoice(payment)}
+                          className="flex-1 ml-2 bg-green-500 py-3 rounded-xl flex-row items-center justify-center"
+                          activeOpacity={0.7}
+                        >
+                          <MaterialCommunityIcons name="download" size={18} color="white" />
+                          <Text className="text-white font-black ml-2">Download</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  ) : (
+                    <View className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'} rounded-xl p-4`}>
+                      <Text className={`${colors.textSecondary} text-center`}>No payment made for this month</Text>
                     </View>
-                  </>
-                ) : (
-                  <View className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'} rounded-xl p-4`}>
-                    <Text className={`${colors.textSecondary} text-center`}>No payment made for this month</Text>
-                  </View>
-                )}
+                  )}
+                </View>
+              ))
+            ) : (
+              <View className={`${colors.surface} rounded-3xl p-10 items-center justify-center border border-dashed ${colors.border}`}>
+                <MaterialCommunityIcons name="history" size={48} color={colors.textTertiary} />
+                <Text className={`mt-4 font-bold ${colors.textSecondary} text-center`}>No payment history found</Text>
               </View>
-            ))}
+            )}
           </>
         )}
 

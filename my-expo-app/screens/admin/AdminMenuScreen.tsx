@@ -71,7 +71,7 @@ export default function AdminMenuScreen({ navigation }: AdminMenuScreenProps) {
     <SafeAreaView 
         className={`flex-1 ${colors.background}`} 
         edges={['top', 'bottom']}
-        style={{ backgroundColor: theme === 'dark' ? '#1c1c14' : '#FEFBEA' }}
+        style={{ backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}
     >
       {/* Header */}
       <View className={`${colors.surface} px-6 py-4 shadow-sm border-b ${colors.border}`}>

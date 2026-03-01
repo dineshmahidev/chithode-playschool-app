@@ -27,11 +27,12 @@ export default function StudentListScreen({ navigation }: StudentListScreenProps
   );
 
   const getCategoryColor = (category?: string) => {
+    const isDark = theme === 'dark';
     switch (category) {
-      case 'Playschool': return 'text-brand-pink bg-brand-pink/10';
-      case 'Toddler': return 'text-brand-yellow bg-brand-yellow/10';
-      case 'Daycare': return 'text-blue-500 bg-blue-500/10';
-      default: return 'text-gray-500 bg-gray-500/10';
+      case 'Playschool': return isDark ? 'text-pink-400 bg-pink-500/20' : 'text-brand-pink bg-brand-pink/10';
+      case 'Toddler': return isDark ? 'text-yellow-400 bg-yellow-500/20' : 'text-brand-yellow bg-brand-yellow/10';
+      case 'Daycare': return isDark ? 'text-blue-400 bg-blue-500/20' : 'text-blue-500 bg-blue-500/10';
+      default: return isDark ? 'text-gray-400 bg-gray-500/20' : 'text-gray-500 bg-gray-500/10';
     }
   };
 
@@ -44,12 +45,12 @@ export default function StudentListScreen({ navigation }: StudentListScreenProps
               onPress={() => navigation.goBack()} 
               className={`mb-4 ${colors.surface} w-12 h-12 rounded-2xl items-center justify-center border ${colors.border} shadow-sm`}
             >
-              <MaterialCommunityIcons name="arrow-left" size={28} color={theme === 'dark' ? '#FFF' : '#000'} />
+              <MaterialCommunityIcons name="arrow-left" size={28} color={colors.text} />
             </TouchableOpacity>
             <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>Student</Text>
             <Text className="text-2xl font-bold text-brand-pink tracking-tight">Directory 📚</Text>
           </View>
-          <View className="bg-brand-yellow w-16 h-16 rounded-3xl items-center justify-center shadow-2xl border-4 border-white rotate-6">
+          <View className={`bg-brand-yellow w-16 h-16 rounded-3xl items-center justify-center shadow-2xl border-4 ${theme === 'dark' ? 'border-gray-800' : 'border-white'} rotate-6`}>
             <MaterialCommunityIcons name="account-group-outline" size={32} color="#92400E" />
           </View>
         </View>
@@ -59,7 +60,7 @@ export default function StudentListScreen({ navigation }: StudentListScreenProps
           <MaterialCommunityIcons name="magnify" size={24} color={colors.textTertiary} />
           <TextInput
             placeholder="Search student name or ID..."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.textTertiary}
             className={`flex-1 ml-3 font-bold ${colors.text}`}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -78,9 +79,12 @@ export default function StudentListScreen({ navigation }: StudentListScreenProps
               >
                 <View className="flex-row items-center">
                   {/* Profile Photo Icon */}
-                  <View className="w-20 h-20 rounded-32 bg-brand-pink/20 items-center justify-center overflow-hidden border-2 border-white shadow-lg" style={{ borderRadius: 28 }}>
-                    {student.studentPhoto ? (
-                      <Image source={{ uri: student.studentPhoto }} className="w-full h-full" resizeMode="cover" />
+                  <View 
+                    className={`w-20 h-20 rounded-32 bg-brand-pink/20 items-center justify-center overflow-hidden border-2 ${theme === 'dark' ? 'border-gray-800' : 'border-white'} shadow-lg`} 
+                    style={{ borderRadius: 28 }}
+                  >
+                    {student.avatar ? (
+                      <Image source={{ uri: student.avatar }} className="w-full h-full" resizeMode="cover" />
                     ) : (
                       <MaterialCommunityIcons name="account" size={40} color="#F472B6" />
                     )}

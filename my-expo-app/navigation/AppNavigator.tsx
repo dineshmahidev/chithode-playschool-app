@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, BackHandler, Alert, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -42,8 +42,11 @@ import ViewSubmissionsScreen from '../screens/teacher/ViewSubmissionsScreen';
 import ClassScheduleScreen from '../screens/teacher/ClassScheduleScreen';
 import ParentMessagesScreen from '../screens/teacher/ParentMessagesScreen';
 import WebsiteSettingsScreen from '../screens/admin/WebsiteSettingsScreen';
+import MyAttendanceScreen from '../screens/teacher/MyAttendanceScreen';
+import StudentAttendanceReportScreen from '../screens/teacher/StudentAttendanceReportScreen';
+import TeacherAttendanceReportScreen from '../screens/admin/TeacherAttendanceReportScreen';
 
-type ScreenType = 'login' | 'home' | 'quickAction' | 'account' | 'userManagement' | 'feesManagement' | 'announcements' | 'reports' | 'backup' | 'settings' | 'attendance' | 'activityFeed' | 'liveCamera' | 'homework' | 'emergencyContact' | 'myFees' | 'rewards' | 'profile' | 'timetable' | 'postHomework' | 'takeAttendance' | 'postActivity' | 'viewSubmissions' | 'classSchedule' | 'parentMessages' | 'studentList' | 'studentDetail' | 'incomeExpense' | 'websiteSettings';
+type ScreenType = 'login' | 'home' | 'quickAction' | 'account' | 'userManagement' | 'feesManagement' | 'announcements' | 'reports' | 'backup' | 'settings' | 'attendance' | 'activityFeed' | 'liveCamera' | 'homework' | 'emergencyContact' | 'myFees' | 'rewards' | 'profile' | 'timetable' | 'postHomework' | 'takeAttendance' | 'postActivity' | 'viewSubmissions' | 'classSchedule' | 'parentMessages' | 'studentList' | 'studentDetail' | 'incomeExpense' | 'websiteSettings' | 'myAttendance' | 'studentAttendanceReport' | 'teacherAttendanceReport';
 
 export default function AppNavigator() {
   const { user, announcements, isLoading } = useAuth();
@@ -51,9 +54,6 @@ export default function AppNavigator() {
   
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('login');
   const [navigationStack, setNavigationStack] = useState<ScreenType[]>(['login']);
-  const [lastAnnouncementId, setLastAnnouncementId] = useState<string | null>(null);
-  const [showNotification, setShowNotification] = useState(false);
-  const [activeAnnouncement, setActiveAnnouncement] = useState<any>(null);
   const [params, setParams] = useState<any>(null);
 
   const navigate = useCallback((screen: ScreenType, resetOrParams: boolean | any = false, screenParams: any = null) => {
@@ -86,31 +86,9 @@ export default function AppNavigator() {
 
   const navigation = useMemo(() => ({ navigate, goBack }), [navigate, goBack]);
 
-  // Initial last announcement ID
-  useEffect(() => {
-    if (announcements.length > 0 && !lastAnnouncementId) {
-      setLastAnnouncementId(announcements[0].id);
-    }
-  }, [announcements, lastAnnouncementId]);
 
-  // Check for new announcements
-  useEffect(() => {
-    if (announcements.length > 0 && user) {
-      const latest = announcements[0];
-      if (latest.id !== lastAnnouncementId) {
-        if (latest.target === 'all' || latest.target === user.role) {
-          setActiveAnnouncement(latest);
-          setShowNotification(true);
-          setLastAnnouncementId(latest.id);
-          const timer = setTimeout(() => setShowNotification(false), 8000);
-          return () => clearTimeout(timer);
-        } else {
-          setLastAnnouncementId(latest.id);
-        }
-      }
-    }
-  }, [announcements, user, lastAnnouncementId]);
-
+  const insets = useSafeAreaInsets();
+  
   // Redirect logic
   useEffect(() => {
     if (!isLoading) {
@@ -194,6 +172,9 @@ export default function AppNavigator() {
       case 'homework': return <HomeworkScreen navigation={navigation} />;
       case 'emergencyContact': return <EmergencyContactScreen navigation={navigation} />;
       case 'myFees': return <MyFeesScreen navigation={navigation} />;
+      case 'myAttendance': return <MyAttendanceScreen navigation={navigation} />;
+      case 'studentAttendanceReport': return <StudentAttendanceReportScreen navigation={navigation} />;
+      case 'teacherAttendanceReport': return <TeacherAttendanceReportScreen navigation={navigation} />;
       case 'rewards': return <RewardsScreen navigation={navigation} />;
       case 'profile': return <ProfileScreen navigation={navigation} route={{ params }} />;
       case 'postHomework': return <PostHomeworkScreen navigation={navigation} />;
@@ -210,8 +191,8 @@ export default function AppNavigator() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#1c1c14' : '#FEFBEA', justifyContent: 'center', alignItems: 'center' }}>
-        <StatusBar style={theme === 'dark' ? 'light' : 'dark'} backgroundColor={theme === 'dark' ? '#1c1c14' : '#FEFBEA'} />
+      <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF', justifyContent: 'center', alignItems: 'center' }}>
+        <StatusBar style="light" backgroundColor="#F472B6" />
         <ActivityIndicator size="large" color="#F472B6" />
         <Text style={{ marginTop: 20, color: '#F472B6', fontWeight: 'bold' }}>Restoring Session...</Text>
       </View>
@@ -221,52 +202,70 @@ export default function AppNavigator() {
   if (!user) {
     return (
         <>
-            <StatusBar style={theme === 'dark' ? 'light' : 'dark'} backgroundColor={theme === 'dark' ? '#1c1c14' : '#FEFBEA'} />
+            <StatusBar style="light" backgroundColor="#F472B6" />
             <LoginScreen onLogin={() => navigate('home', true)} />
         </>
     );
   }
 
-  const isTabScreen = ['home', 'quickAction', 'account', 'login'].includes(currentScreen);
-  const activeTab = currentScreen === 'login' ? 'home' : currentScreen;
+  // Map screens to their parent tabs for consistent highlighting
+  const tabMapping: Record<string, string> = {
+    home: 'home',
+    activityFeed: 'home',
+    timetable: 'home',
+    attendance: 'home',
+    liveCamera: 'home',
+    homework: 'home',
+    emergencyContact: 'home',
+    myFees: 'home',
+    rewards: 'home',
+    profile: 'account',
+    quickAction: 'quickAction',
+    account: 'account',
+    // Admin screens
+    userManagement: 'quickAction',
+    feesManagement: 'quickAction',
+    announcements: 'quickAction',
+    reports: 'quickAction',
+    backup: 'quickAction',
+    postActivity: 'quickAction',
+    studentList: 'quickAction',
+    studentDetail: 'quickAction',
+    incomeExpense: 'quickAction',
+    websiteSettings: 'quickAction',
+    // Teacher screens
+    postHomework: 'quickAction',
+    takeAttendance: 'quickAction',
+    viewSubmissions: 'home',
+    classSchedule: 'home', 
+    parentMessages: 'account',
+    myAttendance: 'quickAction',
+    studentAttendanceReport: 'quickAction',
+    teacherAttendanceReport: 'quickAction'
+  };
+
+  const isTabScreen = currentScreen !== 'login';
+  const activeTab = tabMapping[currentScreen] || 'home';
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#1c1c14' : '#FEFBEA' }}>
-      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} backgroundColor={theme === 'dark' ? '#1c1c14' : '#FEFBEA'} translucent={false} />
+    <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}>
+      <StatusBar style="light" backgroundColor="#F472B6" translucent={false} />
       
       {isTabScreen ? (
-        <SafeAreaView 
+        <View 
             className="flex-1" 
-            edges={['top']}
-            style={{ backgroundColor: theme === 'dark' ? '#1c1c14' : '#FEFBEA' }}
+            style={{ 
+              backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF',
+              paddingTop: insets.top
+            }}
         >
-          {/* Announcement Overlay */}
-          {showNotification && activeAnnouncement && (
-            <TouchableOpacity 
-              activeOpacity={0.9}
-              className={`absolute top-4 left-6 right-6 z-50 rounded-3xl shadow-2xl border-4 border-brand-yellow overflow-hidden ${colors.surface}`}
-              onPress={() => setShowNotification(false)}
-            >
-              <View className="flex-row items-center p-4">
-                <View className="bg-brand-pink w-12 h-12 rounded-2xl items-center justify-center mr-4">
-                  <MaterialCommunityIcons name="bullhorn-variant" size={24} color="white" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-[10px] font-black text-brand-pink uppercase tracking-widest mb-1">New Announcement ✨</Text>
-                  <Text className={`font-black text-base ${colors.text}`} numberOfLines={1}>{activeAnnouncement.title}</Text>
-                  <Text className={`${colors.textSecondary} text-xs font-bold`} numberOfLines={1}>{activeAnnouncement.content}</Text>
-                </View>
-                <TouchableOpacity onPress={() => setShowNotification(false)}>
-                  <MaterialCommunityIcons name="close-circle" size={24} color={theme === 'dark' ? '#6B7280' : '#D1D5DB'} />
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          )}
-
           <View className="flex-1">{renderInnerContent()}</View>
-
-          {/* Tab Bar */}
-          <View className={`${colors.surface} ${colors.border} border-t flex-row`}>
+          
+          {/* Persistent Tab Bar */}
+          <View 
+            className={`${colors.surface} ${colors.border} border-t flex-row`}
+            style={{ paddingBottom: Math.max(insets.bottom, 12) }}
+          >
             {['home', 'quickAction', 'account'].map((tab) => {
               const isActive = activeTab === tab;
               const icons: any = { home: 'home', quickAction: 'flash', account: 'account' };
@@ -274,7 +273,7 @@ export default function AppNavigator() {
               return (
                 <TouchableOpacity
                   key={tab}
-                  className={`flex-1 py-3 items-center ${isActive ? `${colors.tabBarActiveBg} border-t-4 border-brand-pink` : colors.tabBarInactiveBg}`}
+                  className={`flex-1 pt-3 items-center ${isActive ? `${colors.tabBarActiveBg} border-t-4 border-brand-pink` : colors.tabBarInactiveBg}`}
                   onPress={() => navigate(tab as ScreenType, true)}
                 >
                   <MaterialCommunityIcons name={icons[tab]} size={24} color={isActive ? colors.tabBarActive : colors.tabBarInactive} />
@@ -283,7 +282,7 @@ export default function AppNavigator() {
               );
             })}
           </View>
-        </SafeAreaView>
+        </View>
       ) : (
         <View className="flex-1">
           {renderInnerContent()}

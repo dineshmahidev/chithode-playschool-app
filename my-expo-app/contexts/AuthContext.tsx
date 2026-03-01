@@ -44,6 +44,13 @@ export interface FeeRecord {
     amount: number;
     status: 'paid' | 'unpaid';
     date: string;
+    due_date?: string;
+}
+
+export interface FeeStructure {
+    id: string;
+    name: string;
+    amount: number;
 }
 
 export interface Announcement {
@@ -56,6 +63,14 @@ export interface Announcement {
   author: string;
 }
 
+export interface Comment {
+  id: string;
+  user: string;
+  avatar?: string;
+  text: string;
+  time: string;
+}
+
 export interface Activity {
   id: string;
   title: string;
@@ -66,6 +81,8 @@ export interface Activity {
   date: string;
   author: string;
   studentIds: string[];
+  likesCount: number;
+  comments: Comment[];
 }
 
 export interface Transaction {
@@ -84,6 +101,7 @@ interface AuthContextType {
   activities: Activity[];
   transactions: Transaction[];
   fees: FeeRecord[];
+  feeStructures: FeeStructure[];
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
@@ -98,7 +116,10 @@ interface AuthContextType {
   deleteAnnouncement: (id: string) => Promise<void>;
   addActivity: (activity: Activity) => Promise<void>;
   deleteActivity: (id: string) => Promise<boolean>;
+  likeActivity: (id: string) => Promise<void>;
+  addComment: (activityId: string, text: string) => Promise<void>;
   addTransaction: (transaction: Transaction) => Promise<void>;
+  updateTransaction: (id: string, transaction: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   updateAvatar: () => Promise<void>;
   refreshFees: () => Promise<void>;
@@ -113,6 +134,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [activities, setActivities] = useState<Activity[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [fees, setFees] = useState<FeeRecord[]>([]);
+  const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -120,12 +142,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const auth_token = await AsyncStorage.getItem('auth_token');
       if (!auth_token) return;
       
-      const [usersRes, announcementsRes, activitiesRes, transactionsRes, feesRes] = await Promise.all([
+      const [usersRes, announcementsRes, activitiesRes, transactionsRes, feesRes, feeStructuresRes] = await Promise.all([
         api.get('/users'),
         api.get('/announcements'),
         api.get('/activities'),
         api.get('/transactions'),
-        api.get('/fees').catch(() => ({ data: [] })) // Fallback if endpoint not ready
+        api.get('/fees').catch(() => ({ data: [] })),
+        api.get('/fee-structures').catch(() => ({ data: [] }))
       ]);
 
       setUsers(usersRes.data.map((u: any) => mapUser(u)));
@@ -149,7 +172,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         thumbnailUrl: a.thumbnail_url,
         date: a.date,
         author: a.author,
-        studentIds: a.students ? a.students.map((s: any) => s.id.toString()) : []
+        studentIds: a.students ? a.students.map((s: any) => s.id.toString()) : [],
+        likesCount: a.likes_count || 0,
+        comments: a.comments ? a.comments.map((c: any) => ({
+          id: c.id.toString(),
+          user: c.user?.name || 'Unknown',
+          avatar: c.user?.avatar || undefined,
+          text: c.text,
+          time: new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        })) : []
       })));
 
       setTransactions(transactionsRes.data.map((t: any) => ({
@@ -168,8 +199,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           type: f.type,
           amount: parseFloat(f.amount) || 0,
           status: f.status,
-          date: f.date
-      })));
+          date: f.date,
+          due_date: f.due_date
+        })));
+
+      setFeeStructures(feeStructuresRes?.data?.map((fs: any) => ({
+          id: fs.id.toString(),
+          name: fs.name,
+          amount: parseFloat(fs.amount) || 0
+      })) || []);
 
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -186,7 +224,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             type: f.type,
             amount: parseFloat(f.amount) || 0,
             status: f.status,
-            date: f.date
+            date: f.date,
+            due_date: f.due_date
         })));
       } catch (e) {}
   }, []);
@@ -234,9 +273,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (data.parentName !== undefined) mapped.parent_name = data.parentName;
     if (data.guardianPhone !== undefined) mapped.guardian_phone = data.guardianPhone;
     if (data.bloodGroup !== undefined) mapped.blood_group = data.bloodGroup;
+    if (data.avatar !== undefined) {
+      mapped.avatar = data.avatar;
+      mapped.student_photo = data.avatar;
+    }
     if (data.studentPhoto !== undefined) {
       mapped.student_photo = data.studentPhoto;
-      mapped.avatar = data.studentPhoto;
+      if (!mapped.avatar) mapped.avatar = data.studentPhoto;
     }
     if (data.fatherPhoto !== undefined) mapped.father_photo = data.fatherPhoto;
     if (data.motherPhoto !== undefined) mapped.mother_photo = data.motherPhoto;
@@ -462,12 +505,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [fetchData]);
 
+  const likeActivity = useCallback(async (id: string) => {
+    try {
+      await api.post(`/activities/${id}/like`);
+      // Update local state for immediate feedback
+      setActivities(prev => prev.map(act => 
+        act.id === id ? { ...act, likesCount: (act.likesCount || 0) + 1 } : act
+      ));
+    } catch (error) {
+      console.error('Failed to like activity:', error);
+    }
+  }, []);
+
+  const addComment = useCallback(async (activityId: string, text: string) => {
+    try {
+      const res = await api.post(`/activities/${activityId}/comment`, { text });
+      const newComment: Comment = {
+        id: res.data.id.toString(),
+        user: res.data.user?.name || 'You',
+        avatar: res.data.user?.avatar || undefined,
+        text: res.data.text,
+        time: 'Just now'
+      };
+      setActivities(prev => prev.map(act => 
+        act.id === activityId ? { ...act, comments: [...act.comments, newComment] } : act
+      ));
+    } catch (error) {
+      console.error('Failed to add comment:', error);
+      Alert.alert('Error', 'Failed to post comment');
+    }
+  }, []);
+
   const addTransaction = useCallback(async (transaction: Transaction) => {
     try {
       await api.post('/transactions', transaction);
       await fetchData();
     } catch (error) {
-      Alert.alert('Error', 'Failed to record transaction');
+      console.error('Failed to record transaction:', error);
+      throw error;
     }
   }, [fetchData]);
 
@@ -476,7 +551,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await api.delete(`/transactions/${id}`);
       await fetchData();
     } catch (error) {
-      Alert.alert('Error', 'Failed to delete transaction');
+      console.error('Failed to delete transaction:', error);
+      throw error;
+    }
+  }, [fetchData]);
+
+  const updateTransaction = useCallback(async (id: string, transaction: Partial<Transaction>) => {
+    try {
+      await api.put(`/transactions/${id}`, transaction);
+      await fetchData();
+    } catch (error) {
+      console.error('Failed to update transaction:', error);
+      throw error;
     }
   }, [fetchData]);
 
@@ -484,32 +570,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     user,
     users,
     announcements,
+    activities,
+    transactions,
+    fees,
+    feeStructures,
     isAuthenticated: !!user,
+    isLoading,
     login,
     testLogin,
     logout,
     addUser,
-    updateProfile,
     updateUser,
+    updateProfile,
     deleteUser,
     toggleUserStatus,
     addAnnouncement,
     deleteAnnouncement,
-    activities,
     addActivity,
     deleteActivity,
-    transactions,
+    likeActivity,
+    addComment,
     addTransaction,
+    updateTransaction,
     deleteTransaction,
     updateAvatar,
-    fees,
-    refreshFees,
-    isLoading
+    refreshFees
   }), [
-    user, users, announcements, activities, transactions, isLoading, fees,
-    login, testLogin, logout, addUser, updateProfile, updateUser, 
-    deleteUser, toggleUserStatus, addAnnouncement, deleteAnnouncement, 
-    addActivity, deleteActivity, addTransaction, deleteTransaction, updateAvatar, refreshFees
+    user, users, announcements, activities, transactions, fees, feeStructures,
+    isLoading, login, testLogin, logout, addUser, updateUser, updateProfile,
+    deleteUser, toggleUserStatus, addAnnouncement, deleteAnnouncement,
+    addActivity, deleteActivity, likeActivity, addComment, addTransaction, deleteTransaction, updateTransaction,
+    updateAvatar, refreshFees
   ]);
 
   return (

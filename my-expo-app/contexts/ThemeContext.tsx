@@ -38,16 +38,16 @@ export interface ThemeColors {
 }
 
 export const lightTheme: ThemeColors = {
-  background: 'bg-cream',
-  backgroundHex: '#FEFBEA',
+  background: 'bg-white',
+  backgroundHex: '#FFFFFF',
   surface: 'bg-white',
-  surfaceSecondary: 'bg-yellow-50',
+  surfaceSecondary: 'bg-white',
   headerBackground: 'bg-white',
 
   tabBarActive: '#F472B6',
   tabBarInactive: '#9CA3AF',
   tabBarActiveBg: 'bg-pink-100',
-  tabBarInactiveBg: 'bg-yellow-50',
+  tabBarInactiveBg: 'bg-white',
 
   text: 'text-gray-900',
   textSecondary: 'text-gray-700',
@@ -57,11 +57,11 @@ export const lightTheme: ThemeColors = {
   profileGradientEnd: 'to-brand-pink',
 
   menuItemBackground: 'bg-white',
-  menuItemBorder: 'border-yellow-100',
+  menuItemBorder: 'border-gray-100',
   menuItemText: 'text-gray-900',
   menuItemTextSecondary: 'text-gray-600',
 
-  border: 'border-yellow-200',
+  border: 'border-gray-200',
   accent: 'bg-brand-yellow',
 };
 

@@ -43,6 +43,22 @@ class TransactionController extends Controller
         return response()->json($transaction, 201);
     }
 
+    public function update(Request $request, $id)
+    {
+        $transaction = Transaction::findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string',
+            'category' => 'sometimes|required|string',
+            'amount' => 'sometimes|required|numeric',
+            'type' => 'sometimes|required|in:income,expense',
+            'date' => 'sometimes|required|string',
+        ]);
+
+        $transaction->update($validated);
+        return response()->json($transaction);
+    }
+
     public function destroy($id)
     {
         Transaction::destroy($id);

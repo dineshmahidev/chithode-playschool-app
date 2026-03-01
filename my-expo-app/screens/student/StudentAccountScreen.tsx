@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Linking } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -48,18 +48,11 @@ export default function StudentAccountScreen({ navigation }: StudentAccountScree
       color: 'bg-yellow-600',
     },
     {
-      id: 'settings',
-      title: 'Settings',
-      subtitle: 'App preferences and privacy',
-      icon: 'cog-outline',
-      color: 'bg-gray-600',
-    },
-    {
-      id: 'help',
-      title: 'Help & Support',
-      subtitle: 'Get help and contact school',
-      icon: 'help-circle-outline',
-      color: 'bg-pink-600',
+      id: 'about',
+      title: 'About Us',
+      subtitle: 'Visit our school website',
+      icon: 'information-outline',
+      color: 'bg-blue-600',
     },
   ];
 
@@ -148,6 +141,10 @@ export default function StudentAccountScreen({ navigation }: StudentAccountScree
                 navigation.navigate('profile');
               } else if (item.id === 'guardian') {
                 navigation.navigate('emergencyContact');
+              } else if (item.id === 'about') {
+                Linking.openURL('https://chithodehappykids.com').catch(err => 
+                  Alert.alert('Error', 'Could not open website')
+                );
               } else {
                 console.log(`Navigate to ${item.id}`);
                 Alert.alert('Info', `${item.title} screen is coming soon! ✨`);

@@ -104,7 +104,7 @@ export default function ProfileScreen({ navigation, route }: ProfileScreenProps)
   const [fees, setFees] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [admissionDate, setAdmissionDate] = useState('');
-  const [studentPhoto, setStudentPhoto] = useState('');
+  const [avatar, setAvatar] = useState('');
   const [fatherPhoto, setFatherPhoto] = useState('');
   const [motherPhoto, setMotherPhoto] = useState('');
   const [guardianPhoto, setGuardianPhoto] = useState('');
@@ -131,7 +131,7 @@ export default function ProfileScreen({ navigation, route }: ProfileScreenProps)
       setFees(targetUser.fees || '');
       setAdmissionDate(targetUser.admissionDate || '');
       setDateOfBirth(targetUser.date_of_birth || '');
-      setStudentPhoto(targetUser.studentPhoto || '');
+      setAvatar(targetUser.avatar || '');
       setFatherPhoto(targetUser.fatherPhoto || '');
       setMotherPhoto(targetUser.motherPhoto || '');
       setGuardianPhoto(targetUser.guardianPhoto || '');
@@ -164,8 +164,7 @@ export default function ProfileScreen({ navigation, route }: ProfileScreenProps)
       fees,
       admissionDate: admissionDate || null,
       date_of_birth: dateOfBirth || null,
-      studentPhoto,
-      avatar: studentPhoto, // Keep avatar in sync with student photo
+      avatar,
       fatherPhoto,
       motherPhoto,
       guardianPhoto,
@@ -340,8 +339,8 @@ export default function ProfileScreen({ navigation, route }: ProfileScreenProps)
                 <Text className={`text-5xl font-black ${colors.text} tracking-tighter`}>{studentId ? 'Edit' : 'My'}</Text>
                 <Text className="text-2xl font-bold text-brand-pink tracking-tight">{studentId ? 'Record 📝' : 'Profile 👤'}</Text>
               </View>
-              <View className="bg-brand-yellow w-16 h-16 rounded-3xl items-center justify-center shadow-2xl border-4 border-white rotate-6">
-                <MaterialCommunityIcons name={studentId ? "account-edit-outline" : "card-account-details-outline"} size={32} color="#92400E" />
+              <View className={`${theme === 'dark' ? 'bg-[#3e3e34]' : 'bg-brand-yellow'} w-16 h-16 rounded-3xl items-center justify-center shadow-2xl border-4 ${theme === 'dark' ? 'border-gray-700' : 'border-white'} rotate-6`}>
+                <MaterialCommunityIcons name={studentId ? "account-edit-outline" : "card-account-details-outline"} size={32} color={theme === 'dark' ? '#F472B6' : '#92400E'} />
               </View>
             </View>
           </View>
@@ -356,7 +355,7 @@ export default function ProfileScreen({ navigation, route }: ProfileScreenProps)
                 // View Mode
                 <View>
                    <View className="items-center mb-8">
-                      {renderPhotoCard('Student', studentPhoto)}
+                      {renderPhotoCard('Student Account', avatar)}
                       <Text className={`text-2xl font-black ${colors.text} mt-4`}>{targetUser?.name}</Text>
                       <Text className="text-brand-pink font-bold">Student Record Verified ✅</Text>
                    </View>
@@ -369,20 +368,23 @@ export default function ProfileScreen({ navigation, route }: ProfileScreenProps)
                      {renderDetailItem('Home Address', targetUser?.address, 'map-marker')}
                    </View>
 
-                   <View className="mb-8">
-                     <Text className={`text-xs font-black uppercase ${colors.textTertiary} mb-5 tracking-widest`}>Family Contacts</Text>
+                   <View className="mb-0">
+                     <Text className={`text-xs font-black uppercase ${colors.textTertiary} mb-5 tracking-widest`}>Family & Guardian</Text>
                      {renderDetailItem("Father's Name", targetUser?.fatherName, 'account-tie')}
+                     {renderDetailItem("Father's Contact", targetUser?.fatherPhone, 'phone')}
                      {renderDetailItem("Mother's Name", targetUser?.motherName, 'face-woman')}
-                     {renderDetailItem("Guardian Phone", targetUser?.guardianPhone, 'phone-check')}
+                     {renderDetailItem("Mother's Contact", targetUser?.motherPhone, 'phone')}
+                     {renderDetailItem("Guardian Name", targetUser?.parentName, 'account-group')}
+                     {renderDetailItem("Guardian Contact", targetUser?.guardianPhone, 'phone-check')}
                    </View>
 
                    <TouchableOpacity 
                     onPress={() => setIsEditing(true)}
-                    className="bg-brand-yellow py-5 rounded-[32px] items-center shadow-lg active:scale-95 mt-6 border-b-4 border-amber-600"
+                    className={`${theme === 'dark' ? 'bg-[#3e3e34] border-gray-700' : 'bg-brand-yellow border-amber-600'} py-5 rounded-[32px] items-center shadow-lg active:scale-95 mt-6 border-b-4`}
                   >
                     <View className="flex-row items-center">
-                      <MaterialCommunityIcons name="pencil-box-multiple-outline" size={20} color="#92400E" />
-                      <Text className="text-amber-900 font-black text-lg ml-2">Edit Full Student Profile</Text>
+                      <MaterialCommunityIcons name="pencil-box-multiple-outline" size={20} color={theme === 'dark' ? '#F472B6' : '#92400E'} />
+                      <Text className={`${theme === 'dark' ? 'text-cream' : 'text-amber-900'} font-black text-lg ml-2`}>Edit Full Student Profile</Text>
                     </View>
                    </TouchableOpacity>
                 </View>
@@ -393,7 +395,7 @@ export default function ProfileScreen({ navigation, route }: ProfileScreenProps)
                      <View>
                        <Text className="text-brand-pink font-black text-lg mb-6 uppercase tracking-wider">Step 1: Personal Info</Text>
                        <View className="items-center mb-8">
-                         {renderPhotoCard('Student Photo', studentPhoto, setStudentPhoto)}
+                         {renderPhotoCard('Account Profile', avatar, setAvatar)}
                        </View>
                        {renderInputField('Student Name', name, setName, 'account', 'Full Name')}
                        

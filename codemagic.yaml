@@ -24,8 +24,11 @@ workflows:
         script: |
           cd android
           ./gradlew assembleRelease
+      - name: List built APKs (Debug)
+        script: |
+          find . -name "*.apk"
     artifacts:
-      - "**/build/outputs/apk/**/*.apk"
+      - "**/*.apk"
     publishing:
       email:
         recipients:

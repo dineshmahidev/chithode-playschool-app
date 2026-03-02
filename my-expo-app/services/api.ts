@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Replace with your machine's IP address (found via ipconfig)
-const API_URL = 'http://10.95.115.139:8000/api';
+const API_URL = 'https://app.chithodehappykids.com/api';
 
 const api = axios.create({
   baseURL: API_URL,

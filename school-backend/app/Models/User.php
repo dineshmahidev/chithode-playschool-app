@@ -47,6 +47,7 @@ class User extends Authenticatable
         'fees',
         'admission_date',
         'status',
+        'push_token',
     ];
 
     public function activities()

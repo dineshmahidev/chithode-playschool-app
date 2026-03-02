@@ -42,4 +42,17 @@ class AuthController extends Controller
     {
         return response()->json($request->user());
     }
+
+    public function updatePushToken(Request $request)
+    {
+        $request->validate([
+            'push_token' => 'required|string',
+        ]);
+
+        $user = $request->user();
+        $user->push_token = $request->push_token;
+        $user->save();
+
+        return response()->json(['message' => 'Push token updated successfully']);
+    }
 }

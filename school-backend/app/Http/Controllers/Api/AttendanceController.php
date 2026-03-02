@@ -6,9 +6,17 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
 use App\Models\Attendance;
+use App\Models\User;
+use App\Services\ExpoNotificationService;
 
 class AttendanceController extends Controller
 {
+    protected $notificationService;
+
+    public function __construct(ExpoNotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
     public function index(Request $request)
     {
         $query = Attendance::query();
@@ -44,6 +52,14 @@ class AttendanceController extends Controller
             ['student_id' => $request->student_id, 'date' => $request->date],
             $validated
         );
+
+        // Send push notification to the individual student/parent
+        $statusLabel = ucfirst($attendance->status);
+        $title = "Attendance Marked: " . $statusLabel;
+        $body = "Attendance for " . $attendance->date . " has been marked as " . $statusLabel . ".";
+
+        $this->notificationService->notifyUser($attendance->student_id, $title, $body);
+
         return response()->json($attendance, 201);
     }
 }

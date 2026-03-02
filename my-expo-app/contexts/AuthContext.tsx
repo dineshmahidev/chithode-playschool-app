@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import api, { setAuthToken } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import { registerForPushNotificationsAsync, savePushToken } from '../services/notifications';
 
 export type UserRole = 'admin' | 'student' | 'teacher';
 
@@ -214,6 +215,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  const setupPushNotifications = useCallback(async () => {
+    try {
+      const token = await registerForPushNotificationsAsync();
+      if (token) {
+        await savePushToken(token);
+      }
+    } catch (error) {
+      console.error('Failed to setup notifications:', error);
+    }
+  }, []);
+
   const refreshFees = useCallback(async () => {
       try {
           const res = await api.get('/fees');
@@ -308,6 +320,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const userData = JSON.parse(userDataString);
           setUser(userData); // Already mapped when stored
           await fetchData();
+          await setupPushNotifications();
         }
       } catch (e) {
         console.error('Auth check failed:', e);
@@ -331,6 +344,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(userData);
       
       await fetchData();
+      await setupPushNotifications();
       return true;
     } catch (error) {
       console.error('Login Error:', error);

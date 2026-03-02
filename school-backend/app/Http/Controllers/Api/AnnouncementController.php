@@ -5,9 +5,16 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Announcement;
+use App\Services\ExpoNotificationService;
 
 class AnnouncementController extends Controller
 {
+    protected $notificationService;
+
+    public function __construct(ExpoNotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
     public function index()
     {
         return response()->json(Announcement::latest()->get());
@@ -30,6 +37,17 @@ class AnnouncementController extends Controller
         }
 
         $announcement = Announcement::create($validated);
+
+        // Send push notification based on target
+        $title = "New Announcement: " . $announcement->title;
+        $body = $announcement->content;
+
+        if ($announcement->target === 'all') {
+            $this->notificationService->notifyAll($title, $body);
+        } else {
+            $this->notificationService->notifyRole($announcement->target, $title, $body);
+        }
+
         return response()->json($announcement, 201);
     }
 

@@ -113,14 +113,6 @@ export default function AdminQuickActionScreen({ navigation }: AdminQuickActionS
       icon: 'calendar-clock',
       color: 'bg-indigo-600',
       action: () => navigation.navigate('timetable')
-    },
-    {
-      id: 'websiteSettings',
-      title: 'Website Settings',
-      subtitle: 'Manage your public website content',
-      icon: 'web',
-      color: 'bg-indigo-500',
-      action: () => navigation.navigate('websiteSettings')
     }
   ];
 

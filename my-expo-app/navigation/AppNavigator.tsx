@@ -41,12 +41,11 @@ import PostActivityScreen from '../screens/admin/PostActivityScreen';
 import ViewSubmissionsScreen from '../screens/teacher/ViewSubmissionsScreen';
 import ClassScheduleScreen from '../screens/teacher/ClassScheduleScreen';
 import ParentMessagesScreen from '../screens/teacher/ParentMessagesScreen';
-import WebsiteSettingsScreen from '../screens/admin/WebsiteSettingsScreen';
 import MyAttendanceScreen from '../screens/teacher/MyAttendanceScreen';
 import StudentAttendanceReportScreen from '../screens/teacher/StudentAttendanceReportScreen';
 import TeacherAttendanceReportScreen from '../screens/admin/TeacherAttendanceReportScreen';
 
-type ScreenType = 'login' | 'home' | 'quickAction' | 'account' | 'userManagement' | 'feesManagement' | 'announcements' | 'reports' | 'backup' | 'settings' | 'attendance' | 'activityFeed' | 'liveCamera' | 'homework' | 'emergencyContact' | 'myFees' | 'rewards' | 'profile' | 'timetable' | 'postHomework' | 'takeAttendance' | 'postActivity' | 'viewSubmissions' | 'classSchedule' | 'parentMessages' | 'studentList' | 'studentDetail' | 'incomeExpense' | 'websiteSettings' | 'myAttendance' | 'studentAttendanceReport' | 'teacherAttendanceReport';
+type ScreenType = 'login' | 'home' | 'quickAction' | 'account' | 'userManagement' | 'feesManagement' | 'announcements' | 'reports' | 'backup' | 'settings' | 'attendance' | 'activityFeed' | 'liveCamera' | 'homework' | 'emergencyContact' | 'myFees' | 'rewards' | 'profile' | 'timetable' | 'postHomework' | 'takeAttendance' | 'postActivity' | 'viewSubmissions' | 'classSchedule' | 'parentMessages' | 'studentList' | 'studentDetail' | 'incomeExpense' | 'myAttendance' | 'studentAttendanceReport' | 'teacherAttendanceReport';
 
 export default function AppNavigator() {
   const { user, announcements, isLoading } = useAuth();
@@ -184,7 +183,6 @@ export default function AppNavigator() {
       case 'classSchedule': return <ClassScheduleScreen navigation={navigation} />;
       case 'parentMessages': return <ParentMessagesScreen navigation={navigation} />;
       case 'incomeExpense': return <IncomeExpenseScreen navigation={navigation} />;
-      case 'websiteSettings': return <WebsiteSettingsScreen navigation={navigation} />;
       default: return <AdminHomeScreen navigation={{ navigate, goBack }} />;
     }
   };
@@ -232,7 +230,6 @@ export default function AppNavigator() {
     studentList: 'quickAction',
     studentDetail: 'quickAction',
     incomeExpense: 'quickAction',
-    websiteSettings: 'quickAction',
     // Teacher screens
     postHomework: 'quickAction',
     takeAttendance: 'quickAction',

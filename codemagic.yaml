@@ -4,7 +4,7 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
-      node: latest
+      node: 20
     working_directory: my-expo-app
     scripts:
       - name: Install dependencies
@@ -16,8 +16,9 @@ workflows:
         script: npx expo prebuild --platform android
       - name: Build Android APK
         script: |
+          export NODE_OPTIONS="--max-old-space-size=8192"
           cd android
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease --no-daemon
     artifacts:
       - "**/build/outputs/apk/release/*.apk"
     publishing:

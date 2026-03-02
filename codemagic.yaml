@@ -1,34 +1,22 @@
 workflows:
-  expo-android-apk:
-    name: Expo Android APK Build
+  react-native-expo-android:
+    name: React Native Expo Android
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
-      node: 20
-      groups:
-        - expo_credentials # You can define this in Codemagic UI if needed
+      node: latest
     working_directory: my-expo-app
     scripts:
       - name: Install dependencies
-        script: |
-          npm install -g expo-cli
-          npm install
+        script: npm install
       - name: Expo Prebuild
-        script: |
-          npx expo prebuild --platform android
-      - name: Build Android Debug APK
-        script: |
-          cd android
-          ./gradlew assembleDebug
-      - name: Build Android Release APK
+        script: npx expo prebuild --platform android
+      - name: Build Android APK
         script: |
           cd android
           ./gradlew assembleRelease
-      - name: List built APKs (Debug)
-        script: |
-          find . -name "*.apk"
     artifacts:
-      - "**/*.apk"
+      - "**/build/outputs/apk/release/*.apk"
     publishing:
       email:
         recipients:

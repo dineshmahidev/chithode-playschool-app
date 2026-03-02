@@ -10,7 +10,7 @@ import api from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Get API base URL from the axios instance
-const BASE_URL = 'http://10.233.247.139:8000/api';
+const BASE_URL = 'https://app.chithodehappykids.com/api';
 
 interface NavigationProps {
   navigate: (screen: string) => void;

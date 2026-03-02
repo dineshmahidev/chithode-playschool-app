@@ -1,6 +1,7 @@
 import React from 'react';
 import './global.css';
 import { BackHandler } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -25,6 +26,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
+      <StatusBar style="auto" />
       <ThemeProvider>
         <AuthProvider>
           <AppNavigator />

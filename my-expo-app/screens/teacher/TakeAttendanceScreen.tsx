@@ -385,7 +385,7 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
     return () => { isMounted = false; };
   }, [selectedDate, activeTab]);
 
-  const markPresent = useCallback((studentId: string, guardianType: 'Mother' | 'Father' | 'Guardian') => {
+  const markPresent = useCallback(async (studentId: string, guardianType: 'Mother' | 'Father' | 'Guardian') => {
     const time = getCurrentTime();
     const { users: currentUsers } = stateRef.current;
     const student = currentUsers.find(u => u.id === studentId);
@@ -399,37 +399,49 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
       guardianName = (student as any)?.guardianName || (student as any)?.parentName || 'Guardian';
     }
     
-    setAttendanceRecords(prev => {
-      const current = prev[studentId];
-      if (markingType === 'IN') {
-        return {
-          ...prev,
-          [studentId]: {
-            id: studentId,
-            status: 'present',
-            inTime: time,
-            outTime: current?.outTime || null,
-            droppedBy: guardianName,
-            droppedByType: guardianType
-          }
-        };
-      } else {
-        return {
-          ...prev,
-          [studentId]: {
-            ...current,
-            outTime: time,
-            pickedBy: guardianName,
-            pickedByType: guardianType,
-            status: 'present'
-          }
-        };
-      }
-    });
+    const current = attendanceRecords[studentId];
+    const newRecord: StudentAttendance = markingType === 'IN' ? {
+      id: studentId,
+      status: 'present',
+      inTime: time,
+      outTime: current?.outTime || null,
+      droppedBy: guardianName,
+      droppedByType: guardianType
+    } : {
+      ...current,
+      outTime: time,
+      pickedBy: guardianName,
+      pickedByType: guardianType,
+      status: 'present'
+    };
+
+    setAttendanceRecords(prev => ({
+      ...prev,
+      [studentId]: newRecord
+    }));
 
     setGuardianModalVisible(false);
     setMarkingStudentId(null);
-  }, [markingType]); 
+
+    // Auto-submit change
+    try {
+      const today = getTodayDateString();
+      await api.post('/attendance', {
+        student_id: studentId,
+        date: today,
+        status: newRecord.status,
+        in_time: newRecord.inTime,
+        out_time: newRecord.outTime,
+        dropped_by_type: newRecord.droppedByType,
+        picked_by_type: newRecord.pickedByType,
+        dropped_by_name: newRecord.droppedBy,
+        picked_by_name: newRecord.pickedBy
+      });
+    } catch (error) {
+      console.error('Error auto-submitting attendance present:', error);
+      Alert.alert('Error', 'Failed to save attendance change.');
+    }
+  }, [markingType, attendanceRecords]); 
 
   const handleSubmit = useCallback(async () => {
     const rawRecords = attendanceRecords || {};
@@ -559,25 +571,42 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
       'Mark Absent',
       'Mark this student as Absent for today?',
       [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Confirm Absent', 
-          style: 'destructive', 
-          onPress: () => {
-            setAttendanceRecords(prev => ({
-              ...prev,
-              [studentId]: {
-                id: studentId,
-                status: 'absent',
-                inTime: null,
-                outTime: null
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Confirm Absent', 
+              style: 'destructive', 
+              onPress: async () => {
+                const newRecord: StudentAttendance = {
+                  id: studentId,
+                  status: 'absent',
+                  inTime: null,
+                  outTime: null
+                };
+                
+                setAttendanceRecords(prev => ({
+                  ...prev,
+                  [studentId]: newRecord
+                }));
+
+                // Auto-submit change
+                try {
+                  const today = getTodayDateString();
+                  await api.post('/attendance', {
+                    student_id: studentId,
+                    date: today,
+                    status: 'absent',
+                    in_time: null,
+                    out_time: null
+                  });
+                } catch (error) {
+                  console.error('Error auto-submitting attendance absent:', error);
+                  Alert.alert('Error', 'Failed to save attendance change.');
+                }
               }
-            }));
-          }
-        }
-      ]
-    );
-  }, []);
+            }
+          ]
+        );
+      }, []);
 
   const onDayStudentTap = useCallback((studentId: string) => {
     const record = stateRef.current.attendanceRecords[studentId];
@@ -775,24 +804,7 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
                     }
                     renderItem={renderItem}
                     extraData={attendanceRecords}
-                    ListFooterComponent={
-                    <View className="mt-4 px-6 mb-10">
-                        <TouchableOpacity
-                        onPress={handleSubmit}
-                        disabled={isSubmitting}
-                        className={`${isSubmitting ? 'bg-gray-400' : 'bg-brand-pink'} py-5 rounded-[24px] items-center shadow-lg shadow-brand-pink/30 flex-row justify-center`}
-                        >
-                        {isSubmitting ? (
-                            <ActivityIndicator color="white" size="small" />
-                        ) : (
-                            <>
-                            <MaterialCommunityIcons name="shield-check" size={24} color="white" />
-                            <Text className="text-white font-black text-lg ml-2 uppercase tracking-tight">Save & Submit</Text>
-                            </>
-                        )}
-                        </TouchableOpacity>
-                    </View>
-                    }
+                    ListFooterComponent={<View className="mb-10" />}
                 />
                 </View>
           ) : (

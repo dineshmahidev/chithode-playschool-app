@@ -1,4 +1,5 @@
 import React from 'react';
+import './global.css';
 import { BackHandler } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './contexts/AuthContext';

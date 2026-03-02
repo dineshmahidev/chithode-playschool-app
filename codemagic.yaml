@@ -25,7 +25,7 @@ workflows:
           cd android
           ./gradlew assembleRelease
     artifacts:
-      - my-expo-app/android/app/build/outputs/apk/**/*.apk
+      - "**/build/outputs/apk/**/*.apk"
     publishing:
       email:
         recipients:

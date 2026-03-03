@@ -1,12 +1,14 @@
 import React, { useState, memo, useCallback, useMemo, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  Alert, FlatList, Platform, ActivityIndicator, Image, Modal
+  Alert, FlatList, Platform, ActivityIndicator, Image, Modal,
+  KeyboardAvoidingView
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth, Transaction } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -14,54 +16,80 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 interface NavigationProps { navigate: (screen: string) => void; goBack: () => void; }
 interface IncomeExpenseScreenProps { navigation: NavigationProps; }
 
-// ─── Professional Header Component ───────────────────────────────────
 const ScreenHeader = ({ navigation, theme, colors }: { navigation: any, theme: string, colors: any }) => (
-  <View className="flex-row items-center justify-between mb-6">
-    <View>
-      <TouchableOpacity 
-        onPress={() => navigation.goBack()} 
-        className={`mb-4 ${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} w-12 h-12 rounded-2xl items-center justify-center border shadow-sm`}
-      >
-        <MaterialCommunityIcons name="arrow-left" size={28} color={theme === 'dark' ? '#FFF' : '#000'} />
-      </TouchableOpacity>
-      <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>School</Text>
-      <Text className="text-2xl font-bold text-brand-pink tracking-tight">Finance Audit 💎</Text>
+  <View className="mb-8">
+    <View className="absolute top-0 left-0 right-0 h-[450px] overflow-hidden">
+        <LinearGradient
+            colors={[theme === 'dark' ? '#1e1b4b' : '#FDF2F8', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
+            className="absolute inset-0"
+        />
+        <Image 
+            source={require('../../assets/images/playschool_actions.png')} 
+            style={{ width: '100%', height: '100%', opacity: theme === 'dark' ? 0.08 : 0.15, transform: [{ scale: 1.5 }, { translateY: -40 }] }}
+            resizeMode="cover"
+        />
     </View>
-    <View className="bg-brand-pink w-20 h-20 rounded-3xl items-center justify-center shadow-lg border-4 border-white rotate-3">
-       <MaterialCommunityIcons name="finance" size={48} color="white" />
+    
+    <View className="flex-row items-center justify-between px-6 pt-12">
+      <View className="flex-1">
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()} 
+          className={`${theme === 'dark' ? 'bg-[#25251d] border-gray-800' : 'bg-white border-brand-pink/10'} w-14 h-14 rounded-2xl items-center justify-center border shadow-xl mb-6`}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={28} color={theme === 'dark' ? '#FFF' : '#F472B6'} />
+        </TouchableOpacity>
+        <Text className={`text-5xl font-black ${colors.text} tracking-tighter`}>Finance</Text>
+        <Text className="text-2xl font-black text-brand-pink mt-[-4px]">Intelligence 💎</Text>
+      </View>
+      <View className="bg-brand-pink w-24 h-24 rounded-[36px] items-center justify-center shadow-2xl border-4 border-white rotate-3 relative overflow-hidden">
+         <MaterialCommunityIcons name="finance" size={48} color="white" />
+         <View className="absolute -bottom-2 -right-2 opacity-20">
+            <MaterialCommunityIcons name="chart-bell-curve-cumulative" size={60} color="white" />
+         </View>
+      </View>
     </View>
   </View>
 );
 
-// ─── Balance Summary Card Component ──────────────────────────────────
 const SummaryDashboard = ({ net, totalIncome, totalExpense, colors, theme, onPrint, pdfLoading, rupee }: any) => (
-  <View className="mb-8 mt-2">
-      <View className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} rounded-[40px] p-8 border shadow-xl`}>
-          <View className="flex-row items-center justify-between mb-8">
-              <View>
-                  <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-1`}>Total Net Balance</Text>
-                  <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>{rupee(net)}</Text>
-              </View>
-              <TouchableOpacity 
-                onPress={onPrint} 
-                disabled={pdfLoading}
-                className="w-16 h-16 rounded-2xl bg-brand-pink items-center justify-center shadow-lg shadow-brand-pink/20"
-              >
-                  {pdfLoading ? <ActivityIndicator color="white" /> : <MaterialCommunityIcons name="file-chart" size={32} color="white" />}
-              </TouchableOpacity>
-          </View>
+  <View className="px-6 mb-10 overflow-visible">
+    <TouchableOpacity 
+      activeOpacity={0.95}
+      style={{ elevation: 15 }}
+      className={`rounded-[48px] overflow-hidden shadow-2xl border-2 ${theme === 'dark' ? 'bg-[#1a1a18] border-gray-800' : 'bg-white border-white'}`}
+    >
+        <LinearGradient
+            colors={theme === 'dark' ? ['#25251d', '#1c1c14'] : ['#FFFFFF', '#F9FAFB']}
+            className="p-8"
+        >
+            <View className="flex-row items-center justify-between mb-8">
+                <View>
+                    <Text className={`text-[10px] font-black uppercase tracking-[4px] ${colors.textTertiary} mb-2 opacity-70`}>GLOBAL NET LIQUIDITY</Text>
+                    <Text className={`text-5xl font-black ${colors.text} tracking-tighter`}>{rupee(net)}</Text>
+                </View>
+                <TouchableOpacity 
+                    onPress={onPrint} 
+                    disabled={pdfLoading}
+                    className="w-16 h-16 rounded-[22px] bg-brand-pink items-center justify-center shadow-xl shadow-brand-pink/30"
+                >
+                    {pdfLoading ? <ActivityIndicator color="white" /> : <MaterialCommunityIcons name="printer-eye" size={32} color="white" />}
+                </TouchableOpacity>
+            </View>
 
-          <View className="flex-row justify-between pt-6 border-t border-gray-100 dark:border-gray-800">
-              <View className="items-center">
-                  <Text className="text-green-500 font-black text-xl">{rupee(totalIncome)}</Text>
-                  <Text className={`text-[8px] font-black uppercase tracking-widest ${colors.textTertiary}`}>Total Revenue</Text>
-              </View>
-              <View className="items-center">
-                  <Text className="text-red-500 font-black text-xl">{rupee(totalExpense)}</Text>
-                  <Text className={`text-[8px] font-black uppercase tracking-widest ${colors.textTertiary}`}>Total Expenses</Text>
-              </View>
-          </View>
-      </View>
+            <View className="flex-row gap-4 pt-8 border-t border-gray-100 dark:border-white/5">
+                <View className="flex-1 bg-green-500/5 dark:bg-green-500/10 p-5 rounded-[28px] border border-green-500/10 items-center">
+                    <MaterialCommunityIcons name="trending-up" size={22} color="#10B981" />
+                    <Text className="text-green-500 font-black text-lg mt-1 tracking-tight">{rupee(totalIncome)}</Text>
+                    <Text className="text-[8px] font-black text-green-600/60 uppercase tracking-widest mt-1">REVENUE</Text>
+                </View>
+                <View className="flex-1 bg-red-500/5 dark:bg-red-500/10 p-5 rounded-[28px] border border-red-500/10 items-center">
+                    <MaterialCommunityIcons name="trending-down" size={22} color="#EF4444" />
+                    <Text className="text-red-500 font-black text-lg mt-1 tracking-tight">{rupee(totalExpense)}</Text>
+                    <Text className="text-[8px] font-black text-red-600/60 uppercase tracking-widest mt-1">EXPENSES</Text>
+                </View>
+            </View>
+        </LinearGradient>
+    </TouchableOpacity>
   </View>
 );
 
@@ -108,36 +136,51 @@ function ProfDatePicker({ label, value, onChange, theme, colors }: {
 const DropdownSelect = ({ label, value, options, onSelect, colors, theme, icon }: any) => {
   const [isOpen, setIsOpen] = useState(false);
   return (
-    <View className="mb-6">
-      <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-2 ml-1`}>{label}</Text>
+    <View className="mb-8 overflow-visible">
+      <Text className={`text-[10px] font-black uppercase tracking-[4px] ${colors.textTertiary} mb-4 ml-1 opacity-60`}>{label}</Text>
       <TouchableOpacity 
         onPress={() => setIsOpen(true)}
-        activeOpacity={0.8}
-        className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} p-4 rounded-2xl border flex-row items-center justify-between shadow-sm`}
+        activeOpacity={0.9}
+        className={`${theme === 'dark' ? 'bg-[#25251d] border-gray-800' : 'bg-white border-brand-pink/10'} p-6 rounded-[36px] border shadow-xl flex-row items-center justify-between`}
       >
         <View className="flex-row items-center">
-          <View className={`w-8 h-8 rounded-lg items-center justify-center mr-3 ${value === 'income' ? 'bg-green-500/10' : (value === 'expense' ? 'bg-red-500/10' : 'bg-brand-pink/10')}`}>
-            <MaterialCommunityIcons name={icon || "layers-outline"} size={18} color={value === 'income' ? '#10B981' : (value === 'expense' ? '#EF4444' : '#F472B6')} />
+          <View className={`w-14 h-14 rounded-[22px] items-center justify-center mr-4 shadow-sm ${value === 'income' ? 'bg-green-500/10' : (value === 'expense' ? 'bg-red-500/10' : 'bg-brand-pink/10')}`}>
+            <MaterialCommunityIcons name={icon || "layers-outline"} size={28} color={value === 'income' ? '#10B981' : (value === 'expense' ? '#EF4444' : '#F472B6')} />
           </View>
-          <Text className={`font-black ${value ? colors.text : colors.textTertiary} capitalize`}>{value || 'Select'}</Text>
+          <View>
+            <Text className={`text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5`}>Current Selection</Text>
+            <Text className={`text-xl font-black ${value ? colors.text : colors.textTertiary} capitalize tracking-tighter`}>{value || 'Select Choice'}</Text>
+          </View>
         </View>
-        <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textTertiary} />
+        <MaterialCommunityIcons name="chevron-down" size={28} color={theme === 'dark' ? '#F472B6' : colors.textTertiary} />
       </TouchableOpacity>
 
       <Modal visible={isOpen} transparent animationType="fade">
         <TouchableOpacity activeOpacity={1} onPress={() => setIsOpen(false)} className="flex-1 bg-black/60 items-center justify-center px-6">
-          <View className={`${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-white'} w-full rounded-[32px] p-6 shadow-2xl`}>
-            <Text className={`text-xl font-black ${colors.text} mb-4 text-center`}>Select {label}</Text>
+          <View className={`${theme === 'dark' ? 'bg-[#1a1a18]' : 'bg-white'} w-full rounded-[45px] p-8 shadow-2xl overflow-hidden`}>
+            <View className="absolute top-0 right-0 opacity-10">
+                <MaterialCommunityIcons name="format-list-bulleted-type" size={150} color={colors.text} />
+            </View>
+            <Text className={`text-2xl font-black ${colors.text} mb-8 text-center tracking-tighter`}>Select Ledger 📂</Text>
             {options.map((opt: any) => (
               <TouchableOpacity
                 key={opt.value}
                 onPress={() => { onSelect(opt.value); setIsOpen(false); }}
-                className={`flex-row items-center p-4 rounded-2xl mb-2 ${value === opt.value ? 'bg-brand-pink' : (theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100')}`}
+                className={`flex-row items-center p-5 rounded-[28px] mb-4 border-2 ${value === opt.value ? 'bg-brand-pink border-brand-pink shadow-lg shadow-brand-pink/30' : (theme === 'dark' ? 'bg-[#25251d] border-white/5' : 'bg-gray-50 border-transparent')}`}
               >
-                <MaterialCommunityIcons name={opt.icon} size={20} color={value === opt.value ? 'white' : colors.textTertiary} />
-                <Text className={`ml-3 font-black ${value === opt.value ? 'text-white' : colors.text}`}>{opt.label}</Text>
+                <View className={`w-12 h-12 rounded-2xl items-center justify-center ${value === opt.value ? 'bg-white/20' : 'bg-brand-pink/10'}`}>
+                    <MaterialCommunityIcons name={opt.icon} size={24} color={value === opt.value ? 'white' : '#F472B6'} />
+                </View>
+                <Text className={`ml-4 font-black text-lg ${value === opt.value ? 'text-white' : colors.text} tracking-tight`}>{opt.label}</Text>
+                {value === opt.value && (
+                    <MaterialCommunityIcons name="check-circle" size={20} color="white" style={{ marginLeft: 'auto' }} />
+                )}
               </TouchableOpacity>
             ))}
+            
+            <TouchableOpacity onPress={() => setIsOpen(false)} className="mt-4 items-center p-4">
+                <Text className="font-black text-gray-400 uppercase tracking-[4px] text-[10px]">Cancel Action</Text>
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -189,11 +232,11 @@ const NewEntryForm = memo(({ theme, colors, onSubmit, isSubmitting, initialData,
   return (
     <View style={{ flex: 1 }}>
       <DropdownSelect 
-        label="Transaction Type"
+        label="Operational Channel"
         value={type}
         options={[
-          { label: 'Income', value: 'income', icon: 'trending-up' },
-          { label: 'Expense', value: 'expense', icon: 'trending-down' }
+          { label: 'Asset Income', value: 'income', icon: 'trending-up' },
+          { label: 'Liability Expense', value: 'expense', icon: 'trending-down' }
         ]}
         onSelect={setType}
         colors={colors}
@@ -201,76 +244,88 @@ const NewEntryForm = memo(({ theme, colors, onSubmit, isSubmitting, initialData,
         icon={type === 'income' ? 'trending-up' : 'trending-down'}
       />
 
-      <View className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} rounded-[40px] p-8 border shadow-xl`}>
-          <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-6 text-center`}>
-            Transaction Entry
+      <View className={`${theme === 'dark' ? 'bg-[#1a1a18] border-gray-800' : 'bg-white border-brand-pink/10'} rounded-[48px] p-8 border-2 shadow-2xl`}>
+          <Text className={`text-[10px] font-black uppercase tracking-[4px] ${colors.textTertiary} mb-8 text-center opacity-60`}>
+            INSTITUTIONAL LEDGER ENTRY
           </Text>
 
-          <View className="mb-6">
-            <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-2`}>Description</Text>
-            <TextInput 
-                value={name} onChangeText={setName} 
-                placeholder="Ex: Tuition Fees" 
-                placeholderTextColor={theme === 'dark' ? '#4b4b4b' : '#E5E7EB'}
-                className={`text-xl font-black ${colors.text}`}
-            />
-            <View className="h-[1px] bg-gray-100 dark:bg-gray-800 mt-2" />
+          <View className="mb-8">
+            <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textTertiary} mb-3 opacity-60`}>Audit Description</Text>
+            <View className={`flex-row items-center p-6 rounded-[28px] ${theme === 'dark' ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-100'} border-2 shadow-sm`}>
+                <MaterialCommunityIcons name="text-box-search-outline" size={24} color="#F472B6" style={{ marginRight: 15 }} />
+                <TextInput 
+                    value={name} onChangeText={setName} 
+                    placeholder="Ex: Term Fees, Salary..." 
+                    placeholderTextColor={theme === 'dark' ? '#333' : '#9CA3AF'}
+                    className={`flex-1 text-xl font-black ${colors.text} tracking-tight`}
+                />
+            </View>
           </View>
 
-          <View className="flex-row gap-6 mb-6">
+          <View className="flex-row gap-5 mb-8">
             <View className="flex-1">
-                <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-2`}>Amount (₹)</Text>
-                <TextInput 
-                    value={amount} onChangeText={setAmount} 
-                    placeholder="0.00" 
-                    keyboardType="numeric"
-                    placeholderTextColor={theme === 'dark' ? '#4b4b4b' : '#E5E7EB'}
-                    className={`text-2xl font-black ${type === 'income' ? 'text-green-500' : 'text-red-500'}`}
-                />
-                <View className="h-[1px] bg-gray-100 dark:bg-gray-800 mt-2" />
+                <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textTertiary} mb-3 opacity-60`}>Value (₹)</Text>
+                <View className={`p-6 rounded-[28px] ${theme === 'dark' ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-100'} border-2 shadow-sm`}>
+                    <TextInput 
+                        value={amount} onChangeText={setAmount} 
+                        placeholder="0.00" 
+                        keyboardType="numeric"
+                        placeholderTextColor={theme === 'dark' ? '#333' : '#FBCFE8'}
+                        className={`text-2xl font-black ${type === 'income' ? 'text-green-500' : 'text-red-500'} tracking-tighter`}
+                    />
+                </View>
             </View>
             <View className="flex-1">
-                <Text className={`text-[10px] font-black uppercase tracking-[2px] ${colors.textTertiary} mb-2`}>Category</Text>
+                <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textTertiary} mb-3 opacity-60`}>Classification</Text>
                 <TouchableOpacity 
-                  onPress={() => Alert.alert('Pick Category', 'Select transaction classification', [
+                  onPress={() => Alert.alert('Audit Classification', 'Assign transaction category', [
                     { text: 'Salaries', onPress: () => setCategory('Salaries') },
                     { text: 'Fees Revenue', onPress: () => setCategory('Fees') },
-                    { text: 'Maintenance', onPress: () => setCategory('Maintenance') },
+                    { text: 'Utility/Maint', onPress: () => setCategory('Maintenance') },
+                    { text: 'Infrastructure', onPress: () => setCategory('Infrastructure') },
                     { text: 'Stationery', onPress: () => setCategory('Stationery') },
-                    { text: 'Other', onPress: () => setCategory('Miscellaneous') },
+                    { text: 'Other Audit', onPress: () => setCategory('Miscellaneous') },
                     { text: 'Cancel', style: 'cancel' }
                   ])}
-                  className={`p-3 rounded-2xl border ${colors.border} flex-row justify-between items-center`}
+                  className={`p-6 rounded-[28px] ${theme === 'dark' ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-100'} border-2 flex-row justify-between items-center shadow-sm`}
                 >
-                  <Text className={`font-black text-xs ${category ? colors.text : colors.textTertiary}`}>{category || 'Select Type'}</Text>
-                  <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textTertiary} />
+                  <Text className={`font-black text-[10px] tracking-widest uppercase ${category ? colors.text : colors.textTertiary}`}>{category || 'TYPE'}</Text>
+                  <MaterialCommunityIcons name="layers-triple-outline" size={20} color={theme === 'dark' ? '#F472B6' : colors.textTertiary} />
                 </TouchableOpacity>
             </View>
           </View>
 
-          <View className="mb-8">
-            <ProfDatePicker label="Date Selection" value={date} onChange={setDate} theme={theme} colors={colors} />
+          <View className="mb-10">
+            <ProfDatePicker label="Audit Date" value={date} onChange={setDate} theme={theme} colors={colors} />
           </View>
 
           <TouchableOpacity 
             onPress={handleSubmit} 
             disabled={isSubmitting} 
-            activeOpacity={0.8}
-            className={`bg-brand-pink py-6 rounded-[28px] items-center justify-center flex-row shadow-lg shadow-brand-pink/30`}
+            activeOpacity={0.85}
+            className={`overflow-hidden rounded-[36px] shadow-2xl`}
+            style={{ elevation: 15 }}
           >
-            {isSubmitting ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <>
-                <MaterialCommunityIcons name={initialData ? "sync" : "plus-circle"} size={22} color="white" />
-                <Text className="text-white font-black text-lg ml-2 uppercase tracking-widest">{initialData ? 'Update Record' : 'Post Transaction'}</Text>
-              </>
-            )}
+            <LinearGradient
+                colors={['#FBBF24', '#D97706']}
+                className="py-8 items-center justify-center flex-row px-8"
+            >
+                {isSubmitting ? (
+                    <ActivityIndicator color="white" />
+                ) : (
+                    <>
+                        <MaterialCommunityIcons name={initialData ? "shield-sync-outline" : "plus-circle-outline"} size={32} color="white" />
+                        <Text className="text-white font-black text-2xl ml-3 uppercase tracking-[4px] leading-none mt-1">
+                            {initialData ? 'AUTHORIZE' : 'PUBLISH'}
+                        </Text>
+                    </>
+                )}
+            </LinearGradient>
           </TouchableOpacity>
 
           {initialData && (
-             <TouchableOpacity onPress={onCancel} className="mt-4 items-center">
-                <Text className={`font-black ${colors.textTertiary} text-[10px] uppercase tracking-widest`}>Cancel Editing</Text>
+             <TouchableOpacity onPress={onCancel} className="mt-8 items-center p-4">
+                <Text className={`font-black ${colors.textTertiary} text-[11px] uppercase tracking-[5px] opacity-40`}>DISCARD CHANGES</Text>
              </TouchableOpacity>
           )}
       </View>
@@ -281,37 +336,48 @@ const NewEntryForm = memo(({ theme, colors, onSubmit, isSubmitting, initialData,
 // ─── Daily Log Item (Matches Attendance Log Style) ───────────────────────────────────
 const TxItem = memo(({ item, theme, colors, onDelete, onEdit }: { item: Transaction; theme: string; colors: any; onDelete: (id: string) => void; onEdit: (t: Transaction) => void; }) => (
     <TouchableOpacity 
-        activeOpacity={0.8} 
+        activeOpacity={0.9} 
         onPress={() => onEdit(item)}
-        className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100'} p-5 mb-4 border rounded-[32px] shadow-sm`}
+        style={{ elevation: 12 }}
+        className={`${theme === 'dark' ? 'bg-[#1a1a18] border-gray-800' : 'bg-white border-white'} p-6 mb-6 border-2 rounded-[40px] shadow-2xl relative overflow-hidden`}
     >
+        <View className="absolute top-0 right-0 opacity-10">
+            <MaterialCommunityIcons name={item.type === 'income' ? 'finance' : 'bank-transfer-out'} size={120} color={item.type === 'income' ? '#10B981' : '#EF4444'} />
+        </View>
+        
         <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center">
-                <View className={`${item.type === 'income' ? 'bg-green-500' : 'bg-red-500'} w-14 h-14 rounded-[20px] items-center justify-center mr-4 shadow-sm`}>
-                    <MaterialCommunityIcons name={item.type === 'income' ? 'arrow-down-bold' : 'arrow-up-bold'} size={28} color="white" />
+            <View className="flex-row items-center flex-1">
+                <View className={`${item.type === 'income' ? 'bg-green-500' : 'bg-red-500'} w-16 h-16 rounded-[24px] items-center justify-center mr-5 shadow-lg relative`}>
+                    <MaterialCommunityIcons name={item.type === 'income' ? 'arrow-down-bold-circle' : 'arrow-up-bold-circle'} size={38} color="white" />
                 </View>
-                <View>
-                    <Text className={`font-black ${colors.text} text-base mb-0.5`}>{item.name}</Text>
+                <View className="flex-1">
+                    <Text className={`font-black ${colors.text} text-xl tracking-tighter mb-0.5`} numberOfLines={1}>{item.name}</Text>
                     <View className="flex-row items-center">
-                        <View className={`${item.type === 'income' ? 'bg-green-50' : 'bg-red-50'} px-2 py-0.5 rounded-md`}>
-                            <Text className={`text-[8px] font-black uppercase tracking-widest ${item.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{item.category}</Text>
+                        <View className={`${item.type === 'income' ? 'bg-green-100 dark:bg-green-500/20' : 'bg-red-100 dark:bg-red-500/20'} px-3 py-1 rounded-lg`}>
+                            <Text className={`text-[9px] font-black uppercase tracking-widest ${item.type === 'income' ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>{item.category}</Text>
                         </View>
-                        <View className="w-1 h-1 rounded-full bg-gray-300 mx-2" />
-                        <Text className={`text-[10px] font-black uppercase ${colors.textTertiary}`}>{item.date}</Text>
+                        <View className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-700 mx-3" />
+                        <Text className={`text-[10px] font-black uppercase tracking-widest ${colors.textTertiary} opacity-60`}>{item.date}</Text>
                     </View>
                 </View>
             </View>
             
-            <View className="items-end">
-                <Text className={`font-black text-lg ${item.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
+            <View className="items-end ml-2">
+                <Text className={`font-black text-2xl tracking-tighter ${item.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
                     {item.type === 'income' ? '+' : '-'} ₹{item.amount.toLocaleString()}
                 </Text>
-                <View className="flex-row mt-2">
-                    <TouchableOpacity onPress={() => onEdit(item)} className="mr-3">
-                        <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.textTertiary} />
+                <View className="flex-row mt-3 gap-2">
+                    <TouchableOpacity 
+                        onPress={() => onEdit(item)} 
+                        className="w-10 h-10 bg-gray-100 dark:bg-white/10 rounded-xl items-center justify-center border border-gray-200 dark:border-white/10"
+                    >
+                        <MaterialCommunityIcons name="pencil-outline" size={18} color={theme === 'dark' ? '#9CA3AF' : '#4B5563'} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => onDelete(item.id)}>
-                        <MaterialCommunityIcons name="trash-can-outline" size={16} color="#F87171" />
+                    <TouchableOpacity 
+                        onPress={() => onDelete(item.id)} 
+                        className="w-10 h-10 bg-red-500 rounded-xl items-center justify-center shadow-md shadow-red-500/20"
+                    >
+                        <MaterialCommunityIcons name="trash-can-outline" size={18} color="white" />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -431,41 +497,52 @@ export default function IncomeExpenseScreen({ navigation }: IncomeExpenseScreenP
   const rupee = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
   const renderTabSelector = () => (
-    <View className="flex-row gap-4 mb-6">
+    <View className="flex-row gap-5 mb-10 px-6">
       <TouchableOpacity 
+        activeOpacity={0.9}
         onPress={() => { setActiveTab('history'); setEditingItem(null); }}
-        className={`flex-1 py-4 rounded-[24px] items-center justify-center border shadow-sm ${activeTab === 'history' ? 'bg-brand-pink border-brand-pink shadow-brand-pink/20' : (theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100')}`}
+        className={`flex-1 py-5 rounded-[28px] items-center justify-center border-2 shadow-2xl relative overflow-hidden ${activeTab === 'history' ? 'bg-brand-pink border-brand-pink' : (theme === 'dark' ? 'bg-[#25251d] border-gray-800' : 'bg-white border-brand-pink/5')}`}
       >
-        <Text className={`font-black text-[10px] uppercase tracking-widest ${activeTab === 'history' ? 'text-white' : colors.textSecondary}`}>Records Log</Text>
+        <Text className={`font-black text-[10px] uppercase tracking-[4px] leading-tight ${activeTab === 'history' ? 'text-white' : colors.textSecondary}`}>REGISTRY</Text>
+        {activeTab === 'history' && (
+            <View className="absolute top-[-10] right-[-10] opacity-20 rotate-12">
+                <MaterialCommunityIcons name="database-check" size={60} color="white" />
+            </View>
+        )}
       </TouchableOpacity>
       <TouchableOpacity 
+        activeOpacity={0.9}
         onPress={() => setActiveTab('entry')}
-        className={`flex-1 py-4 rounded-[24px] items-center justify-center border shadow-sm ${activeTab === 'entry' ? 'bg-brand-pink border-brand-pink shadow-brand-pink/20' : (theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100')}`}
+        className={`flex-1 py-5 rounded-[28px] items-center justify-center border-2 shadow-2xl relative overflow-hidden ${activeTab === 'entry' ? 'bg-brand-pink border-brand-pink' : (theme === 'dark' ? 'bg-[#25251d] border-gray-800' : 'bg-white border-brand-pink/5')}`}
       >
-        <Text className={`font-black text-[10px] uppercase tracking-widest ${activeTab === 'entry' ? 'text-white' : colors.textSecondary}`}>{editingItem ? 'Edit Entry' : 'Manual Entry'}</Text>
+        <Text className={`font-black text-[10px] uppercase tracking-[4px] leading-tight ${activeTab === 'entry' ? 'text-white' : colors.textSecondary}`}>{editingItem ? 'UPDATE' : 'POST ENTRY'}</Text>
+        {activeTab === 'entry' && (
+            <View className="absolute top-[-10] right-[-10] opacity-20 rotate-12">
+                <MaterialCommunityIcons name="pencil-plus" size={60} color="white" />
+            </View>
+        )}
       </TouchableOpacity>
     </View>
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF', paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}>
       
       {activeTab === 'history' ? (
         <FlatList
           data={filtered}
           keyExtractor={item => item.id}
           renderItem={({item}) => (
-            <TxItem item={item} theme={theme} colors={colors} onDelete={handleDelete} onEdit={handleEdit} />
+            <View className="px-6">
+                <TxItem item={item} theme={theme} colors={colors} onDelete={handleDelete} onEdit={handleEdit} />
+            </View>
           )}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}
+          contentContainerStyle={{ paddingBottom: 100 }}
           ListHeaderComponent={
-            <View className="pt-4">
-               {/* Rollable Header */}
+            <View>
                <ScreenHeader navigation={navigation} theme={theme} colors={colors} />
-               
-               {/* Rollable Dashboard */}
                <SummaryDashboard 
                   net={net} 
                   totalIncome={totalIncome} 
@@ -476,24 +553,21 @@ export default function IncomeExpenseScreen({ navigation }: IncomeExpenseScreenP
                   pdfLoading={pdfLoading} 
                   rupee={rupee} 
                />
-
-               {/* Rollable Tab Selector */}
                {renderTabSelector()}
-
-               {/* Rollable Filters */}
-               <View className="mb-6">
-                  <Text className={`text-xs font-black uppercase tracking-widest ${colors.textTertiary} mb-4`}>Filter Records</Text>
-                  <View className="flex-row gap-4 mb-6">
-                      <ProfDatePicker label="From Date" value={fromDate} onChange={setFromDate} theme={theme} colors={colors} />
-                      <ProfDatePicker label="To Date" value={toDate} onChange={setToDate} theme={theme} colors={colors} />
+               <View className="px-6 mb-10">
+                  <Text className={`text-[10px] font-black uppercase tracking-[4px] ${colors.textTertiary} mb-6 opacity-60`}>Ledger Intelligence Filter</Text>
+                  <View className="flex-row gap-5 mb-8">
+                      <ProfDatePicker label="COMMENCEMENT" value={fromDate} onChange={setFromDate} theme={theme} colors={colors} />
+                      <ProfDatePicker label="TERMINATION" value={toDate} onChange={setToDate} theme={theme} colors={colors} />
                   </View>
 
-                  <View className="flex-row gap-3">
+                  <View className="flex-row items-center gap-3">
                     {(['all', 'income', 'expense'] as const).map(f => (
                       <TouchableOpacity 
                         key={f} 
+                        activeOpacity={0.8}
                         onPress={() => setTypeFilter(f)}
-                        className={`py-3 px-6 rounded-2xl border ${typeFilter === f ? 'bg-brand-pink/10 border-brand-pink' : (theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-gray-100')}`}
+                        className={`py-4 px-6 rounded-2xl border-2 ${typeFilter === f ? 'bg-brand-pink/10 border-brand-pink' : (theme === 'dark' ? 'bg-[#25251d] border-gray-800' : 'bg-gray-50 border-gray-100')}`}
                       >
                         <Text className={`font-black text-[10px] uppercase tracking-widest ${typeFilter === f ? 'text-brand-pink' : colors.textSecondary}`}>{f}</Text>
                       </TouchableOpacity>
@@ -501,19 +575,26 @@ export default function IncomeExpenseScreen({ navigation }: IncomeExpenseScreenP
                     {(fromDate || toDate || typeFilter !== 'all') && (
                       <TouchableOpacity 
                         onPress={() => { setFromDate(''); setToDate(''); setTypeFilter('all'); }}
-                        className="ml-auto w-10 h-10 border border-red-100 bg-red-50 rounded-xl items-center justify-center"
+                        className="ml-auto w-14 h-14 border-2 border-red-500/20 bg-red-500/5 rounded-2xl items-center justify-center shadow-sm"
                       >
-                        <MaterialCommunityIcons name="refresh" size={18} color="#EF4444" />
+                        <MaterialCommunityIcons name="refresh" size={24} color="#EF4444" />
                       </TouchableOpacity>
                     )}
                   </View>
                </View>
+
+               <View className="px-6 mb-6">
+                  <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>Transaction Logs</Text>
+                  <Text className="text-[10px] font-black uppercase tracking-[3px] text-brand-pink mt-1">Audit Trail Active</Text>
+               </View>
             </View>
           }
           ListEmptyComponent={
-            <View className="items-center py-20 opacity-30">
-               <MaterialCommunityIcons name="database-off-outline" size={64} color={colors.textTertiary} />
-               <Text className={`font-black uppercase tracking-[3px] mt-4 ${colors.textTertiary} text-center`}>No Financial Records</Text>
+            <View className="items-center py-24 opacity-30 px-6">
+               <View className="bg-gray-100 dark:bg-white/5 p-12 rounded-[50px] mb-8">
+                  <MaterialCommunityIcons name="database-off-outline" size={80} color={colors.textTertiary} />
+               </View>
+               <Text className={`font-black uppercase tracking-[5px] ${colors.textTertiary} text-center text-sm px-10`}>NO FINANCIAL DATA RETRIEVED</Text>
             </View>
           }
         />
@@ -522,10 +603,9 @@ export default function IncomeExpenseScreen({ navigation }: IncomeExpenseScreenP
           showsVerticalScrollIndicator={false} 
           className="flex-1"
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 4, paddingBottom: 100 }}
+          contentContainerStyle={{ paddingBottom: 100 }}
         >
            <ScreenHeader navigation={navigation} theme={theme} colors={colors} />
-           {renderTabSelector()}
            <SummaryDashboard 
               net={net} 
               totalIncome={totalIncome} 
@@ -536,15 +616,27 @@ export default function IncomeExpenseScreen({ navigation }: IncomeExpenseScreenP
               pdfLoading={pdfLoading} 
               rupee={rupee} 
            />
-           <NewEntryForm 
-              theme={theme} 
-              colors={colors}
-              onSubmit={handleApplyAction} 
-              isSubmitting={isSubmitting} 
-              initialData={editingItem}
-              onCancel={() => { setEditingItem(null); setActiveTab('history'); }} 
-           />
+           {renderTabSelector()}
+           <View className="px-6">
+             <NewEntryForm 
+                theme={theme} 
+                colors={colors}
+                onSubmit={handleApplyAction} 
+                isSubmitting={isSubmitting} 
+                initialData={editingItem}
+                onCancel={() => { setEditingItem(null); setActiveTab('history'); }} 
+             />
+           </View>
         </ScrollView>
+      )}
+
+      {(isSubmitting || pdfLoading) && (
+          <View className="absolute inset-0 bg-black/60 items-center justify-center z-50">
+             <View className="bg-white dark:bg-[#1a1a18] p-10 rounded-[40px] items-center shadow-2xl">
+                <ActivityIndicator color="#F472B6" size="large" />
+                <Text className="text-gray-900 dark:text-white font-black mt-6 uppercase tracking-[4px] text-[10px]">Processing Protocol...</Text>
+             </View>
+          </View>
       )}
     </View>
   );

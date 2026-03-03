@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Switch, Alert, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+
 
 interface NavigationProps {
   navigate: (screen: string) => void;
@@ -66,28 +68,53 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   ];
 
   return (
-    <SafeAreaView className={`flex-1 ${colors.background}`}>
-      {/* Consistent Header */}
-      <View className="px-6 pt-4 pb-4">
+    <View className={`flex-1 ${colors.background}`} style={{ backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}>
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      {/* ── Background Gradient & 3D Illustration ── */}
+      <View className="absolute top-0 left-0 right-0 h-[450px] overflow-hidden">
+        <LinearGradient
+            colors={[theme === 'dark' ? '#3d1d2b' : '#FDF2F8', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
+            className="absolute inset-0"
+        />
+        <Image 
+            source={require('../../assets/images/playschool_settings.png')} 
+            style={{ width: '100%', height: '100%', opacity: theme === 'dark' ? 0.15 : 0.25, transform: [{ scale: 1.1 }, { translateY: -10 }] }}
+            resizeMode="cover"
+        />
+        {/* Soft pink overlap glow */}
+        <View className="absolute -top-20 -left-20 w-64 h-64 bg-brand-pink/10 rounded-full blur-3xl" />
+        
+        {/* Smooth transition gradient to content */}
+        <LinearGradient
+            colors={['transparent', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
+            className="absolute bottom-0 left-0 right-0 h-40"
+        />
+      </View>
+
+      {/* Header */}
+      <View className="px-6 pt-10 pb-6">
         <View className="flex-row items-center justify-between">
-          <View className="flex-1">
-            <TouchableOpacity 
-              onPress={() => navigation.goBack()} 
-              className={`mb-4 ${colors.surface} w-12 h-12 rounded-2xl items-center justify-center border ${colors.border}`}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons name="arrow-left" size={28} color={theme === 'dark' ? '#FFF' : '#000'} />
-            </TouchableOpacity>
-            <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>System</Text>
-            <Text className="text-2xl font-bold text-brand-pink">Settings ⚙️</Text>
-          </View>
-          <View className="bg-gray-600 w-16 h-16 rounded-3xl items-center justify-center">
-            <MaterialCommunityIcons name="cog" size={32} color="white" />
-          </View>
+            <View className="flex-1">
+                <TouchableOpacity 
+                    onPress={() => navigation.goBack()} 
+                    className={`mb-4 ${theme === 'dark' ? 'bg-[#191919] border-gray-800' : 'bg-white border-brand-pink/20'} w-12 h-12 rounded-2xl items-center justify-center border shadow-sm`}
+                    activeOpacity={0.7}
+                >
+                    <MaterialCommunityIcons name="arrow-left" size={28} color={theme === 'dark' ? '#FFF' : '#F472B6'} />
+                </TouchableOpacity>
+                <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>System</Text>
+                <Text className="text-2xl font-bold text-brand-pink">Settings ⚙️</Text>
+                <View className="bg-brand-pink/20 self-start px-3 py-1 rounded-full mt-2 border border-brand-pink/10 shadow-sm">
+                    <Text className="text-brand-pink text-[9px] font-black uppercase tracking-[2px]">Configurations</Text>
+                </View>
+            </View>
+            <View className="bg-brand-yellow w-20 h-20 rounded-3xl items-center justify-center shadow-lg border-4 border-white rotate-3">
+                <MaterialCommunityIcons name="cog-outline" size={42} color="#92400E" />
+            </View>
         </View>
       </View>
 
-      <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
+      <View className="px-6">
         {settingsSections.map((section, sectionIndex) => (
           <View key={sectionIndex} className="mb-6">
             <Text className={`text-xl font-black ${colors.text} mb-4 ml-1 uppercase tracking-widest opacity-60`}>
@@ -160,8 +187,9 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
           <MaterialCommunityIcons name="chevron-right" size={24} color={theme === 'dark' ? '#9CA3AF' : '#6B7280'} />
         </TouchableOpacity>
 
-        <View className="h-20" />
+      </View>
+      <View className="h-20" />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

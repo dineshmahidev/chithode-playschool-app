@@ -25,11 +25,39 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
 
   const myFees = useMemo(() => {
     if (!user) return [];
-    return allFees.filter(f => 
-      f.student_id === user.studentId || 
-      (user.id && f.student_id === user.id.toString())
-    );
+    const studentUid = user.studentId || (user.id ? user.id.toString() : '');
+    return allFees.filter(f => f.student_id === studentUid);
   }, [allFees, user]);
+
+  const currentMonthStr = useMemo(() => {
+    const d = new Date();
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return `${months[d.getMonth()]} ${d.getFullYear()}`;
+  }, []);
+
+  const overdueMonthInfo = useMemo(() => {
+    if (!user || user.role !== 'student') return null;
+    
+    const studentUid = user.studentId || (user.id ? user.id.toString() : '');
+    const currentMonthFee = allFees.find(f => 
+      f.student_id === studentUid && 
+      f.date === currentMonthStr &&
+      f.type === 'Monthly Fee'
+    );
+
+    const isPaid = currentMonthFee?.status === 'paid';
+    const dueDay = parseInt(user.fee_due_day || '5');
+    const today = new Date().getDate();
+    const isOverdue = !isPaid && today > dueDay;
+
+    return {
+      fee: currentMonthFee,
+      isPaid,
+      isOverdue,
+      amount: parseInt(user.fees || '0'),
+      dueDay
+    };
+  }, [allFees, user, currentMonthStr]);
 
   const feeDetails = useMemo(() => {
     return feeStructures.map(fs => {
@@ -361,25 +389,33 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
         {activeTab === 'dashboard' ? (
           <>
             {/* Fee Summary */}
-            <View className={`${colors.surface} rounded-[28px] p-6 mb-6 border ${colors.border}`}>
-              <Text className={`text-lg font-black ${colors.text} mb-4`}>Fee Summary</Text>
+            <View className={`${colors.surface} rounded-[28px] p-6 mb-6 border-2 ${overdueMonthInfo?.isOverdue ? 'border-red-500' : colors.border} relative overflow-hidden`}>
+              {overdueMonthInfo?.isOverdue && (
+                <View className="bg-red-500 absolute top-0 right-0 left-0 py-2 items-center">
+                  <Text className="text-white text-[10px] font-black uppercase tracking-[3px]">Overdue Notice ⚡</Text>
+                </View>
+              )}
               
-              <View className="flex-row justify-between mb-3">
-                <Text className={`${colors.textSecondary} font-bold`}>Total Amount</Text>
-                <Text className={`${colors.text} font-black text-lg`}>₹{totalAmount.toLocaleString()}</Text>
-              </View>
-              
-              <View className="flex-row justify-between mb-3">
-                <Text className={`${colors.textSecondary} font-bold`}>Paid</Text>
-                <Text className="text-green-600 font-black text-lg">₹{totalPaid.toLocaleString()}</Text>
-              </View>
-              
-              <View className={`border-t ${colors.border} pt-3 mt-2`}>
-                <View className="flex-row justify-between">
-                  <Text className={`${colors.text} font-black text-lg`}>Pending</Text>
-                  <Text className={`${totalPending > 0 ? 'text-orange-600' : 'text-green-600'} font-black text-xl`}>
-                    ₹{totalPending.toLocaleString()}
-                  </Text>
+              <View className={overdueMonthInfo?.isOverdue ? 'mt-8' : ''}>
+                <Text className={`text-lg font-black ${colors.text} mb-4`}>Fee Summary</Text>
+                
+                <View className="flex-row justify-between mb-3">
+                  <Text className={`${colors.textSecondary} font-bold`}>Total Amount</Text>
+                  <Text className={`${colors.text} font-black text-lg`}>₹{totalAmount.toLocaleString()}</Text>
+                </View>
+                
+                <View className="flex-row justify-between mb-3">
+                  <Text className={`${colors.textSecondary} font-bold`}>Paid</Text>
+                  <Text className="text-green-600 font-black text-lg">₹{totalPaid.toLocaleString()}</Text>
+                </View>
+                
+                <View className={`border-t ${colors.border} pt-3 mt-2`}>
+                  <View className="flex-row justify-between">
+                    <Text className={`${colors.text} font-black text-lg`}>Pending Balance</Text>
+                    <Text className={`${(totalPending > 0 || overdueMonthInfo?.isOverdue) ? 'text-red-600' : 'text-green-600'} font-black text-xl`}>
+                      ₹{(totalPending + (overdueMonthInfo?.isOverdue ? overdueMonthInfo.amount : 0)).toLocaleString()}
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -402,8 +438,8 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
                         Paid: ₹{fee.paid.toLocaleString()} / ₹{fee.amount.toLocaleString()}
                       </Text>
                     </View>
-                    <View className={`${fee.status === 'paid' ? 'bg-green-500' : 'bg-orange-500'} px-3 py-1 rounded-full`}>
-                      <Text className="text-white text-xs font-black uppercase">{fee.status}</Text>
+                    <View className={`${fee.status === 'paid' ? 'bg-green-500' : (overdueMonthInfo?.isOverdue ? 'bg-red-500' : 'bg-orange-500')} px-3 py-1 rounded-full`}>
+                      <Text className="text-white text-xs font-black uppercase">{fee.status === 'pending' && overdueMonthInfo?.isOverdue ? 'OVERDUE' : fee.status}</Text>
                     </View>
                   </View>
                   

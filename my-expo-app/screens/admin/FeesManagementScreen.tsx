@@ -1,7 +1,12 @@
 import React, { useState, useCallback, memo, useMemo, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, Alert, Modal, ActivityIndicator, FlatList, TouchableOpacity } from 'react-native';
+import { 
+  View, Text, ScrollView, Pressable, TextInput, Alert, Modal, 
+  ActivityIndicator, FlatList, TouchableOpacity, Image, Platform,
+  KeyboardAvoidingView
+} from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth, FeeRecord } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -136,14 +141,17 @@ const MonthDropdown = memo(({ activeMonth, activeYear, onSelectMonth, onSelectYe
   );
 });
 
-const SummaryCard = memo(({ label, value, icon, color, colors }: any) => (
-  <View className={`p-4 rounded-[24px] border flex-row items-center mr-3 min-w-[140px] ${colors.surface} ${colors.border}`}>
-    <View style={{ backgroundColor: color + '20' }} className="w-10 h-10 rounded-xl items-center justify-center mr-3">
-      <MaterialCommunityIcons name={icon} size={20} color={color} />
+const SummaryCard = memo(({ label, value, icon, color, colors, theme }: any) => (
+  <View 
+    style={{ elevation: 12 }}
+    className={`p-6 rounded-[32px] border flex-row items-center mr-4 min-w-[200px] shadow-2xl ${theme === 'dark' ? 'bg-[#25251d] border-gray-800' : 'bg-white border-white'}`}
+  >
+    <View style={{ backgroundColor: color + '20' }} className="w-14 h-14 rounded-[22px] items-center justify-center mr-4">
+      <MaterialCommunityIcons name={icon} size={28} color={color} />
     </View>
     <View>
-      <Text className={`text-[8px] font-black tracking-widest ${colors.textTertiary}`}>{label}</Text>
-      <Text className={`text-lg font-black ${colors.text}`}>{value}</Text>
+      <Text className={`text-[9px] font-black tracking-widest leading-loose ${colors.textTertiary} uppercase`}>{label}</Text>
+      <Text className={`text-2xl font-black ${colors.text} tracking-tighter`}>{value}</Text>
     </View>
   </View>
 ));
@@ -195,86 +203,212 @@ const FeeEditorModal = memo(({ visible, onClose, item, onSave, colors, theme, st
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View className="flex-1 bg-black/80 justify-center px-6">
-        <View className={`rounded-[40px] p-8 border ${theme === 'dark' ? 'bg-[#1c1c14]' : 'bg-white'} ${colors.border} shadow-2xl`}>
-          <Text className={`text-2xl font-black tracking-tighter ${colors.text} mb-8`}>
-            {item?.id === 'NEW' ? 'Institutional Entry 🏛️' : 'Modify Record 💎'}
-          </Text>
+    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
+      <View 
+        className={`flex-1 ${theme === 'dark' ? 'bg-[#1c1c14]' : 'bg-white'}`}
+        style={{ backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+            {/* ── Background Gradient & 3D Illustration ── */}
+            <View className="absolute top-0 left-0 right-0 h-[350px] overflow-hidden">
+              <LinearGradient
+                  colors={[theme === 'dark' ? '#1e1b4b' : '#FDF2F8', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
+                  className="absolute inset-0"
+              />
+              <Image 
+                  source={require('../../assets/images/playschool_actions.png')} 
+                  style={{ width: '100%', height: '100%', opacity: theme === 'dark' ? 0.08 : 0.15, transform: [{ scale: 1.2 }, { translateY: -20 }] }}
+                  resizeMode="cover"
+              />
+            </View>
 
-          <View className="mb-6">
-            <Text className={`text-[10px] font-black mb-2 uppercase tracking-widest ${colors.textTertiary}`}>Student Identity</Text>
-            <Pressable 
-              onPress={() => item?.id === 'NEW' && setShowStudentPicker(!showStudentPicker)} 
-              className={`p-5 rounded-3xl border ${colors.surface} ${colors.border} flex-row justify-between ${item?.id !== 'NEW' ? 'opacity-60 bg-gray-50' : ''}`}
-            >
-              <Text className={`font-black ${sName ? colors.text : colors.textTertiary}`}>{sName || 'Select Student Vendor'}</Text>
-              {item?.id === 'NEW' && <MaterialCommunityIcons name="account-search" size={20} color="#F472B6" />}
-            </Pressable>
-            {showStudentPicker && (
-              <View className={`mt-3 rounded-3xl border border-gray-100 p-3 ${colors.surface} max-h-[200px]`}>
-                <TextInput className={`p-4 font-bold text-xs ${colors.text} bg-black/5 rounded-2xl mb-3`} placeholder="Search by name/id..." value={studentSearch} onChangeText={setStudentSearch} />
-                <ScrollView nestedScrollEnabled>{filteredStudents?.map((s: any) => (
-                  <Pressable key={s.id} className="p-4 rounded-2xl mb-1 border-b border-gray-50" onPress={() => { setSName(s.name); setSid(s.studentId || s.student_id); setShowStudentPicker(false); }}>
-                    <Text className={`font-black ${colors.text}`}>{s.name} ({s.studentId || s.student_id})</Text>
-                  </Pressable>
-                ))}</ScrollView>
-              </View>
-            )}
-          </View>
-          
-          <View className="flex-row gap-4 mb-6">
-            <View className="flex-1">
-                <Text className={`text-[10px] font-black mb-2 uppercase tracking-widest ${colors.textTertiary}`}>Category Dropdown</Text>
-                <Pressable 
-                  onPress={() => item?.id === 'NEW' && setShowTypePicker(!showTypePicker)} 
-                  className={`p-5 rounded-3xl border ${colors.surface} ${colors.border} flex-row justify-between ${item?.id !== 'NEW' ? 'opacity-60 bg-gray-50' : ''}`}
+            {/* Header */}
+            <View className="px-6 pt-12 pb-6 flex-row items-center justify-between">
+              <View className="flex-1">
+                <TouchableOpacity onPress={onClose} 
+                  className={`${theme === 'dark' ? 'bg-[#25251d] border-gray-800' : 'bg-white border-brand-pink/20'} w-14 h-14 rounded-2xl items-center justify-center shadow-xl border mb-4`}
                 >
-                  <Text className={`font-black uppercase text-[10px] ${selectedType ? colors.text : colors.textTertiary}`}>{selectedType || 'Pick Type'}</Text>
-                  {item?.id === 'NEW' && <MaterialCommunityIcons name="chevron-down" size={20} color="#F472B6" />}
-                </Pressable>
-                {showTypePicker && item?.id === 'NEW' && (
-                  <View className="absolute top-16 left-0 right-0 bg-white border border-gray-100 rounded-3xl shadow-xl z-50 p-2">
-                    <ScrollView className="max-h-[150px]">
-                      {structures.map((s: any) => (
-                        <Pressable key={s.id} onPress={() => { setSelectedType(s.name); setAmount(s.amount.toString()); setShowTypePicker(false); }} className="p-4 rounded-2xl">
-                          <Text className="font-black text-[10px] uppercase text-gray-600">{s.name}</Text>
-                        </Pressable>
-                      ))}
-                    </ScrollView>
+                  <MaterialCommunityIcons name="close" size={28} color={theme === 'dark' ? '#FFF' : '#F472B6'} />
+                </TouchableOpacity>
+                <Text className="text-4xl font-black text-gray-900 dark:text-white tracking-tighter">
+                  {item?.id === 'NEW' ? 'Fee' : 'Update'}
+                </Text>
+                <Text className="text-2xl font-black text-brand-pink mt-[-4px]">
+                  {item?.id === 'NEW' ? 'Entry 🏛️' : 'Record 💎'}
+                </Text>
+              </View>
+              <View className="bg-brand-pink w-24 h-24 rounded-[36px] items-center justify-center shadow-2xl border-4 border-white rotate-3 overflow-hidden">
+                  <MaterialCommunityIcons name={item?.id === 'NEW' ? "cash-plus" : "file-edit-outline"} size={48} color="white" />
+              </View>
+            </View>
+
+            <View className="px-6 pb-20">
+              {/* Student Selection */}
+              <View className="mb-8">
+                <Text className={`text-[10px] font-black mb-4 uppercase tracking-[3px] ${colors.textTertiary} opacity-60`}>Recipient Info</Text>
+                <TouchableOpacity 
+                  onPress={() => item?.id === 'NEW' && setShowStudentPicker(!showStudentPicker)} 
+                  className={`p-6 rounded-[32px] border-2 flex-row justify-between items-center ${theme === 'dark' ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-100'} ${item?.id !== 'NEW' ? 'opacity-60' : ''}`}
+                >
+                  <View className="flex-row items-center">
+                    <MaterialCommunityIcons name="account-search-outline" size={24} color="#F472B6" style={{ marginRight: 15 }} />
+                    <Text className={`font-black text-base ${sName ? colors.text : colors.textTertiary}`}>
+                        {sName || 'Select Student Vendor'}
+                    </Text>
+                  </View>
+                  {item?.id === 'NEW' && <MaterialCommunityIcons name="chevron-right" size={24} color="#F472B6" />}
+                </TouchableOpacity>
+
+                {showStudentPicker && (
+                  <View className={`mt-4 rounded-[32px] border-2 p-4 ${theme === 'dark' ? 'bg-[#25251d] border-gray-800' : 'bg-white border-brand-pink/10'} max-h-[300px] shadow-2xl`}>
+                    <TextInput 
+                        className={`p-5 font-bold text-base ${colors.text} bg-black/5 dark:bg-white/5 rounded-2xl mb-4`} 
+                        placeholder="Search student..." 
+                        placeholderTextColor="#9CA3AF"
+                        value={studentSearch} 
+                        onChangeText={setStudentSearch} 
+                    />
+                    <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                        {filteredStudents?.map((s: any) => (
+                      <TouchableOpacity 
+                        key={s.id} 
+                        className="p-5 rounded-2xl mb-2 border border-gray-100 dark:border-white/5" 
+                        onPress={() => { setSName(s.name); setSid(s.studentId || s.student_id); setShowStudentPicker(false); }}
+                      >
+                        <Text className={`font-black ${colors.text}`}>{s.name}</Text>
+                        <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{s.studentId || s.student_id}</Text>
+                      </TouchableOpacity>
+                    ))}</ScrollView>
                   </View>
                 )}
+              </View>
+
+              {/* Category and Date Row */}
+              <View className="flex-row gap-5 mb-8">
+                <View className="flex-1">
+                    <Text className={`text-[10px] font-black mb-4 uppercase tracking-[3px] ${colors.textTertiary} opacity-60`}>Category</Text>
+                    <TouchableOpacity 
+                      onPress={() => item?.id === 'NEW' && setShowTypePicker(!showTypePicker)} 
+                      className={`p-6 rounded-[32px] border-2 flex-row justify-between items-center ${theme === 'dark' ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-100'} ${item?.id !== 'NEW' ? 'opacity-60' : ''}`}
+                    >
+                      <Text className={`font-black uppercase text-[10px] tracking-widest ${selectedType ? colors.text : colors.textTertiary}`}>
+                        {selectedType || 'Type'}
+                      </Text>
+                    </TouchableOpacity>
+                    {showTypePicker && item?.id === 'NEW' && (
+                      <View className="absolute top-24 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-100 dark:border-white/5 rounded-[32px] shadow-2xl z-50 p-3">
+                        <ScrollView className="max-h-[200px]" showsVerticalScrollIndicator={false}>
+                          {structures.map((s: any) => (
+                            <TouchableOpacity 
+                                key={s.id} 
+                                onPress={() => { setSelectedType(s.name); setAmount(s.amount.toString()); setShowTypePicker(false); }} 
+                                className="p-5 rounded-2xl mb-1 dark:bg-white/5"
+                            >
+                              <Text className="font-black text-[11px] uppercase tracking-widest text-gray-600 dark:text-gray-300">{s.name}</Text>
+                              <Text className="text-[10px] font-bold text-brand-pink mt-1">₹{s.amount}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                </View>
+                <View className="flex-1">
+                   <Text className={`text-[10px] font-black mb-4 uppercase tracking-[3px] ${colors.textTertiary} opacity-60`}>Due Date</Text>
+                   <TouchableOpacity onPress={() => setShowPicker(true)} className={`p-6 rounded-[32px] border-2 bg-gray-50 dark:bg-black/20 border-gray-100 dark:border-gray-800 flex-row justify-between items-center`}>
+                      <Text className={`font-black text-[10px] tracking-widest ${colors.text}`}>{dueDate}</Text>
+                      <MaterialCommunityIcons name="calendar-clock" size={22} color="#F472B6" />
+                   </TouchableOpacity>
+                   {showPicker && <DateTimePicker value={new Date(dueDate)} mode="date" display="default" onChange={(_: DateTimePickerEvent, d?: Date) => { setShowPicker(false); if(d) setDueDate(d.toISOString().split('T')[0]); }} />}
+                </View>
+              </View>
+
+              {/* Amount Entry */}
+              <View className="mb-12">
+                <Text className={`text-[10px] font-black mb-4 uppercase tracking-[3px] ${colors.textTertiary} opacity-60`}>Transaction Value</Text>
+                <View className={`flex-row items-center p-4 rounded-[40px] border-2 shadow-sm ${theme === 'dark' ? 'bg-black/20 border-gray-800' : 'bg-white border-brand-pink/10'}`}>
+                   <View className="bg-brand-pink w-20 h-20 rounded-[30px] items-center justify-center shadow-lg shadow-brand-pink/30">
+                     <Text className="text-4xl font-black text-white">₹</Text>
+                   </View>
+                   <TextInput 
+                        className={`flex-1 ml-6 text-5xl font-black ${colors.text} tracking-tighter`} 
+                        value={amount} 
+                        onChangeText={setAmount} 
+                        keyboardType="numeric" 
+                        placeholder="0.00"
+                        placeholderTextColor={theme === 'dark' ? '#333' : '#FBCFE8'}
+                   />
+                </View>
+              </View>
+
+              {/* Save Actions */}
+              <View className="flex-row gap-5">
+                 <TouchableOpacity 
+                    onPress={handleSave} 
+                    className="flex-1 bg-brand-pink p-8 rounded-[36px] items-center justify-center flex-row shadow-2xl shadow-brand-pink/40"
+                    style={{ elevation: 15 }}
+                 >
+                    <MaterialCommunityIcons name="check-all" size={28} color="white" />
+                    <Text className="text-white font-black uppercase tracking-[3px] text-lg ml-3">Authorize</Text>
+                 </TouchableOpacity>
+              </View>
             </View>
-            <View className="flex-1">
-               <Text className={`text-[10px] font-black mb-2 uppercase tracking-widest ${colors.textTertiary}`}>Fee Due Date</Text>
-               <Pressable onPress={() => setShowPicker(true)} className={`p-5 rounded-3xl border ${colors.surface} ${colors.border} flex-row justify-between`}>
-                  <Text className={`font-black text-[10px] ${colors.text}`}>{dueDate}</Text>
-                  <MaterialCommunityIcons name="calendar-clock" size={20} color="#F472B6" />
-               </Pressable>
-               {showPicker && <DateTimePicker value={new Date(dueDate)} mode="date" display="default" onChange={(_: DateTimePickerEvent, d?: Date) => { setShowPicker(false); if(d) setDueDate(d.toISOString().split('T')[0]); }} />}
-            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
+  );
+});
+
+const StatusToggleModal = memo(({ visible, onClose, item, onConfirm, colors, theme }: any) => {
+  if (!item) return null;
+  const targetStatus = item.status === 'paid' ? 'unpaid' : 'paid';
+  const color = targetStatus === 'paid' ? '#10B981' : '#EF4444';
+  
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity 
+        activeOpacity={1} 
+        onPress={onClose} 
+        className="flex-1 bg-black/60 items-center justify-center px-6"
+      >
+        <View className={`${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-white'} w-full rounded-[45px] p-8 shadow-2xl items-center`}>
+          {/* Visual Indicator */}
+          <View style={{ backgroundColor: color + '15' }} className="w-24 h-24 rounded-[36px] items-center justify-center mb-6 border-2" sx={{ borderColor: color + '30' }}>
+            <MaterialCommunityIcons 
+              name={targetStatus === 'paid' ? 'check-decagram' : 'alert-circle-outline'} 
+              size={56} 
+              color={color} 
+            />
           </View>
 
-          <View className="mb-10">
-            <Text className={`text-[10px] font-black mb-2 uppercase tracking-widest ${colors.textTertiary}`}>Secure Transaction Amount</Text>
-            <View className={`flex-row items-center p-6 rounded-[35px] border ${colors.surface} ${colors.border} bg-brand-pink/5`}>
-               <Text className="text-3xl font-black text-brand-pink mr-3">₹</Text>
-               <TextInput className={`flex-1 text-3xl font-black ${colors.text}`} value={amount} onChangeText={setAmount} keyboardType="numeric" />
-            </View>
-          </View>
+          <Text className={`text-2xl font-black ${colors.text} text-center tracking-tighter mb-2`}>
+            Update Payment Status
+          </Text>
+          <Text className={`${colors.textTertiary} text-center font-bold px-4 mb-8 leading-5`}>
+            Are you sure you want to mark this ₹{item.amount.toLocaleString()} record as <Text style={{ color }}>{targetStatus.toUpperCase()}</Text>?
+          </Text>
 
-          <View className="flex-row gap-4">
-             <TouchableOpacity onPress={onClose} className={`flex-1 p-5 rounded-[28px] border ${colors.border} items-center justify-center flex-row bg-gray-50`}>
-                <MaterialCommunityIcons name="close-circle-outline" size={18} color="#9CA3AF" />
-                <Text className="font-black uppercase tracking-widest text-[#9CA3AF] text-[10px] ml-2">Close Action</Text>
-             </TouchableOpacity>
-             <TouchableOpacity onPress={handleSave} className="flex-[2] bg-brand-pink p-5 rounded-[28px] items-center justify-center flex-row shadow-lg shadow-brand-pink/30">
-                <MaterialCommunityIcons name="check-circle-outline" size={20} color="white" />
-                <Text className="text-white font-black uppercase tracking-[2px] text-[12px] ml-2">Confirm Save</Text>
-             </TouchableOpacity>
+          {/* Action Buttons */}
+          <View className="w-full gap-4">
+            <TouchableOpacity 
+              onPress={() => onConfirm(item)}
+              style={{ backgroundColor: color }}
+              className="py-6 rounded-[28px] items-center justify-center shadow-xl flex-row"
+            >
+              <MaterialCommunityIcons name="shield-check-outline" size={24} color="white" />
+              <Text className="text-white font-black uppercase tracking-[3px] ml-3">Yes, Update Now</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              onPress={onClose}
+              className="py-5 rounded-[28px] bg-gray-100 dark:bg-gray-800 items-center justify-center"
+            >
+              <Text className="font-black text-gray-400 uppercase tracking-widest text-[10px]">Cancel Transaction</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     </Modal>
   );
 });
@@ -284,6 +418,7 @@ export default function FeesManagementScreen({ navigation }: any) {
   const { users, fees, refreshFees } = useAuth();
   const [activeTab, setActiveTab] = useState('manage');
   const [editModal, setEditModal] = useState({ visible: false, item: null });
+  const [statusModal, setStatusModal] = useState({ visible: false, item: null });
   const [searchQuery, setSearchQuery] = useState('');
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const [isLocalLoading, setIsLocalLoading] = useState(false);
@@ -373,8 +508,9 @@ export default function FeesManagementScreen({ navigation }: any) {
   };
 
   const currentMonthIdx = new Date().getMonth();
+  const currentYearStr  = new Date().getFullYear().toString();
   const [activeMonth, setActiveMonth] = useState(MONTH_DATA[currentMonthIdx]);
-  const [activeYear,  setActiveYear]  = useState(YEAR_DATA[2]); // Default 2026
+  const [activeYear,  setActiveYear]  = useState(YEAR_DATA.find(y => y.code === currentYearStr) || YEAR_DATA[6]); 
 
   useEffect(() => {
     api.get('/fee-structures').then(res => setFeeStructures(res.data)).catch(() => {});
@@ -456,157 +592,184 @@ export default function FeesManagementScreen({ navigation }: any) {
     }
   };
 
-  const toggleStatus = async (id: string) => {
+  const toggleStatus = async (item: FeeRecord) => {
+    setStatusModal({ visible: true, item: item as any });
+  };
+
+  const handleConfirmStatus = async (item: any) => {
     try {
-      await api.post(`/fees/${id}/toggle-status`);
-      refreshFees();
-    } catch {}
+      setIsLocalLoading(true);
+      await api.post(`/fees/${item.id}/toggle-status`);
+      await refreshFees();
+      setStatusModal({ visible: false, item: null });
+    } catch (err) {
+      Alert.alert('Error', 'Update failed.');
+    } finally {
+      setIsLocalLoading(false);
+    }
   };
 
   const renderFeeItem = useCallback(({ item }: any) => {
     const isOverdue = item.status === 'unpaid' && item.due_date && new Date(item.due_date) < new Date(new Date().toISOString().split('T')[0]);
     
     return (
-      <View className={`mx-6 p-6 rounded-[35px] border-2 mb-6 ${colors.surface} shadow-lg shadow-black/5 ${isOverdue ? 'border-red-400' : colors.border}`}>
-         <View className="flex-row items-center justify-between mb-5">
+      <View 
+        style={{ elevation: 8 }}
+        className={`mx-6 rounded-[40px] border-2 mb-6 overflow-hidden shadow-xl ${theme === 'dark' ? 'bg-[#1a1a18] border-gray-800' : 'bg-white border-brand-pink/5'}`}
+      >
+         <View className="flex-row items-center justify-between p-6">
             <View className="flex-row items-center flex-1">
-               <View className={`w-14 h-14 rounded-[22px] items-center justify-center mr-4 ${theme === 'dark' ? 'bg-brand-pink/10' : 'bg-brand-pink/5'}`}>
-                 <MaterialCommunityIcons name="account-school-outline" size={32} color={isOverdue ? "#EF4444" : "#F472B6"} />
+               <View className={`w-16 h-16 rounded-[24px] items-center justify-center mr-4 ${isOverdue ? 'bg-red-500' : 'bg-brand-pink'}`}>
+                 <MaterialCommunityIcons name="account-school-outline" size={36} color="white" />
                </View>
                <View className="flex-1">
-                  <Text className={`font-black text-lg ${colors.text}`}>{item.student_name}</Text>
-                  <View className="flex-row items-center">
+                  <Text className={`font-black text-xl tracking-tighter ${colors.text}`} numberOfLines={1}>{item.student_name}</Text>
+                  <View className="flex-row items-center mt-0.5">
                     <Text className={`text-[10px] font-black uppercase tracking-widest ${isOverdue ? "text-red-500" : colors.textTertiary}`}>
-                        {item.student_id} • DUE: {item.due_date || 'N/A'}
+                        ID: {item.student_id} • {item.due_date || 'N/A'}
                     </Text>
-                    {isOverdue && (
-                      <View className="ml-2 bg-red-100 px-2 py-0.5 rounded-md">
-                        <Text className="text-[8px] font-black text-red-600">OVERDUE</Text>
-                      </View>
-                    )}
                   </View>
                </View>
             </View>
-            <Pressable 
-              onPress={() => toggleStatus(item.id)}
-              className={`px-5 py-2.5 rounded-[18px] border shadow-sm ${item.status === 'paid' ? 'bg-green-500 border-green-500' : 'bg-white border-red-400'}`}
+            
+            <TouchableOpacity 
+              onPress={() => toggleStatus(item as any)}
+              className={`px-5 py-2.5 rounded-[18px] shadow-sm ${item.status === 'paid' ? 'bg-green-500' : 'bg-red-500'}`}
             >
-               <Text className={`text-[9px] font-black ${item.status === 'paid' ? 'text-white' : 'text-red-500'}`}>{item.status.toUpperCase()}</Text>
-            </Pressable>
+               <Text className="text-[10px] font-black text-white uppercase tracking-widest">
+                  {item.status}
+               </Text>
+            </TouchableOpacity>
          </View>
          
-         <View className={`p-5 rounded-[28px] flex-row justify-between items-center ${theme === 'dark' ? 'bg-black/10' : 'bg-gray-50'}`}>
+         <LinearGradient
+            colors={theme === 'dark' ? ['#25251d', '#1c1c14'] : ['#FDF2F8', '#F9FAFB']}
+            className="p-6 flex-row justify-between items-center border-t border-gray-100 dark:border-gray-800"
+         >
             <View>
-               <Text className={`text-[9px] font-black uppercase tracking-[3px] ${colors.textTertiary} mb-1`}>{item.type}</Text>
-               <Text className={`font-black text-2xl ${colors.text}`}>₹{item.amount.toLocaleString()}</Text>
+               <Text className={`text-[9px] font-black uppercase tracking-[3px] ${colors.textTertiary} mb-1 opacity-60`}>{item.type}</Text>
+               <Text className={`font-black text-3xl tracking-tighter ${colors.text}`}>₹{item.amount.toLocaleString()}</Text>
             </View>
+            
             <View className="flex-row gap-3">
-              <Pressable onPress={() => setEditModal({ visible: true, item: item as any })} className="w-10 h-10 rounded-xl bg-gray-200 border border-gray-300 items-center justify-center">
-                 <MaterialCommunityIcons name="pencil-outline" size={18} color="#4B5563" />
-              </Pressable>
+              <TouchableOpacity onPress={() => setEditModal({ visible: true, item: item as any })} className="w-12 h-12 rounded-2xl bg-white dark:bg-white/10 border border-gray-100 dark:border-white/10 items-center justify-center shadow-sm">
+                 <MaterialCommunityIcons name="pencil-outline" size={22} color={theme === 'dark' ? '#9CA3AF' : '#4B5563'} />
+              </TouchableOpacity>
+              
               {item.status === 'paid' && (
                 <>
-                  <Pressable 
+                  <TouchableOpacity 
                     onPress={() => handleInvoiceAction(item as any, 'view')} 
-                    className="w-10 h-10 rounded-xl bg-indigo-500 items-center justify-center shadow-md shadow-indigo-500/20"
+                    className="w-12 h-12 rounded-2xl bg-indigo-500 items-center justify-center shadow-lg shadow-indigo-500/30"
                   >
-                     <MaterialCommunityIcons name="eye-outline" size={18} color="white" />
-                  </Pressable>
-                  <Pressable 
+                     <MaterialCommunityIcons name="printer-outline" size={22} color="white" />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
                     onPress={() => handleInvoiceAction(item as any, 'download')} 
-                    className="w-10 h-10 rounded-xl bg-brand-pink items-center justify-center shadow-md shadow-brand-pink/20"
+                    className="w-12 h-12 rounded-2xl bg-brand-pink items-center justify-center shadow-lg shadow-brand-pink/30"
                   >
-                     <MaterialCommunityIcons name="tray-arrow-down" size={18} color="white" />
-                  </Pressable>
+                     <MaterialCommunityIcons name="share-variant-outline" size={22} color="white" />
+                  </TouchableOpacity>
                 </>
               )}
             </View>
-         </View>
+         </LinearGradient>
+         
+         {isOverdue && (
+            <View className="bg-red-500 py-1.5 items-center">
+                <Text className="text-[10px] font-black text-white uppercase tracking-[4px]">Delayed Payment</Text>
+            </View>
+         )}
       </View>
     );
   }, [colors, theme]);
 
   const ListHeader = useMemo(() => (
-    <View>
+    <View className={`${theme === 'dark' ? 'bg-[#1c1c14]' : 'bg-white'}`}>
+      {/* ── Background Header Illustration ── */}
+      <View className="absolute top-0 left-0 right-0 h-[450px] overflow-hidden">
+        <LinearGradient
+            colors={[theme === 'dark' ? '#1e1b4b' : '#FEF2F2', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
+            className="absolute inset-0"
+        />
+        <Image 
+            source={require('../../assets/images/playschool_actions.png')} 
+            style={{ width: '100%', height: '100%', opacity: theme === 'dark' ? 0.08 : 0.1, transform: [{ scale: 1.5 }, { translateY: -40 }] }}
+            resizeMode="cover"
+        />
+      </View>
+
       {/* Header */}
-      <View className="px-6 pt-4 pb-2">
+      <View className="px-6 pt-12 pb-4">
         <View className="flex-row items-center justify-between">
           <View className="flex-1">
-            <Pressable onPress={() => navigation.goBack()} className={`mb-4 w-12 h-12 rounded-2xl items-center justify-center border ${colors.surface} ${colors.border}`}>
-              <MaterialCommunityIcons name="arrow-left" size={28} color={theme === 'dark' ? '#FFF' : '#000'} />
-            </Pressable>
+            <TouchableOpacity onPress={() => navigation.goBack()} 
+              className={`${theme === 'dark' ? 'bg-[#25251d] border-gray-800' : 'bg-white border-brand-pink/20'} w-14 h-14 rounded-2xl items-center justify-center shadow-xl border mb-6`}>
+              <MaterialCommunityIcons name="arrow-left" size={28} color={theme === 'dark' ? '#FFF' : '#F472B6'} />
+            </TouchableOpacity>
             <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>School</Text>
-            <Text className="text-2xl font-bold text-brand-pink">Treasury ✓</Text>
+            <Text className="text-2xl font-black text-brand-pink mt-[-4px]">Treasury ✓</Text>
           </View>
-          <View className="bg-brand-pink w-16 h-16 rounded-3xl items-center justify-center shadow-lg shadow-brand-pink/30">
-            <MaterialCommunityIcons name="cash-multiple" size={32} color="white" />
+          <View className="bg-brand-pink w-24 h-24 rounded-[36px] items-center justify-center shadow-2xl border-4 border-white rotate-3 relative overflow-hidden">
+            <MaterialCommunityIcons name="cash-multiple" size={48} color="white" />
+            <View className="absolute -bottom-2 -right-2 opacity-20">
+                <MaterialCommunityIcons name="finance" size={60} color="white" />
+            </View>
           </View>
         </View>
       </View>
 
       {/* Summary Area */}
       <View className="px-6 mb-8 mt-2">
-        <Text className={`text-[10px] font-black uppercase tracking-widest ${colors.textTertiary} mb-3`}>Collection Stats</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <SummaryCard label="COLLECTED" value={`₹${stats.paid}`} icon="check-decagram" color="#10B981" colors={colors} />
-          <SummaryCard label="OVERDUE" value={`₹${stats.overdue}`} icon="clock-alert-outline" color="#EF4444" colors={colors} />
-          <SummaryCard label="PENDING" value={`₹${stats.pending}`} icon="alert-circle" color="#F59E0B" colors={colors} />
-          <SummaryCard label="RECORDS" value={stats.count} icon="file-document-outline" color="#3B82F6" colors={colors} />
+        <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textTertiary} mb-5 opacity-70`}>Financial Health</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="overflow-visible">
+          <SummaryCard label="COLLECTED" value={`₹${stats.paid.toLocaleString()}`} icon="check-decagram-outline" color="#10B981" colors={colors} theme={theme} />
+          <SummaryCard label="OVERDUE" value={`₹${stats.overdue.toLocaleString()}`} icon="clock-alert-outline" color="#EF4444" colors={colors} theme={theme} />
+          <SummaryCard label="PENDING" value={`₹${stats.pending.toLocaleString()}`} icon="alert-circle-outline" color="#F59E0B" colors={colors} theme={theme} />
+          <SummaryCard label="TOTAL RECORDS" value={stats.count} icon="file-document-outline" color="#3B82F6" colors={colors} theme={theme} />
         </ScrollView>
       </View>
 
-      {/* Search Bar */}
-      <View className="px-6 mb-6">
-        <View className={`flex-row items-center px-4 py-3 rounded-2xl border ${colors.surface} ${colors.border}`}>
-          <MaterialCommunityIcons name="magnify" size={22} color="#9CA3AF" />
-          <TextInput 
-            className={`flex-1 ml-3 font-bold text-sm ${colors.text}`}
-            placeholder="Search student..."
-            placeholderTextColor="#9CA3AF"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-      </View>
 
       {/* Category Selection Dropdown */}
-      <View className="px-6 mb-6 mt-4">
-        <Text className={`text-[10px] font-black uppercase tracking-widest ${colors.textTertiary} mb-3 ml-1`}>Selection Ledger</Text>
+      <View className="px-6 mb-8 mt-2">
+        <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textTertiary} mb-5 opacity-70`}>Operational Ledger</Text>
         <TouchableOpacity 
           onPress={() => setIsTypeDropdownOpen(true)}
-          activeOpacity={0.8}
-          className={`${colors.surface} p-5 rounded-[30px] border ${colors.border} flex-row items-center justify-between shadow-sm`}
+          activeOpacity={0.9}
+          className={`${theme === 'dark' ? 'bg-[#25251d] border-gray-800' : 'bg-white border-brand-pink/10'} p-6 rounded-[36px] border shadow-xl flex-row items-center justify-between`}
         >
           <View className="flex-row items-center">
-            <View className="bg-brand-pink/10 w-10 h-10 rounded-2xl items-center justify-center mr-3">
+            <View className="bg-brand-pink w-14 h-14 rounded-[22px] items-center justify-center mr-4 shadow-lg shadow-brand-pink/20">
               <MaterialCommunityIcons 
                 name={activeTab === 'manage' ? 'calendar-month' : (activeTab === 'admission' ? 'account-plus' : 'history')} 
-                size={22} 
-                color="#F472B6" 
+                size={28} 
+                color="white" 
               />
             </View>
             <View>
-              <Text className={`text-[10px] font-black uppercase tracking-widest ${colors.textTertiary}`}>Current Ledger</Text>
-              <Text className={`text-base font-black ${colors.text}`}>
-                {activeTab === 'manage' ? 'Monthly Fees' : (activeTab === 'admission' ? 'Admission Fees' : 'Transaction History')}
+              <Text className={`text-[10px] font-black uppercase tracking-widest ${colors.textTertiary} opacity-60`}>Current View</Text>
+              <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>
+                {activeTab === 'manage' ? 'Monthly Dues' : (activeTab === 'admission' ? 'Admissions' : 'Transaction Log')}
               </Text>
             </View>
           </View>
-          <MaterialCommunityIcons name="chevron-down" size={24} color={colors.textTertiary} />
+          <MaterialCommunityIcons name="chevron-down" size={28} color={theme === 'dark' ? '#F472B6' : colors.textTertiary} />
         </TouchableOpacity>
       </View>
 
       {/* Action Line & Month Filter Dropdown */}
       <View className="px-6 mb-6">
         <View className="flex-row justify-between items-center mb-6">
-            <Text className={`text-[11px] font-black uppercase tracking-[3px] ${colors.textTertiary}`}>{activeTab.toUpperCase()} LEDGER</Text>
-            {activeTab !== 'history' && (
-              <Pressable 
+            <Text className={`text-[11px] font-black uppercase tracking-[4px] ${colors.textTertiary} opacity-60`}>{activeTab.toUpperCase()} LEDGER</Text>
+            {activeTab === 'admission' && (
+              <TouchableOpacity 
                   onPress={() => setEditModal({ visible: true, item: { id: 'NEW', student_id: '', student_name: '', amount: 0, type: activeTab === 'admission' ? 'Admission' : 'Monthly Fee', status: 'unpaid', date: new Date().toISOString().split('T')[0], due_date: new Date().toISOString().split('T')[0] } as any })}
-                  className="bg-brand-pink w-14 h-14 rounded-[22px] items-center justify-center shadow-lg shadow-brand-pink/40"
+                  className="bg-brand-pink w-14 h-14 rounded-[24px] items-center justify-center shadow-2xl"
+                  style={{ elevation: 15 }}
               >
-                  <MaterialCommunityIcons name="plus" size={32} color="white" />
-              </Pressable>
+                  <MaterialCommunityIcons name="plus" size={36} color="white" />
+              </TouchableOpacity>
             )}
         </View>
         {(activeTab === 'manage' || activeTab === 'history') && (
@@ -651,6 +814,15 @@ export default function FeesManagementScreen({ navigation }: any) {
         students={students}
         structures={feeStructures}
         onSave={handleUpdateFee}
+      />
+
+      <StatusToggleModal 
+        visible={statusModal.visible}
+        onClose={() => setStatusModal({ visible: false, item: null })}
+        item={statusModal.item}
+        colors={colors}
+        theme={theme}
+        onConfirm={handleConfirmStatus}
       />
       
       {isTypeDropdownOpen && (

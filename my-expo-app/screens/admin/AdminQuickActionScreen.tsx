@@ -1,9 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+
+import api from '../../services/api';
 
 interface NavigationProps {
   navigate: (screen: string) => void;
@@ -118,136 +121,201 @@ export default function AdminQuickActionScreen({ navigation }: AdminQuickActionS
 
   return (
     <View 
-        className={`flex-1 ${colors.background}`}
+        className={`flex-1 ${theme === 'dark' ? 'bg-[#1c1c14]' : 'bg-white'}`}
         style={{ backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}
     >
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* ── Background Gradient & 3D Illustration ── */}
+        <View className="absolute top-0 left-0 right-0 h-[500px] overflow-hidden">
+            <LinearGradient
+                colors={[theme === 'dark' ? '#1e3a8a' : '#FDF2F8', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
+                className="absolute inset-0"
+            />
+            <Image 
+                source={require('../../assets/images/playschool_actions.png')} 
+                style={{ width: '100%', height: '100%', opacity: theme === 'dark' ? 0.15 : 0.25, transform: [{ scale: 1.2 }, { translateY: -20 }] }}
+                resizeMode="cover"
+            />
+            <View className="absolute -top-20 -left-20 w-80 h-80 bg-brand-pink/10 rounded-full blur-3xl" />
+            
+            <LinearGradient
+                colors={['transparent', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
+                className="absolute bottom-0 left-0 right-0 h-60"
+            />
+        </View>
+
         {/* Header */}
-        <View className="px-6 pt-4 pb-4">
+        <View className="px-6 pt-12 pb-6">
             <View className="flex-row items-center justify-between">
                 <View className="flex-1">
                     <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>
-                        Quick
+                        Admin
                     </Text>
-                    <Text className={`text-2xl font-bold text-brand-pink`}>
-                        Actions 👑
+                    <Text className="text-2xl font-black text-brand-pink mt-[-4px]">
+                        Operations ⚡
                     </Text>
-                    <Text className={`text-[10px] ${theme === 'dark' ? 'text-gray-400' : colors.textTertiary} font-black mt-1 uppercase tracking-[3px]`}>
-                        Efficient Management
-                    </Text>
+                    <View className="bg-brand-pink/20 self-start px-3 py-1.5 rounded-full mt-3 border border-brand-pink/10 shadow-sm">
+                        <Text className="text-brand-pink text-[9px] font-black uppercase tracking-[2px]">Management Vault</Text>
+                    </View>
                 </View>
                 <TouchableOpacity 
                     onPress={() => navigation.goBack()}
-                    className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-brand-pink/20'} w-14 h-14 rounded-2xl items-center justify-center shadow-sm border`}
+                    className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-brand-pink/20'} w-16 h-16 rounded-[24px] items-center justify-center shadow-2xl border`}
                 >
-                    <MaterialCommunityIcons name="arrow-left" size={28} color={theme === 'dark' ? '#FFF' : '#F472B6'} />
+                    <MaterialCommunityIcons name="arrow-left" size={32} color={theme === 'dark' ? '#FFF' : '#F472B6'} />
                 </TouchableOpacity>
             </View>
         </View>
 
-        {/* Live Camera Feature - Prominent Card */}
-        {/* Live Camera Feature - Prominent Card */}
-        <View className="px-6 mt-6 mb-6">
+        {/* Live Monitoring - Ultra Premium Card */}
+        <View className="px-6 mt-8 mb-6">
             <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={() => navigation.navigate('liveCamera')}
-                className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-red-50'} p-7 rounded-[40px] border-2 shadow-2xl shadow-red-500/10 overflow-hidden`}
+                className="rounded-[40px] overflow-hidden shadow-2xl"
+                style={{ elevation: 20 }}
             >
-                {/* Decorative background glow */}
-                <View className="absolute -top-20 -right-20 w-48 h-48 bg-red-500/10 rounded-full blur-3xl" />
-                
-                <View className="flex-row items-center justify-between mb-5">
-                    <View className="flex-row items-center">
-                        <View className="bg-red-500 p-4 rounded-2xl shadow-lg shadow-red-500/40">
-                            <MaterialCommunityIcons name="broadcast" size={30} color="white" />
-                        </View>
-                        <View className="ml-4">
-                            <Text className={`text-xl font-black ${colors.text} tracking-tight`}>Live Monitoring</Text>
-                            <View className="flex-row items-center mt-1">
-                                <View className="w-2 h-2 rounded-full bg-red-500 mr-2 animate-pulse" />
-                                <Text className="text-red-500 font-black text-[10px] uppercase tracking-widest">System Online</Text>
+                <LinearGradient
+                    colors={theme === 'dark' ? ['#7f1d1d', '#450a0a'] : ['#EF4444', '#DC2626']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    className="p-8"
+                >
+                    <View className="flex-row items-center justify-between mb-6">
+                        <View className="flex-row items-center">
+                            <View className="bg-white/20 p-4 rounded-2xl border border-white/10 shadow-lg">
+                                <MaterialCommunityIcons name="broadcast" size={32} color="white" />
+                            </View>
+                            <View className="ml-5">
+                                <Text className="text-white text-2xl font-black tracking-tight">Live Monitoring</Text>
+                                <View className="flex-row items-center mt-1.5">
+                                    <View className="w-2 h-2 rounded-full bg-red-300 mr-2" />
+                                    <Text className="text-red-100 font-black text-[10px] uppercase tracking-widest opacity-80">Security Terminal</Text>
+                                </View>
                             </View>
                         </View>
+                        <View className="bg-white/30 px-4 py-2 rounded-full flex-row items-center border border-white/20">
+                            <View className="w-1.5 h-1.5 rounded-full bg-white mr-2" />
+                            <Text className="text-white font-black text-[10px] uppercase tracking-tighter">LIVE</Text>
+                        </View>
                     </View>
-                    <View className="bg-red-600 px-4 py-2 rounded-full flex-row items-center">
-                        <View className="w-1.5 h-1.5 rounded-full bg-white mr-2" />
-                        <Text className="text-white font-black text-[10px] uppercase tracking-tighter">LIVE</Text>
-                    </View>
-                </View>
 
-                <View className={`${theme === 'dark' ? 'bg-black/20' : 'bg-red-50/50'} p-5 rounded-3xl border ${theme === 'dark' ? 'border-gray-800' : 'border-red-100'}`}>
-                    <Text className={`text-xs ${colors.textSecondary} font-bold leading-5 opacity-90`}>
-                        Access your surveillance feeds, manage camera URLs, and monitor student areas in real-time.
-                    </Text>
-                    <View className="flex-row items-center mt-4">
-                        <Text className="text-red-500 font-black text-[10px] uppercase tracking-widest">Access Terminal</Text>
-                        <MaterialCommunityIcons name="chevron-right" size={16} color="#EF4444" className="ml-1" />
+                    <View className="bg-white/10 p-5 rounded-3xl border border-white/10">
+                        <Text className="text-white text-xs font-bold leading-5 opacity-90">
+                            Access secure surveillance feeds, manage camera URLs, and monitor student zones in real-time.
+                        </Text>
+                        <View className="flex-row items-center mt-4">
+                            <Text className="text-white font-black text-[10px] uppercase tracking-widest">Connect Now</Text>
+                            <MaterialCommunityIcons name="chevron-right" size={16} color="white" className="ml-1" />
+                        </View>
                     </View>
-                </View>
+                    <View className="absolute -bottom-10 -right-10 opacity-10">
+                        <MaterialCommunityIcons name="security" size={180} color="white" />
+                    </View>
+                </LinearGradient>
             </TouchableOpacity>
         </View>
 
-        {/* Kids Activity Highlight Features - Prominent Card */}
-        <View className="px-6 mb-6">
+        {/* Daily Highlights - Ultra Premium Card */}
+        <View className="px-6 mb-8">
             <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={() => navigation.navigate('activityFeed')}
-                className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-pink-50'} p-7 rounded-[40px] border-2 shadow-2xl shadow-pink-500/10 overflow-hidden`}
+                className="rounded-[40px] overflow-hidden shadow-2xl"
+                style={{ elevation: 20 }}
             >
-                {/* Decorative background glow */}
-                <View className="absolute -top-20 -right-20 w-48 h-48 bg-pink-500/10 rounded-full blur-3xl" />
-                
-                <View className="flex-row items-center justify-between mb-5">
-                    <View className="flex-row items-center">
-                        <View className="bg-brand-pink p-4 rounded-2xl shadow-lg shadow-pink-500/40">
-                            <MaterialCommunityIcons name="image-multiple" size={30} color="white" />
-                        </View>
-                        <View className="ml-4">
-                            <Text className={`text-xl font-black ${colors.text} tracking-tight`}>Daily Highlights</Text>
-                            <View className="flex-row items-center mt-1">
-                                <View className="w-2 h-2 rounded-full bg-brand-pink mr-2" />
-                                <Text className="text-brand-pink font-black text-[10px] uppercase tracking-widest">Social Feed</Text>
+                <LinearGradient
+                    colors={theme === 'dark' ? ['#701a75', '#4a044e'] : ['#F472B6', '#BE185D']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    className="p-8"
+                >
+                    <View className="flex-row items-center justify-between mb-6">
+                        <View className="flex-row items-center">
+                            <View className="bg-white/20 p-4 rounded-2xl border border-white/10 shadow-lg">
+                                <MaterialCommunityIcons name="image-multiple-outline" size={32} color="white" />
+                            </View>
+                            <View className="ml-5">
+                                <Text className="text-white text-2xl font-black tracking-tight">Daily Highlights</Text>
+                                <View className="flex-row items-center mt-1.5">
+                                    <View className="w-2 h-2 rounded-full bg-pink-300 mr-2" />
+                                    <Text className="text-pink-100 font-black text-[10px] uppercase tracking-widest opacity-80">Parent Social Feed</Text>
+                                </View>
                             </View>
                         </View>
+                        <View className="bg-white/30 p-3 rounded-2xl border border-white/20">
+                            <MaterialCommunityIcons name="heart" size={20} color="white" />
+                        </View>
                     </View>
-                    <View className="bg-brand-pink/20 px-4 py-2 rounded-full border border-brand-pink/10">
-                        <MaterialCommunityIcons name="heart" size={16} color="#F472B6" />
-                    </View>
-                </View>
 
-                <View className={`${theme === 'dark' ? 'bg-black/20' : 'bg-pink-50/50'} p-5 rounded-3xl border ${theme === 'dark' ? 'border-gray-800' : 'border-pink-100'}`}>
-                    <Text className={`text-xs ${colors.textSecondary} font-bold leading-5 opacity-90`}>
-                        Browse school activities, interact with parent posts, and build the school's digital scrapbook.
-                    </Text>
-                    <View className="flex-row items-center mt-4">
-                        <Text className="text-brand-pink font-black text-[10px] uppercase tracking-widest">Open Highlights</Text>
-                        <MaterialCommunityIcons name="chevron-right" size={16} color="#F472B6" className="ml-1" />
+                    <View className="bg-white/10 p-5 rounded-3xl border border-white/10">
+                        <Text className="text-white text-xs font-bold leading-5 opacity-90">
+                            Curate school moments, interact with parent posts, and build our vibrant digital community.
+                        </Text>
+                        <View className="flex-row items-center mt-4">
+                            <Text className="text-white font-black text-[10px] uppercase tracking-widest">Launch Feed</Text>
+                            <MaterialCommunityIcons name="chevron-right" size={16} color="white" className="ml-1" />
+                        </View>
                     </View>
-                </View>
+                    <View className="absolute -bottom-10 -right-10 opacity-10">
+                        <MaterialCommunityIcons name="emoticon-happy-outline" size={180} color="white" />
+                    </View>
+                </LinearGradient>
             </TouchableOpacity>
         </View>
 
         {/* Quick Action Grid */}
         <View className="px-6 pb-20">
-            <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textTertiary} mt-10 mb-4 ml-1`}>Admin Toolset</Text>
-            <View className="flex-row flex-wrap justify-between">
-            {quickActions.map((action) => (
-                <TouchableOpacity
-                key={action.id}
-                className={`${colors.surface} p-5 rounded-[28px] shadow-sm mb-4 w-[48%] border ${colors.border}`}
-                onPress={action.action}
-                >
-                <View className={`${action.color} p-3 rounded-2xl w-12 h-12 items-center justify-center mb-4 shadow-sm`}>
-                    <MaterialCommunityIcons 
-                        name={action.icon as any} 
-                        size={24} 
-                        color={(action.id === 'addUser' || action.id === 'backup') ? (theme === 'dark' ? '#1c1c14' : '#92400E') : 'white'} 
-                    />
+            <View className="flex-row items-center justify-between mb-6 px-1">
+                <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>Toolbox 🛠️</Text>
+                <View className="bg-brand-pink/10 px-3 py-1 rounded-full">
+                    <Text className="text-brand-pink text-[9px] font-black uppercase tracking-widest">Master Tools</Text>
                 </View>
-                <Text className={`font-black ${colors.text} text-base mb-1`}>{action.title}</Text>
-                <Text className={`text-xs ${colors.textSecondary} leading-4 font-bold`}>{action.subtitle}</Text>
-                </TouchableOpacity>
-            ))}
+            </View>
+
+            <View className="flex-row flex-wrap justify-between">
+                {[
+                    { id: 'studentList', title: 'Student List', subtitle: 'Global database', icon: 'briefcase-account', colors: ['#2563EB', '#1D4ED8'], screen: 'studentList' },
+                    { id: 'teacherAttendanceReport', title: 'Staff Logs', subtitle: 'Attendance stats', icon: 'account-tie', colors: ['#4F46E5', '#4338CA'], screen: 'teacherAttendanceReport' },
+                    { id: 'studentAttendanceReport', title: 'Analytics', subtitle: 'Monthly tracking', icon: 'file-chart', colors: ['#10B981', '#059669'], screen: 'studentAttendanceReport' },
+                    { id: 'takeAttendance', title: 'Attendance', subtitle: 'Record presence', icon: 'calendar-check', colors: ['#14B8A6', '#0D9488'], screen: 'takeAttendance' },
+                    { id: 'addUser', title: 'User Add', subtitle: 'Create account', icon: 'account-plus', colors: ['#FBBF24', '#D97706'], screen: 'userManagement' },
+                    { id: 'addFee', title: 'Assign Fee', subtitle: 'Student records', icon: 'cash-plus', colors: ['#F472B6', '#BE185D'], screen: 'feesManagement' },
+                    { id: 'incomeExpense', title: 'Finances', subtitle: 'Budget tracker', icon: 'cash-multiple', colors: ['#059669', '#047857'], screen: 'incomeExpense' },
+                    { id: 'reports', title: 'Reports', subtitle: 'School stats', icon: 'chart-bar', colors: ['#D97706', '#B45309'], screen: 'reports' },
+                    { id: 'announcements', title: 'Broadcast', subtitle: 'Push alerts', icon: 'bullhorn', colors: ['#DB2777', '#BE185D'], screen: 'announcements' },
+                    { id: 'postActivity', title: 'Post Now', subtitle: 'Media sharing', icon: 'camera-burst', colors: ['#3B82F6', '#2563EB'], screen: 'postActivity' },
+                    { id: 'backup', title: 'Backup', subtitle: 'System vault', icon: 'database', colors: ['#F59E0B', '#D97706'], screen: 'backup' },
+                    { id: 'timetable', title: 'Timetable', subtitle: 'Daily plans', icon: 'calendar-clock', colors: ['#6366F1', '#4F46E5'], screen: 'timetable' }
+                ].map((action) => (
+                    <TouchableOpacity
+                        key={action.id}
+                        activeOpacity={0.9}
+                        onPress={() => navigation.navigate(action.screen as any)}
+                        className="w-[48%] rounded-[32px] overflow-hidden shadow-xl mb-4"
+                        style={{ elevation: 8 }}
+                    >
+                        <LinearGradient
+                            colors={theme === 'dark' ? [action.colors[0] + '40', action.colors[1] + '20'] : [action.colors[0], action.colors[1]]}
+                            className="p-5 h-44 justify-between border border-white/10"
+                        >
+                            <View className="bg-white/20 self-start p-3 rounded-2xl shadow-sm">
+                                <MaterialCommunityIcons 
+                                    name={action.icon as any} 
+                                    size={24} 
+                                    color="white" 
+                                />
+                            </View>
+                            <View>
+                                <Text className="text-white font-black text-lg tracking-tight" numberOfLines={1}>{action.title}</Text>
+                                <Text className="text-white/80 text-[10px] font-bold uppercase tracking-widest mt-1" numberOfLines={1}>{action.subtitle}</Text>
+                            </View>
+                            <View className="absolute -bottom-4 -right-4 opacity-10">
+                                <MaterialCommunityIcons name={action.icon as any} size={80} color="white" />
+                            </View>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                ))}
             </View>
         </View>
         </ScrollView>

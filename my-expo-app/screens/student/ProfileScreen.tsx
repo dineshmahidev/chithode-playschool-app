@@ -308,13 +308,13 @@ export default function ProfileScreen({ navigation, route }: ProfileScreenProps)
   );
 
   const renderDetailItem = (label: string, value: string | undefined, icon: string) => (
-    <View className="flex-row items-center mb-5 bg-gray-50/50 dark:bg-black/20 p-4 rounded-2xl border border-gray-100 dark:border-gray-800">
-      <View className="bg-brand-pink/10 p-2 rounded-xl mr-4">
+    <View className={`flex-row items-center mb-4 ${theme === 'dark' ? 'bg-[#25251d] border-gray-800' : 'bg-gray-50 border-gray-100'} p-4 rounded-2xl border`}>
+      <View className={`${theme === 'dark' ? 'bg-brand-pink/20' : 'bg-brand-pink/10'} p-3 rounded-xl mr-4`}>
         <MaterialCommunityIcons name={icon as any} size={20} color="#F472B6" />
       </View>
       <View className="flex-1">
-        <Text className={`text-[10px] font-black uppercase ${colors.textTertiary} mb-0.5 tracking-wider`}>{label}</Text>
-        <Text className={`text-sm font-black ${colors.text}`}>{value || 'Not provided'}</Text>
+        <Text className={`text-[9px] font-black uppercase ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'} mb-0.5 tracking-[2px]`}>{label}</Text>
+        <Text className={`text-base font-black ${colors.text}`}>{value || 'Not provided'}</Text>
       </View>
     </View>
   );
@@ -349,27 +349,40 @@ export default function ProfileScreen({ navigation, route }: ProfileScreenProps)
           <View className="px-6 pb-20 mt-4">
             {isEditing && renderProgressBar()}
 
-            <View className={`${colors.surface} rounded-[40px] p-8 shadow-2xl border ${colors.border}`}>
+            <View className={`${theme === 'dark' ? 'bg-[#1a1a18]' : 'bg-white'} rounded-[40px] p-8 shadow-2xl border ${theme === 'dark' ? 'border-gray-800' : 'border-gray-100'}`}>
               
               {!isEditing ? (
                 // View Mode
                 <View>
                    <View className="items-center mb-8">
                       {renderPhotoCard('Student Account', avatar)}
-                      <Text className={`text-2xl font-black ${colors.text} mt-4`}>{targetUser?.name}</Text>
-                      <Text className="text-brand-pink font-bold">Student Record Verified ✅</Text>
-                   </View>
+                       <Text className={`text-3xl font-black ${colors.text} mt-4 tracking-tighter`}>{targetUser?.name}</Text>
+                       <View className="bg-green-500/10 px-4 py-1.5 rounded-full mt-2 border border-green-500/20 flex-row items-center">
+                         <View className="w-1.5 h-1.5 bg-green-500 rounded-full mr-2" />
+                         <Text className="text-green-600 font-black text-[10px] uppercase tracking-widest">Verified Record</Text>
+                       </View>
+                    </View>
 
-                   <View className="mb-8">
-                     <Text className={`text-xs font-black uppercase ${colors.textTertiary} mb-5 tracking-widest`}>Identity Records</Text>
+                    <View className="mb-10">
+                      <View className="flex-row items-center justify-between mb-6">
+                        <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>Identity Records 🗂️</Text>
+                        <View className="bg-brand-pink/10 px-3 py-1 rounded-full">
+                          <Text className="text-brand-pink text-[9px] font-black uppercase tracking-widest">Secure</Text>
+                        </View>
+                      </View>
                      {renderDetailItem('Date of Birth', targetUser?.date_of_birth, 'calendar-heart')}
                      {renderDetailItem('Blood Group', targetUser?.bloodGroup, 'water')}
                      {renderDetailItem('Contact Number', targetUser?.phone, 'phone')}
                      {renderDetailItem('Home Address', targetUser?.address, 'map-marker')}
                    </View>
 
-                   <View className="mb-0">
-                     <Text className={`text-xs font-black uppercase ${colors.textTertiary} mb-5 tracking-widest`}>Family & Guardian</Text>
+                    <View className="mb-6">
+                      <View className="flex-row items-center justify-between mb-6 pt-6 border-t border-brand-pink/5">
+                        <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>Family & Guardian 🏠</Text>
+                        <View className="bg-brand-pink/10 px-3 py-1 rounded-full">
+                          <Text className="text-brand-pink text-[9px] font-black uppercase tracking-widest">Contact</Text>
+                        </View>
+                      </View>
                      {renderDetailItem("Father's Name", targetUser?.fatherName, 'account-tie')}
                      {renderDetailItem("Father's Contact", targetUser?.fatherPhone, 'phone')}
                      {renderDetailItem("Mother's Name", targetUser?.motherName, 'face-woman')}

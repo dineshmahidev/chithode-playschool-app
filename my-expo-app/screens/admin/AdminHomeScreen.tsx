@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
 
 interface NavigationProps {
@@ -100,31 +101,33 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
 
   const renderAnnouncements = (list: any[], sectionTitle: string, hint: string) => {
     const screenWidth = Dimensions.get('window').width;
-    const cardWidth = screenWidth - 100;
+    const cardWidth = screenWidth - 48;
 
     return (
-      <View className="mt-4">
-        <View className="flex-row items-center justify-between mb-4 px-6">
-          <Text className={`text-xl font-black ${colors.text}`}>{sectionTitle} 📢</Text>
-          {list.length > 1 && (
-            <Text className={`text-xs font-bold ${colors.textTertiary}`}>Swipe for more</Text>
-          )}
+      <View className="mt-8 px-6">
+        <View className="flex-row items-center justify-between mb-5 px-1">
+          <Text className={`text-xl font-black ${colors.text} uppercase tracking-widest opacity-60`}>{sectionTitle} 📢</Text>
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('announcements')}
+            className="bg-brand-pink/10 px-4 py-1.5 rounded-full border border-brand-pink/20"
+          >
+             <Text className="text-brand-pink text-[9px] font-black uppercase tracking-widest">See All</Text>
+          </TouchableOpacity>
         </View>
         
         {list.length > 0 ? (
           <ScrollView 
             horizontal 
+            pagingEnabled
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 50, paddingBottom: 24 }}
-            decelerationRate="fast"
-            snapToInterval={cardWidth + 16} // cardWidth + gap
+            className="overflow-hidden rounded-[40px]"
           >
-            {list.map((item, index) => (
+            {list.map((item) => (
               <TouchableOpacity 
                 key={item.id}
                 activeOpacity={0.9}
                 style={{ width: cardWidth, aspectRatio: 16 / 9 }}
-                className={`${index === list.length - 1 ? '' : 'mr-4'} bg-brand-pink relative overflow-hidden rounded-[32px] border-2 ${theme === 'dark' ? 'border-gray-800' : 'border-white'} shadow-xl`}
+                className="mr-3 bg-brand-pink relative overflow-hidden rounded-[40px] border-4 border-white shadow-2xl"
                 onPress={() => Alert.alert(item.title, item.content)}
               >
                 {item.image ? (
@@ -135,44 +138,44 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
                   />
                 ) : (
                   <View className="flex-1 items-center justify-center bg-brand-pink/20">
-                    <MaterialCommunityIcons name="bullhorn-outline" size={64} color="#F472B6" />
+                    <MaterialCommunityIcons name="bullhorn-outline" size={80} color="#F472B6" />
                   </View>
                 )}
                 
-                <View className="absolute inset-0 bg-black/30 justify-end p-6">
-                  <View className="bg-white/20 self-start px-3 py-1 rounded-full mb-2 flex-row items-center">
-                    <MaterialCommunityIcons name="calendar-edit" size={12} color="white" style={{ marginRight: 4 }} />
-                    <Text className="text-white text-[10px] font-black uppercase tracking-widest">{item.date}</Text>
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.8)']}
+                  className="absolute inset-x-0 bottom-0 h-40 justify-end p-8"
+                >
+                  <View className="bg-white/20 self-start px-3 py-1.5 rounded-xl mb-3 flex-row items-center border border-white/10">
+                    <MaterialCommunityIcons name="calendar-clock" size={14} color="white" />
+                    <Text className="text-white text-[10px] font-black uppercase tracking-widest ml-2">{item.date}</Text>
                   </View>
-                  <Text className="text-white text-2xl font-black tracking-tighter" numberOfLines={2}>
+                  <Text className="text-white text-3xl font-black tracking-tighter" numberOfLines={2}>
                     {item.title}
                   </Text>
-                  <View className="flex-row items-center mt-1">
-                    <MaterialCommunityIcons name="account-circle-outline" size={14} color="white" />
-                    <Text className="text-white/80 text-xs font-bold ml-1">{item.author || 'Admin'}</Text>
+                  <View className="flex-row items-center mt-2">
+                    <View className="bg-brand-yellow w-5 h-5 rounded-full items-center justify-center mr-2">
+                        <MaterialCommunityIcons name="account-tie" size={12} color="#92400E" />
+                    </View>
+                    <Text className="text-white/80 text-[11px] font-black uppercase tracking-[2px]">{item.author || 'Admin Headquarters'}</Text>
                   </View>
-                </View>
+                </LinearGradient>
               </TouchableOpacity>
             ))}
           </ScrollView>
         ) : (
-          <View className="items-center px-6 pb-8">
-            <View 
-              style={{ 
-                width: cardWidth, 
-                aspectRatio: 16 / 10,
-                elevation: 10
-              }}
-              className={`${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-brand-pink/30'} items-center justify-center rounded-[32px] border-2 border-dashed shadow-xl`}
-            >
-              <View className="items-center justify-center">
-                <View className={`${theme === 'dark' ? 'bg-pink-500/10' : 'bg-brand-pink/10'} w-24 h-24 rounded-full items-center justify-center mb-5 border ${theme === 'dark' ? 'border-pink-500/20' : 'border-brand-pink/20'}`}>
-                  <MaterialCommunityIcons name="bullhorn-variant-outline" size={48} color="#F472B6" />
-                </View>
-                <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>All caught up! ✨</Text>
-                <Text className={`mt-2 font-black text-brand-pink/40 uppercase text-[9px] tracking-[4px]`}>No current {hint}</Text>
-              </View>
+          <View 
+            style={{ 
+              width: '100%', 
+              aspectRatio: 16 / 9,
+            }}
+            className={`${theme === 'dark' ? 'bg-[#1e1e1e]' : 'bg-brand-pink/5'} items-center justify-center rounded-[40px] border-4 border-white border-dashed shadow-sm`}
+          >
+            <View className="bg-brand-pink/10 w-24 h-24 rounded-full items-center justify-center mb-4">
+              <MaterialCommunityIcons name="bullhorn-variant-outline" size={56} color="#F472B6" />
             </View>
+            <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>Mission Complete! ✨</Text>
+            <Text className={`mt-2 font-black text-brand-pink/40 uppercase text-[9px] tracking-[4px]`}>No active {hint}</Text>
           </View>
         )}
       </View>
@@ -181,206 +184,384 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
 
   return (
     <View 
-        className={`flex-1 ${theme === 'dark' ? 'bg-[#121212]' : 'bg-white'}`}
+        className={`flex-1 ${theme === 'dark' ? 'bg-[#1c1c14]' : 'bg-white'}`}
         style={{ backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}
     >
         <ScrollView
-        className={`flex-1 ${theme === 'dark' ? '' : 'bg-white'}`}
+        className="flex-1"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 60 }}
         >
-        {/* ── Header ── */}
-        <View className="px-6 pt-8 pb-4">
+        {/* ── Background Gradient & 3D Illustration ── */}
+        <View className="absolute top-0 left-0 right-0 h-[500px] overflow-hidden">
+            <LinearGradient
+                colors={[theme === 'dark' ? '#1e1b4b' : '#FDF2F8', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
+                className="absolute inset-0"
+            />
+            <Image 
+                source={require('../../assets/images/playschool_3d.png')} 
+                style={{ width: '100%', height: '100%', opacity: theme === 'dark' ? 0.15 : 0.25, transform: [{ scale: 1.3 }, { translateY: -30 }] }}
+                resizeMode="cover"
+            />
+            {/* Soft glow overlap */}
+            <View className="absolute -top-20 -left-20 w-80 h-80 bg-brand-pink/10 rounded-full blur-3xl" />
+            
+            {/* Smooth transition gradient to content */}
+            <LinearGradient
+                colors={['transparent', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
+                className="absolute bottom-0 left-0 right-0 h-60"
+            />
+        </View>
+
+        {/* ── Modern Header ── */}
+        <View className="px-6 pt-12 pb-6">
             <View className="flex-row items-center justify-between">
-            <View className="flex-1">
-                <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>Welcome,</Text>
-                <Text className="text-2xl font-bold text-brand-pink">{user?.name || 'Admin'}! 👑</Text>
-            </View>
-            <TouchableOpacity
-                className={`w-20 h-20 rounded-3xl items-center justify-center shadow-lg border-4 ${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-brand-yellow border-white'} rotate-3 relative overflow-hidden`}
-                onPress={updateAvatar}
-            >
-                {user?.avatar ? (
-                <Image source={{ uri: user.avatar }} style={{ width: '100%', height: '100%' }} />
-                ) : (
-                <MaterialCommunityIcons name="shield-account" size={42} color={theme === 'dark' ? '#F472B6' : '#92400E'} />
-                )}
-                <View className="absolute -bottom-1 -right-1 bg-brand-pink p-1.5 rounded-lg border-2 border-white">
-                <MaterialCommunityIcons name="camera" size={14} color="white" />
-                </View>
-            </TouchableOpacity>
-            </View>
-        </View>
-
-        {/* ── Quick Stats ── */}
-        <View className="px-6 py-4">
-            <View className="flex-row justify-between">
-            <TouchableOpacity
-                className={`${theme === 'dark' ? 'bg-[#1e1e1e]' : colors.surface} p-5 rounded-[28px] shadow-sm flex-1 mr-2 border ${theme === 'dark' ? 'border-gray-800' : colors.border}`}
-                onPress={() => handleQuickAction('userManagement')}
-                activeOpacity={0.75}
-            >
-                <View className="flex-row items-center justify-between mb-2">
-                <Text className={`text-4xl font-black ${theme === 'dark' ? 'text-amber-500' : 'text-yellow-600'} font-mono`}>{studentCount}</Text>
-                <View className={`${theme === 'dark' ? 'bg-amber-500/10' : 'bg-yellow-100/50'} p-2 rounded-2xl`}>
-                    <MaterialCommunityIcons name="school" size={28} color={theme === 'dark' ? '#FBBF24' : '#B45309'} />
-                </View>
-                </View>
-                <Text className={`${colors.textSecondary} text-[10px] font-black uppercase tracking-widest`}>Students</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-                className={`${theme === 'dark' ? 'bg-[#1e1e1e]' : colors.surface} p-5 rounded-[28px] shadow-sm flex-1 ml-2 border ${theme === 'dark' ? 'border-gray-800' : colors.border}`}
-                onPress={() => handleQuickAction('userManagement')}
-                activeOpacity={0.75}
-            >
-                <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-4xl font-black text-brand-pink font-mono">{teacherCount}</Text>
-                <View className={`${theme === 'dark' ? 'bg-pink-500/10' : 'bg-pink-100/50'} p-2 rounded-2xl`}>
-                    <MaterialCommunityIcons name="account-tie" size={28} color="#F472B6" />
-                </View>
-                </View>
-                <Text className={`${colors.textSecondary} text-[10px] font-black uppercase tracking-widest`}>Staff</Text>
-            </TouchableOpacity>
-            </View>
-        </View>
-
-        {/* ── Today's Schedule ── */}
-        <TouchableOpacity 
-            activeOpacity={0.9}
-            onPress={() => navigation.navigate('timetable')}
-            className={`mx-6 mt-4 ${todaySchedule ? todaySchedule.color || 'bg-brand-pink' : 'bg-gray-400'} rounded-[32px] p-6 shadow-xl relative overflow-hidden`}
-        >
-            <View className="flex-row items-center justify-between relative z-10">
-                <View className="flex-1 mr-4">
-                    <View className="flex-row items-center mb-1">
-                        <MaterialCommunityIcons name="calendar-clock" size={16} color="white" />
-                        <Text className="text-white font-black uppercase text-[10px] tracking-widest ml-2 opacity-80">
-                            {todaySchedule ? "Next Session" : "Today's Schedule"}
-                        </Text>
-                    </View>
-                    <Text className="text-white text-2xl font-black mt-1" numberOfLines={1}>
-                        {todaySchedule ? todaySchedule.activity : "No sessions mentioned"}
+                <View className="flex-1">
+                    <Text className={`text-xl font-black ${colors.textSecondary} uppercase tracking-widest`}>
+                        Admin Hub 🔐
                     </Text>
-                    {todaySchedule && (
-                        <View className="flex-row items-center mt-2 bg-white/20 self-start px-3 py-1 rounded-full">
-                            <MaterialCommunityIcons name="clock-outline" size={14} color="white" />
-                            <Text className="text-white text-xs font-bold ml-1.5" numberOfLines={1}>
-                                {todaySchedule.time} • {todaySchedule.room || 'Classroom'}
-                            </Text>
-                        </View>
+                    <View className="flex-row items-center mt-1">
+                        <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>
+                            {user?.name || 'Administrator'}
+                        </Text>
+                        <TouchableOpacity 
+                            onPress={() => navigation.navigate('profile')}
+                            className="ml-3 bg-brand-pink/10 p-2 rounded-2xl"
+                        >
+                            <MaterialCommunityIcons name="pencil-box-outline" size={24} color="#F472B6" />
+                        </TouchableOpacity>
+                    </View>
+                    <View className="bg-brand-pink/20 self-start px-4 py-1.5 rounded-full mt-3 border border-brand-pink/10 shadow-sm">
+                        <Text className="text-brand-pink text-[10px] font-black uppercase tracking-[2px]">Master Control Panel</Text>
+                    </View>
+                </View>
+
+                <TouchableOpacity
+                    className="bg-brand-yellow w-24 h-24 rounded-[36px] items-center justify-center shadow-2xl border-4 border-white rotate-3 relative overflow-hidden"
+                    onPress={updateAvatar}
+                >
+                    {user?.avatar ? (
+                    <Image source={{ uri: user.avatar }} style={{ width: '100%', height: '100%' }} />
+                    ) : (
+                    <MaterialCommunityIcons name="shield-crown-outline" size={48} color="#92400E" />
                     )}
-                </View>
-                <View className="bg-white/30 w-16 h-16 rounded-[24px] items-center justify-center">
-                    <MaterialCommunityIcons 
-                        name={todaySchedule ? (todaySchedule.icon || "book-open-variant") : "calendar-blank"} 
-                        size={36} 
-                        color="white" 
-                    />
-                </View>
+                    <View className="absolute -bottom-1 -right-1 bg-brand-pink p-2 rounded-xl border-2 border-white">
+                        <MaterialCommunityIcons name="camera" size={14} color="white" />
+                    </View>
+                </TouchableOpacity>
             </View>
-            {/* Background pattern */}
-            <View className="absolute -bottom-4 -right-4 opacity-10">
-                <MaterialCommunityIcons name="school" size={120} color="white" />
-            </View>
-        </TouchableOpacity>
+        </View>
 
-        {(announcements?.length ?? 0) > 0 && renderAnnouncements(announcements, 'Announcements', 'announcements')}
-
-        {/* ── Core Management ── */}
-        <View className="px-6 py-6">
-            <Text className={`text-lg font-black ${colors.text} mb-4 uppercase tracking-widest text-[10px]`}>Core Management</Text>
-            <View className="flex-row justify-between">
-                {[
-                    { label: 'Finance', icon: 'cash-register', color: '#10B981', bg: 'bg-green-100/10', screen: 'incomeExpense' },
-                    { label: 'Fees', icon: 'cash-multiple', color: '#EAB308', bg: 'bg-brand-yellow/10', screen: 'feesManagement' },
-                    { label: 'Activity', icon: 'camera-plus-outline', color: '#F472B6', bg: 'bg-brand-pink/10', screen: 'postActivity' }
-                ].map((action, idx) => (
-                    <TouchableOpacity
-                        key={idx}
-                        className={`${theme === 'dark' ? 'bg-[#1e1e1e]' : colors.surface} py-5 px-2 rounded-3xl shadow-sm items-center w-[31%] border ${theme === 'dark' ? 'border-gray-800' : colors.border}`}
-                        onPress={() => handleQuickAction(action.screen)}
-                    >
-                        <View className={`${action.bg} p-3 rounded-2xl mb-2`}>
-                            <MaterialCommunityIcons name={action.icon as any} size={26} color={action.color} />
+        {/* ── Premium Quick Stats ── */}
+        <View className="px-6 py-4 flex-row justify-between">
+            <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => handleQuickAction('userManagement')}
+                className="w-[48%] rounded-[40px] overflow-hidden shadow-2xl"
+                style={{ elevation: 15 }}
+            >
+                <LinearGradient
+                    colors={theme === 'dark' ? ['#1e3a8a', '#1e1b4b'] : ['#FBBF24', '#D97706']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    className="p-6 h-40 justify-between"
+                >
+                    <View className="flex-row justify-between items-start">
+                        <View className="bg-white/20 p-2.5 rounded-2xl">
+                            <MaterialCommunityIcons name="school-outline" size={28} color="white" />
                         </View>
-                        <Text className={`text-[11px] font-black ${colors.text} text-center uppercase`}>{action.label}</Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
+                        <Text className="text-white/40 text-[10px] font-black uppercase tracking-widest">Enrollment</Text>
+                    </View>
+                    <View>
+                        <Text className="text-white text-5xl font-black font-mono tracking-tighter">{studentCount}</Text>
+                        <Text className="text-white/80 text-[11px] font-black uppercase mt-1 tracking-widest">Total Students</Text>
+                    </View>
+                    {/* Pattern */}
+                    <View className="absolute -bottom-6 -right-6 opacity-10">
+                         <MaterialCommunityIcons name="book-multiple" size={100} color="white" />
+                    </View>
+                </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => handleQuickAction('userManagement')}
+                className="w-[48%] rounded-[40px] overflow-hidden shadow-2xl"
+                style={{ elevation: 15 }}
+            >
+                <LinearGradient
+                    colors={theme === 'dark' ? ['#4c1d95', '#1e1b4b'] : ['#F472B6', '#BE185D']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    className="p-6 h-40 justify-between"
+                >
+                    <View className="flex-row justify-between items-start">
+                        <View className="bg-white/20 p-2.5 rounded-2xl">
+                            <MaterialCommunityIcons name="account-group" size={28} color="white" />
+                        </View>
+                        <Text className="text-white/40 text-[10px] font-black uppercase tracking-widest">Faculty</Text>
+                    </View>
+                    <View>
+                        <Text className="text-white text-5xl font-black font-mono tracking-tighter">{teacherCount}</Text>
+                        <Text className="text-white/80 text-[11px] font-black uppercase mt-1 tracking-widest">Active Staff</Text>
+                    </View>
+                    {/* Pattern */}
+                    <View className="absolute -bottom-6 -right-6 opacity-10">
+                         <MaterialCommunityIcons name="face-man-profile" size={100} color="white" />
+                    </View>
+                </LinearGradient>
+            </TouchableOpacity>
         </View>
 
         {/* ── School Overview ── */}
-        <View className="px-6 pb-12">
-            <Text className={`text-xl font-black ${colors.text} mb-6 tracking-tight`}>School Overview 📊</Text>
+        <View className="px-6 mt-6">
+            <View className="flex-row items-center justify-between mb-4 px-1">
+                <Text style={{ color: colors.text }} className="text-xl font-black tracking-tighter">School Metrics 📊</Text>
+                <View className="bg-brand-pink/10 px-3 py-1 rounded-full">
+                    <Text className="text-brand-pink text-[9px] font-black uppercase tracking-widest">Real-time</Text>
+                </View>
+            </View>
 
             <View className="flex-row justify-between">
-                {/* Fees Overview Card */}
-                <TouchableOpacity 
-                    activeOpacity={0.8}
-                    onPress={() => handleQuickAction('feesManagement')}
-                    className={`flex-1 rounded-[32px] border mr-2 ${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-brand-yellow/20'} overflow-hidden shadow-sm`}
+                <View 
+                   style={{ elevation: 15 }}
+                   className={`w-[48%] rounded-[40px] overflow-hidden shadow-2xl ${theme === 'dark' ? 'bg-[#1a1a18] border-gray-800' : 'bg-white border-brand-pink/5'}`}
                 >
-                    <View className="h-1.5 bg-brand-yellow" />
-                    <View className="p-5">
-                        <View className={`w-12 h-12 rounded-2xl items-center justify-center mb-4 ${theme === 'dark' ? 'bg-brand-yellow/10' : 'bg-brand-yellow/10'}`}>
-                            <MaterialCommunityIcons name="cash-check" size={26} color="#EAB308" />
+                    <LinearGradient
+                        colors={theme === 'dark' ? ['#831843', '#1c1c14'] : ['#FFFFFF', '#FFF5F7']}
+                        className="p-6"
+                    >
+                        <View className="flex-row items-center justify-between mb-6">
+                            <View className="bg-brand-pink/10 dark:bg-brand-pink/20 w-11 h-11 rounded-2xl items-center justify-center">
+                                <MaterialCommunityIcons name="currency-usd" size={24} color="#F472B6" />
+                            </View>
+                            <Text className="text-brand-pink font-black text-[8px] uppercase tracking-widest">Fees</Text>
                         </View>
-                        <Text 
-                            style={{ color: '#EAB308' }}
-                            className="text-[10px] font-black uppercase tracking-widest mb-2"
-                        >
-                            Monthly Fees
-                        </Text>
-                        <View className="flex-row items-end mb-1">
-                            <Text style={{ color: '#EAB308' }} className="text-3xl font-black">{paidFeeCount}</Text>
-                            <Text className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mb-1 ml-1`}>/ {totalFeeCount}</Text>
+                        <View className="flex-row items-center">
+                            <Text style={{ color: colors.text }} className="text-3xl font-black">{paidFeeCount}</Text>
+                            <Text className="text-gray-400 text-[12px] font-bold mx-1 opacity-40">/</Text>
+                            <Text className="text-gray-400 text-[10px] font-black uppercase tracking-widest">{totalFeeCount}</Text>
                         </View>
-                        <Text className={`text-[10px] font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'} mb-4`}>Fees Collected</Text>
-                        <View className={`h-1.5 rounded-full ${theme === 'dark' ? 'bg-gray-800' : 'bg-brand-yellow/10'} overflow-hidden`}>
-                            <View style={{ width: `${totalFeeCount > 0 ? (paidFeeCount / totalFeeCount) * 100 : 0}%` }} className="h-full bg-brand-yellow rounded-full" />
+                        <Text className="text-gray-400 text-[9px] font-bold uppercase opacity-60 tracking-tighter">Collected</Text>
+                        
+                        <View className="mt-5 h-2 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden">
+                            <View 
+                                style={{ width: `${totalFeeCount > 0 ? (paidFeeCount / totalFeeCount) * 100 : 0}%`, height: '100%' }} 
+                                className="bg-brand-pink rounded-full shadow-sm" 
+                            />
                         </View>
-                    </View>
-                </TouchableOpacity>
+                        <Text className="text-brand-pink font-black text-[10px] mt-3 uppercase tracking-tighter self-end">{Math.round(totalFeeCount > 0 ? (paidFeeCount / totalFeeCount) * 100 : 0)}% Clear</Text>
+                    </LinearGradient>
+                </View>
 
-                {/* Attendance Card */}
-                <TouchableOpacity 
-                    activeOpacity={0.8}
-                    onPress={() => handleQuickAction('takeAttendance')}
-                    className={`flex-1 rounded-[32px] border ml-2 ${theme === 'dark' ? 'bg-[#1e1e1e] border-gray-800' : 'bg-white border-pink-100'} overflow-hidden shadow-sm`}
+                <View 
+                   style={{ elevation: 15 }}
+                   className={`w-[48%] rounded-[40px] overflow-hidden shadow-2xl ${theme === 'dark' ? 'bg-[#1a1a18] border-gray-800' : 'bg-white border-brand-pink/5'}`}
                 >
-                    <View className="h-1.5 bg-brand-pink" />
-                    <View className="p-5">
-                        <View className={`w-12 h-12 rounded-2xl items-center justify-center mb-4 ${theme === 'dark' ? 'bg-pink-500/10' : 'bg-pink-50'}`}>
-                            <MaterialCommunityIcons name="account-check" size={26} color="#F472B6" />
+                    <LinearGradient
+                        colors={theme === 'dark' ? ['#1e40af', '#1c1c14'] : ['#FFFFFF', '#EFF6FF']}
+                        className="p-6"
+                    >
+                        <View className="flex-row items-center justify-between mb-6">
+                            <View className="bg-blue-100 dark:bg-blue-500/20 w-11 h-11 rounded-2xl items-center justify-center">
+                                <MaterialCommunityIcons name="account-check-outline" size={24} color="#3B82F6" />
+                            </View>
+                            <Text className="text-blue-500 font-black text-[8px] uppercase tracking-widest">Presence</Text>
                         </View>
-                        <Text 
-                            style={{ color: '#F472B6' }}
-                            className="text-[10px] font-black uppercase tracking-widest mb-2"
-                        >
-                            Attendance
-                        </Text>
-                        <View className="flex-row items-end mb-1">
-                            <Text style={{ color: '#F472B6' }} className="text-3xl font-black">{presentToday}</Text>
-                            <Text className={`text-sm font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} mb-1 ml-1`}>/ {studentCount}</Text>
+                        <View className="flex-row items-center">
+                             <Text style={{ color: colors.text }} className="text-3xl font-black">{presentToday}</Text>
+                             <Text className="text-gray-400 text-[12px] font-bold mx-1 opacity-40">/</Text>
+                             <Text className="text-gray-400 text-[10px] font-black uppercase tracking-widest">{studentCount}</Text>
                         </View>
-                        <Text className={`text-[10px] font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'} mb-4`}>Present Today</Text>
-                        <View className={`h-1.5 rounded-full ${theme === 'dark' ? 'bg-gray-800' : 'bg-pink-100/50'} overflow-hidden`}>
-                            <View style={{ width: `${studentCount > 0 ? (presentToday / studentCount) * 100 : 0}%` }} className="h-full bg-brand-pink rounded-full" />
+                        <Text className="text-gray-400 text-[9px] font-bold uppercase opacity-60 tracking-tighter">Attending Today</Text>
+                        
+                        <View className="mt-5 h-2 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden">
+                            <View 
+                                style={{ width: `${studentCount > 0 ? (presentToday / studentCount) * 100 : 0}%`, height: '100%' }} 
+                                className="bg-blue-500 rounded-full shadow-sm" 
+                            />
                         </View>
-                    </View>
-                </TouchableOpacity>
+                        <Text className="text-blue-500 font-black text-[10px] mt-3 uppercase tracking-tighter self-end">{Math.round(studentCount > 0 ? (presentToday / studentCount) * 100 : 100)}% Present</Text>
+                    </LinearGradient>
+                </View>
             </View>
         </View>
 
-        <View className="px-6">
-            <TouchableOpacity
-                onPress={() => handleQuickAction('reports')}
-                className="bg-brand-yellow py-5 rounded-[32px] items-center shadow-lg active:scale-95 mb-10 border-4 border-white"
-            >
-                <View className="flex-row items-center">
-                    <MaterialCommunityIcons name="view-dashboard" size={24} color="#92400E" />
-                    <Text className="text-amber-900 font-black text-lg ml-2 uppercase tracking-tight">Full Analytics</Text>
+        {(announcements?.length ?? 0) > 0 && renderAnnouncements(announcements, 'Central Notices', 'announcements')}
+
+        {/* ── Modern Management Portal ── */}
+        <View className="px-6 py-8">
+            <View className="flex-row items-center justify-between mb-6 px-1">
+                <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>Main Operations ⚙️</Text>
+                <View className="bg-brand-pink/10 px-3 py-1 rounded-full">
+                    <Text className="text-brand-pink text-[9px] font-black uppercase font-bold tracking-widest">Master Controls</Text>
                 </View>
+            </View>
+
+            <View className="flex-row justify-between mb-4">
+                <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => handleQuickAction('incomeExpense')}
+                    className="w-[48%] rounded-[36px] overflow-hidden shadow-xl"
+                    style={{ elevation: 12 }}
+                >
+                    <LinearGradient
+                        colors={theme === 'dark' ? ['#064e3b', '#022c22'] : ['#10B981', '#059669']}
+                        className="p-6 h-48 justify-between"
+                    >
+                        <View className="bg-white/20 self-start p-3.5 rounded-2xl shadow-sm">
+                            <MaterialCommunityIcons name="finance" size={28} color="white" />
+                        </View>
+                        <View>
+                            <Text className="text-white text-2xl font-black tracking-tighter">Finance Hub</Text>
+                            <Text className="text-white/80 text-[10px] font-bold mt-1 uppercase tracking-widest">Accounts & Budget</Text>
+                        </View>
+                        <View className="absolute -bottom-4 -right-4 opacity-10">
+                            <MaterialCommunityIcons name="leaf" size={100} color="white" />
+                        </View>
+                    </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => handleQuickAction('feesManagement')}
+                    className="w-[48%] rounded-[36px] overflow-hidden shadow-xl"
+                    style={{ elevation: 12 }}
+                >
+                    <LinearGradient
+                        colors={theme === 'dark' ? ['#1e40af', '#1e1b4b'] : ['#3B82F6', '#2563EB']}
+                        className="p-6 h-48 justify-between"
+                    >
+                        <View className="bg-white/20 self-start p-3.5 rounded-2xl shadow-sm">
+                            <MaterialCommunityIcons name="cash-register" size={28} color="white" />
+                        </View>
+                        <View>
+                            <Text className="text-white text-2xl font-black tracking-tighter">Fee Portal</Text>
+                            <Text className="text-white/80 text-[10px] font-bold mt-1 uppercase tracking-widest">Collections Info</Text>
+                        </View>
+                        <View className="absolute -bottom-4 -right-4 opacity-10">
+                            <MaterialCommunityIcons name="credit-card-chip" size={100} color="white" />
+                        </View>
+                    </LinearGradient>
+                </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => handleQuickAction('postActivity')}
+                className="rounded-[36px] overflow-hidden shadow-xl"
+                style={{ elevation: 12 }}
+            >
+                <LinearGradient
+                    colors={theme === 'dark' ? ['#312e81', '#1e1b4b'] : ['#8B5CF6', '#6D28D9']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    className="p-6 flex-row items-center justify-between"
+                >
+                    <View className="flex-1">
+                        <View className="bg-white/20 self-start px-3 py-1 rounded-full mb-3">
+                            <Text className="text-white text-[9px] font-black uppercase tracking-widest">Broadcast Tool</Text>
+                        </View>
+                        <Text className="text-white text-3xl font-black tracking-tighter">Post Highlights</Text>
+                        <Text className="text-white/80 text-sm font-bold mt-1">Share school moments with parents ✨</Text>
+                    </View>
+                    <View className="bg-white/30 p-4 rounded-3xl ml-4">
+                        <MaterialCommunityIcons name="camera-iris" size={42} color="white" />
+                    </View>
+                    <View className="absolute -bottom-10 -right-10 opacity-10">
+                        <MaterialCommunityIcons name="image-multiple-outline" size={150} color="white" />
+                    </View>
+                </LinearGradient>
+            </TouchableOpacity>
+        </View>
+
+        {/* ── Today's Pulse Card ── */}
+        <View className="px-6 pb-12">
+            <View className="flex-row items-center justify-between mb-8 px-1">
+                <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>Daily Pulse 📡</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('timetable')}>
+                    <Text className="text-brand-pink font-bold text-xs">Full View</Text>
+                </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity 
+                activeOpacity={0.9}
+                onPress={() => navigation.navigate('timetable')}
+                className="rounded-[40px] overflow-hidden shadow-2xl"
+                style={{ elevation: 20 }}
+            >
+                <LinearGradient
+                    colors={theme === 'dark' ? ['#312e81', '#1e1b4b'] : ['#6366F1', '#4F46E5']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    className="p-7"
+                >
+                    <View className="flex-row items-center justify-between relative z-10">
+                        <View className="flex-1 mr-4">
+                            <View className="flex-row items-center mb-1">
+                                <View className="bg-white/20 p-1.5 rounded-lg mr-2">
+                                    <MaterialCommunityIcons name="timeline-clock-outline" size={14} color="white" />
+                                </View>
+                                <Text className="text-white font-black uppercase text-[10px] tracking-[2px] opacity-80">
+                                    {todaySchedule ? "Ongoing Activity" : "Operations Ready"}
+                                </Text>
+                            </View>
+                            <Text className="text-white text-3xl font-black mt-2 tracking-tighter" numberOfLines={1}>
+                                {todaySchedule ? todaySchedule.activity : "No Scheduled Events"}
+                            </Text>
+                            <View className="flex-row items-center mt-4">
+                                <View className="bg-white/20 self-start px-4 py-2 rounded-2xl flex-row items-center mr-3 border border-white/10">
+                                    <MaterialCommunityIcons name="clock-fast" size={16} color="white" />
+                                    <Text className="text-white text-[12px] font-black ml-2">
+                                        {todaySchedule ? todaySchedule.time : "Standby"}
+                                    </Text>
+                                </View>
+                                <View className="bg-white/20 self-start px-4 py-2 rounded-2xl flex-row items-center border border-white/10">
+                                    <MaterialCommunityIcons name="map-marker-outline" size={16} color="white" />
+                                    <Text className="text-white text-[12px] font-black ml-2">
+                                        {todaySchedule ? (todaySchedule.room || 'All Class') : "Main Site"}
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+                        <View className="bg-white/30 w-18 h-18 rounded-[28px] items-center justify-center border-4 border-white/10 shadow-lg rotate-6">
+                            <MaterialCommunityIcons 
+                                name={todaySchedule ? (todaySchedule.icon || "bullseye-arrow") : "checkbox-marked-circle-outline"} 
+                                size={42} 
+                                color="white" 
+                            />
+                        </View>
+                    </View>
+                    <View className="absolute -bottom-10 -right-10 opacity-10">
+                        <MaterialCommunityIcons name="toy-brick-plus" size={180} color="white" />
+                    </View>
+                </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                onPress={() => navigation.navigate('reports')}
+                activeOpacity={0.9}
+                className="mt-10 rounded-[40px] overflow-hidden shadow-2xl"
+                style={{ elevation: 20 }}
+            >
+                <LinearGradient
+                    colors={theme === 'dark' ? ['#1e1b4b', '#312e81'] : ['#FBBF24', '#D97706']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    className="py-7 px-10 flex-row items-center justify-center"
+                >
+                    <View className="bg-white/20 p-2.5 rounded-2xl mr-4">
+                        <MaterialCommunityIcons 
+                            name="view-dashboard-variant-outline" 
+                            size={28} 
+                            color={theme === 'dark' ? 'white' : '#92400E'} 
+                        />
+                    </View>
+                    <View>
+                        <Text className={`${theme === 'dark' ? 'text-white' : 'text-amber-900'} font-black text-2xl tracking-tighter`}>Full School Analytics</Text>
+                        <Text className={`${theme === 'dark' ? 'text-white/60' : 'text-amber-800/60'} text-[10px] font-black uppercase tracking-widest mt-0.5`}>Central Intelligence Portal</Text>
+                    </View>
+                </LinearGradient>
             </TouchableOpacity>
         </View>
 

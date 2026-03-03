@@ -8,6 +8,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
 
 // ─────────────────────────────────────────────────────────
@@ -29,17 +30,21 @@ interface DrumColumnProps {
 
 function DrumColumn({ items, selected, onSelect, label, theme, colors }: DrumColumnProps) {
   const ref = useRef<ScrollView>(null);
-  const isScrolling = useRef(false);
-
+  
+  // Set initial position on mount
   useEffect(() => {
-    ref.current?.scrollTo({ y: selected * ITEM_H, animated: false });
-  }, []);                          // mount-only: set initial position
+    setTimeout(() => {
+      ref.current?.scrollTo({ y: selected * ITEM_H, animated: false });
+    }, 100);
+  }, []);
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const y     = e.nativeEvent.contentOffset.y;
+    const y = e.nativeEvent.contentOffset.y;
     const index = Math.round(y / ITEM_H);
     const clamped = Math.max(0, Math.min(index, items.length - 1));
-    if (clamped !== selected) onSelect(clamped);
+    if (clamped !== selected) {
+      onSelect(clamped);
+    }
   };
 
   const handlePress = (index: number) => {
@@ -50,19 +55,32 @@ function DrumColumn({ items, selected, onSelect, label, theme, colors }: DrumCol
   return (
     <View style={{ flex: 1, alignItems: 'center' }}>
       {label ? (
-        <Text style={{ fontSize: 10, fontWeight: '900', color: '#F472B6',
-          letterSpacing: 2, marginBottom: 6, textTransform: 'uppercase' }}>
+        <Text style={{ 
+          fontSize: 10, 
+          fontWeight: '900', 
+          color: theme === 'dark' ? '#F472B6' : '#F472B6', 
+          letterSpacing: 2, 
+          marginBottom: 10, 
+          textTransform: 'uppercase',
+          opacity: 0.8
+        }}>
           {label}
         </Text>
-      ) : <View style={{ height: 22 }} />}
+      ) : <View style={{ height: 26 }} />}
 
-      <View style={{ height: PICKER_H, width: '100%', overflow: 'hidden' }}>
-        {/* selection highlight */}
+      <View style={{ height: PICKER_H, width: '100%', borderRadius: 20, overflow: 'hidden' }}>
+        {/* Selection Glass Bar */}
         <View style={{
-          position: 'absolute', top: PADDING, left: 4, right: 4,
-          height: ITEM_H, borderRadius: 14,
-          backgroundColor: theme === 'dark' ? '#2d2d2b' : '#F3F4F6',
-          borderWidth: 2, borderColor: '#F472B6', zIndex: 0,
+          position: 'absolute', 
+          top: PADDING, 
+          left: 8, 
+          right: 8,
+          height: ITEM_H, 
+          borderRadius: 16,
+          backgroundColor: theme === 'dark' ? 'rgba(244, 114, 182, 0.1)' : 'rgba(244, 114, 182, 0.05)',
+          borderWidth: 1.5, 
+          borderColor: 'rgba(244, 114, 182, 0.3)', 
+          zIndex: 0,
         }} />
 
         <ScrollView
@@ -74,26 +92,42 @@ function DrumColumn({ items, selected, onSelect, label, theme, colors }: DrumCol
           onMomentumScrollEnd={handleScroll}
           onScrollEndDrag={handleScroll}
           scrollEventThrottle={16}
+          nestedScrollEnabled={true} // FIX: Ensures scrolling works inside another ScrollView
         >
-          {items.map((item, i) => (
-            <TouchableOpacity
-              key={i}
-              onPress={() => handlePress(i)}
-              activeOpacity={0.7}
-              style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Text style={{
-                fontSize: i === selected ? 22 : 16,
-                fontWeight: i === selected ? '900' : '500',
-                color: i === selected
-                  ? '#F472B6'
-                  : theme === 'dark' ? '#666' : '#9CA3AF',
-              }}>
-                {item}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {items.map((item, i) => {
+            const isActive = i === selected;
+            return (
+              <TouchableOpacity
+                key={i}
+                onPress={() => handlePress(i)}
+                activeOpacity={0.7}
+                style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{
+                  fontSize: isActive ? 24 : 18,
+                  fontWeight: isActive ? '900' : '600',
+                  color: isActive ? '#F472B6' : (theme === 'dark' ? '#555' : '#D1D5DB'),
+                  transform: [{ scale: isActive ? 1.1 : 1 }],
+                  opacity: isActive ? 1 : 0.6
+                }}>
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
+
+        {/* 3D Drum Shadow Overlays */}
+        <LinearGradient
+          colors={[theme === 'dark' ? '#1a1a18' : '#FAFAFA', 'transparent']}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: PADDING, zIndex: 10 }}
+          pointerEvents="none"
+        />
+        <LinearGradient
+          colors={['transparent', theme === 'dark' ? '#1a1a18' : '#FAFAFA']}
+          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: PADDING, zIndex: 10 }}
+          pointerEvents="none"
+        />
       </View>
     </View>
   );
@@ -144,15 +178,19 @@ function TimeSelector({ value, onChange, theme, colors }: TimeSelectorProps) {
 
   return (
     <View style={{
-      borderRadius: 24,
+      borderRadius: 32,
       borderWidth: 2,
-      borderColor: '#F472B6',
+      borderColor: theme === 'dark' ? '#3e3e3c' : '#F3F4F6',
       overflow: 'hidden',
-      padding: 8,
+      padding: 12,
       backgroundColor: theme === 'dark' ? '#1a1a18' : '#FAFAFA',
-      marginBottom: 16,
+      marginBottom: 24,
+      shadowColor: '#F472B6',
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
+      elevation: 5,
     }}>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 4 }}>
         <DrumColumn
           items={HOURS}
           selected={hourIdx}

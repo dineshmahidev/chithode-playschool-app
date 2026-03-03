@@ -33,8 +33,9 @@ export interface User {
   fatherPhoto?: string;
   motherPhoto?: string;
   guardianPhoto?: string;
-  fees?: string;
+  fees?:          string;
   admissionDate?: string;
+  fee_due_day?:   string;
 }
 
 export interface FeeRecord {
@@ -270,6 +271,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     guardianPhoto: u.guardian_photo,
     fees:          u.fees,
     admissionDate: u.admission_date,
+    fee_due_day:   u.fee_due_day,
   });
 
   const mapToBackend = (data: any) => {
@@ -303,7 +305,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       'studentId', 'teacherId', 'fatherName', 'fatherPhone', 
       'motherName', 'motherPhone', 'parentName', 'guardianPhone', 
       'bloodGroup', 'studentPhoto', 'fatherPhoto', 'motherPhoto', 
-      'guardianPhoto', 'admissionDate'
+      'guardianPhoto', 'admissionDate', 'fee_due_day'
     ];
     camelKeys.forEach(key => delete mapped[key]);
 

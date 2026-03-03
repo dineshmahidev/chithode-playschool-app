@@ -146,6 +146,7 @@ export default function StudentDetailScreen({ navigation, route }: StudentDetail
             {renderInfoRow('Blood Group', student.bloodGroup, 'water', '#EF4444')}
             {renderInfoRow('Admission Date', student.admissionDate, 'calendar-star', '#8B5CF6')}
             {renderInfoRow('Monthly Fees', student.fees, 'cash-multiple', '#10B981')}
+            {renderInfoRow('Monthly Due Day', student.fee_due_day ? `Day ${student.fee_due_day} of every month` : undefined, 'calendar-clock', '#FBBF24')}
             {renderInfoRow('Full Address', student.address, 'map-marker', '#F59E0B')}
           </View>
 

@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, BackHandler, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { View, Text, TouchableOpacity, BackHandler, Alert, ActivityIndicator, Animated, Easing } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Import screens
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -54,6 +55,7 @@ export default function AppNavigator() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('login');
   const [navigationStack, setNavigationStack] = useState<ScreenType[]>(['login']);
   const [params, setParams] = useState<any>(null);
+  const [isHomeBlinking, setIsHomeBlinking] = useState(false);
 
   const navigate = useCallback((screen: ScreenType, resetOrParams: boolean | any = false, screenParams: any = null) => {
     setCurrentScreen(screen);
@@ -128,6 +130,119 @@ export default function AppNavigator() {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
   }, [user, currentScreen, goBack]);
+
+  // ── Tab Animation Animations ──
+  const homeScale = useRef(new Animated.Value(1)).current;
+  const homeOpacity = useRef(new Animated.Value(1)).current;
+  const quickScale = useRef(new Animated.Value(1)).current;
+  const quickRotate = useRef(new Animated.Value(0)).current;
+  const accountScale = useRef(new Animated.Value(1)).current;
+  const accountOpacity = useRef(new Animated.Value(1)).current;
+
+  // Map screens to their parent tabs for consistent highlighting
+  const tabMapping: Record<string, string> = {
+    home: 'home',
+    activityFeed: 'home',
+    timetable: 'home',
+    attendance: 'home',
+    liveCamera: 'home',
+    homework: 'home',
+    emergencyContact: 'home',
+    myFees: 'home',
+    rewards: 'home',
+    profile: 'account',
+    quickAction: 'quickAction',
+    account: 'account',
+    // Admin screens
+    userManagement: 'quickAction',
+    feesManagement: 'quickAction',
+    announcements: 'quickAction',
+    reports: 'quickAction',
+    backup: 'quickAction',
+    postActivity: 'quickAction',
+    studentList: 'quickAction',
+    studentDetail: 'quickAction',
+    incomeExpense: 'quickAction',
+    // Teacher screens
+    postHomework: 'quickAction',
+    takeAttendance: 'quickAction',
+    viewSubmissions: 'home',
+    classSchedule: 'home', 
+    parentMessages: 'account',
+    myAttendance: 'quickAction',
+    studentAttendanceReport: 'quickAction',
+    teacherAttendanceReport: 'quickAction'
+  };
+
+  const isTabScreen = currentScreen !== 'login' && !!user;
+  const activeTab = tabMapping[currentScreen] || 'home';
+
+  useEffect(() => {
+    if (!isTabScreen) return;
+    
+    const triggerSpring = (animatedValue: Animated.Value) => {
+      Animated.spring(animatedValue, {
+        toValue: 1.15,
+        friction: 4,
+        tension: 40,
+        useNativeDriver: true
+      }).start(() => {
+        Animated.spring(animatedValue, {
+          toValue: 1,
+          friction: 4,
+          tension: 40,
+          useNativeDriver: true
+        }).start();
+      });
+    };
+
+    if (activeTab === 'home') {
+      setIsHomeBlinking(true);
+      triggerSpring(homeScale);
+      Animated.sequence([
+        Animated.timing(homeOpacity, { toValue: 0, duration: 80, useNativeDriver: true }),
+        Animated.timing(homeOpacity, { toValue: 1, duration: 80, useNativeDriver: true }),
+        Animated.timing(homeOpacity, { toValue: 0, duration: 80, useNativeDriver: true }),
+        Animated.timing(homeOpacity, { toValue: 1, duration: 80, useNativeDriver: true }),
+      ]).start(() => {
+        setIsHomeBlinking(false);
+      });
+    }
+    if (activeTab === 'quickAction') {
+      triggerSpring(quickScale);
+      // Request: 2 Anti-clockwise (-720) then 1 clockwise (+360)
+      Animated.sequence([
+        Animated.timing(quickRotate, {
+          toValue: -2, // -720 degrees
+          duration: 900,
+          easing: Easing.bezier(0.33, 1, 0.68, 1),
+          useNativeDriver: true
+        }),
+        Animated.timing(quickRotate, {
+          toValue: -1, // +360 from -720 is -360 (one full turn CW)
+          duration: 600,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true
+        })
+      ]).start();
+    } else {
+      Animated.spring(quickRotate, { toValue: 0, useNativeDriver: true }).start();
+    }
+    if (activeTab === 'account') {
+      triggerSpring(accountScale);
+      Animated.sequence([
+        Animated.timing(accountOpacity, { toValue: 0, duration: 80, useNativeDriver: true }),
+        Animated.timing(accountOpacity, { toValue: 1, duration: 80, useNativeDriver: true }),
+        Animated.timing(accountOpacity, { toValue: 0, duration: 80, useNativeDriver: true }),
+        Animated.timing(accountOpacity, { toValue: 1, duration: 80, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [activeTab, isTabScreen]);
+
+  const thunderRotation = quickRotate.interpolate({
+    inputRange: [-2, -1, 0],
+    outputRange: ['-720deg', '-360deg', '0deg']
+  });
 
   const renderInnerContent = () => {
     const activeTab = currentScreen === 'login' ? 'home' : currentScreen;
@@ -206,43 +321,6 @@ export default function AppNavigator() {
     );
   }
 
-  // Map screens to their parent tabs for consistent highlighting
-  const tabMapping: Record<string, string> = {
-    home: 'home',
-    activityFeed: 'home',
-    timetable: 'home',
-    attendance: 'home',
-    liveCamera: 'home',
-    homework: 'home',
-    emergencyContact: 'home',
-    myFees: 'home',
-    rewards: 'home',
-    profile: 'account',
-    quickAction: 'quickAction',
-    account: 'account',
-    // Admin screens
-    userManagement: 'quickAction',
-    feesManagement: 'quickAction',
-    announcements: 'quickAction',
-    reports: 'quickAction',
-    backup: 'quickAction',
-    postActivity: 'quickAction',
-    studentList: 'quickAction',
-    studentDetail: 'quickAction',
-    incomeExpense: 'quickAction',
-    // Teacher screens
-    postHomework: 'quickAction',
-    takeAttendance: 'quickAction',
-    viewSubmissions: 'home',
-    classSchedule: 'home', 
-    parentMessages: 'account',
-    myAttendance: 'quickAction',
-    studentAttendanceReport: 'quickAction',
-    teacherAttendanceReport: 'quickAction'
-  };
-
-  const isTabScreen = currentScreen !== 'login';
-  const activeTab = tabMapping[currentScreen] || 'home';
 
   return (
     <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}>
@@ -256,28 +334,139 @@ export default function AppNavigator() {
               paddingTop: insets.top
             }}
         >
-          <View className="flex-1">{renderInnerContent()}</View>
-          
-          {/* Persistent Tab Bar */}
           <View 
-            className={`${colors.surface} ${colors.border} border-t flex-row`}
-            style={{ paddingBottom: Math.max(insets.bottom, 12) }}
+            className="flex-1" 
+            style={{ 
+              paddingBottom: 85 + Math.max(insets.bottom, 16) 
+            }}
           >
-            {['home', 'quickAction', 'account'].map((tab) => {
-              const isActive = activeTab === tab;
-              const icons: any = { home: 'home', quickAction: 'flash', account: 'account' };
-              const labels = { home: 'Home', quickAction: 'Quick Action', account: 'Account' };
-              return (
-                <TouchableOpacity
-                  key={tab}
-                  className={`flex-1 pt-3 items-center ${isActive ? `${colors.tabBarActiveBg} border-t-4 border-brand-pink` : colors.tabBarInactiveBg}`}
-                  onPress={() => navigate(tab as ScreenType, true)}
-                >
-                  <MaterialCommunityIcons name={icons[tab]} size={24} color={isActive ? colors.tabBarActive : colors.tabBarInactive} />
-                  <Text className={`text-[10px] mt-1 uppercase tracking-tighter ${isActive ? 'text-brand-pink font-black' : colors.textTertiary}`}>{labels[tab as keyof typeof labels]}</Text>
-                </TouchableOpacity>
-              );
-            })}
+            {renderInnerContent()}
+          </View>
+          
+          {/* Truly Premium Floating Pill Tab Bar */}
+          <View 
+            style={{ 
+              position: 'absolute',
+              bottom: Math.max(insets.bottom, 10),
+              left: 16,
+              right: 16,
+              zIndex: 1000,
+              backgroundColor: 'transparent',
+            }}
+          >
+            <LinearGradient
+              colors={theme === 'dark' ? ['#21211b', '#0f0f0a'] : ['#FFFFFF', '#FDF2F8']}
+              style={{
+                borderRadius: 45,
+                height: 85,
+                flexDirection: 'row',
+                alignItems: 'center',
+                shadowColor: '#F472B6',
+                shadowOffset: { width: 0, height: 15 },
+                shadowOpacity: 0.25,
+                shadowRadius: 20,
+                elevation: 20,
+                borderWidth: 1.5,
+                borderColor: theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(244,114,182,0.12)',
+              }}
+            >
+              <View className="flex-1 flex-row items-center justify-between h-full px-5">
+                {['home', 'quickAction', 'account'].map((tab) => {
+                  const isActive = activeTab === tab;
+                  const isCenter = tab === 'quickAction';
+                  
+                  const getTabIcon = () => {
+                    if (tab === 'home') {
+                      if (isHomeBlinking) return 'shield-account'; // The "Admin Mention" icon during blink
+                      return isActive ? 'home' : 'home-outline';
+                    }
+                    if (tab === 'quickAction') return 'lightning-bolt';
+                    if (tab === 'account') return isActive ? 'account-circle' : 'account-circle-outline';
+                    return 'help';
+                  };
+                  
+                  const scale = tab === 'home' ? homeScale : (tab === 'quickAction' ? quickScale : accountScale);
+
+                  if (isCenter) {
+                    return (
+                      <TouchableOpacity
+                        key={tab}
+                        activeOpacity={0.9}
+                        onPress={() => navigate(tab as ScreenType, true)}
+                        className="items-center justify-center -mt-16"
+                        style={{ zIndex: 1001 }}
+                      >
+                        <Animated.View style={{ transform: [{ scale: quickScale }, { rotate: thunderRotation }] }}>
+                          <LinearGradient
+                            colors={['#FBBF24', '#D97706']}
+                            style={{
+                              width: 78,
+                              height: 78,
+                              borderRadius: 39,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              borderWidth: 6,
+                              borderColor: theme === 'dark' ? '#0f0f0a' : '#FFFFFF',
+                              shadowColor: '#FBBF24',
+                              shadowOffset: { width: 0, height: 8 },
+                              shadowOpacity: 0.5,
+                              shadowRadius: 15,
+                              elevation: 15,
+                            }}
+                          >
+                            <MaterialCommunityIcons name={getTabIcon()} size={36} color="white" />
+                          </LinearGradient>
+                        </Animated.View>
+                      </TouchableOpacity>
+                    );
+                  }
+
+                  // Enhanced Side Buttons (Home and Me)
+                  return (
+                    <TouchableOpacity
+                      key={tab}
+                      activeOpacity={0.8}
+                      className="items-center justify-center -mt-6"
+                      onPress={() => navigate(tab as ScreenType, true)}
+                    >
+                      <Animated.View 
+                        style={{ 
+                          transform: [{ scale }], 
+                          opacity: tab === 'home' ? homeOpacity : (tab === 'account' ? accountOpacity : 1),
+                          alignItems: 'center' 
+                        }}
+                      >
+                        <LinearGradient
+                          colors={isActive 
+                             ? (tab === 'home' ? ['#6366F1', '#4F46E5'] : ['#F472B6', '#BE185D']) 
+                             : (theme === 'dark' ? ['#2d2d24', '#1a1a14'] : ['#F9FAFB', '#F3F4F6'])}
+                          style={{
+                            width: 58,
+                            height: 58,
+                            borderRadius: 29,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderWidth: isActive ? 4 : 1,
+                            borderColor: isActive ? (theme === 'dark' ? '#0f0f0a' : '#FFFFFF') : (theme === 'dark' ? '#3e3e34' : '#E5E7EB'),
+                            shadowColor: isActive ? (tab === 'home' ? '#6366F1' : '#F472B6') : 'transparent',
+                            shadowOffset: { width: 0, height: 4 },
+                            shadowOpacity: isActive ? 0.3 : 0,
+                            shadowRadius: 12,
+                            elevation: 12,
+                          }}
+                        >
+                          <MaterialCommunityIcons 
+                            name={getTabIcon()} 
+                            size={28} 
+                            color={isActive ? 'white' : (theme === 'dark' ? '#6B7280' : '#9CA3AF')} 
+                          />
+                        </LinearGradient>
+                      </Animated.View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </LinearGradient>
           </View>
         </View>
       ) : (

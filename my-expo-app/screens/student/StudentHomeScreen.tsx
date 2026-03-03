@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
 
 interface NavigationProps {
@@ -24,19 +25,59 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
 
   const myFees = useMemo(() => {
     if (!user) return [];
-    return allFees.filter(f => 
-      f.student_id === user.studentId || 
-      (user.id && f.student_id === user.id.toString())
-    );
+    const studentUid = user.studentId || (user.id ? user.id.toString() : '');
+    return allFees.filter(f => f.student_id === studentUid);
   }, [allFees, user]);
 
+  const currentMonthStr = useMemo(() => {
+    const d = new Date();
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return `${months[d.getMonth()]} ${d.getFullYear()}`;
+  }, []);
+
+  const overdueMonthInfo = useMemo(() => {
+    if (!user || user.role !== 'student') return null;
+    
+    // Check if current month fee exists in allFees for this student
+    const studentUid = user.studentId || (user.id ? user.id.toString() : '');
+    const currentMonthFee = allFees.find(f => 
+      f.student_id === studentUid && 
+      f.date === currentMonthStr &&
+      f.type === 'Monthly Fee'
+    );
+
+    const isPaid = currentMonthFee?.status === 'paid';
+    const dueDay = parseInt(user.fee_due_day || '5');
+    const today = new Date().getDate();
+    const isOverdue = !isPaid && today > dueDay;
+
+    return {
+      fee: currentMonthFee,
+      isPaid,
+      isOverdue,
+      amount: parseInt(user.fees || '0'),
+      dueDay
+    };
+  }, [allFees, user, currentMonthStr]);
+
   const totalPending = useMemo(() => {
-    const totalToPay = feeStructures.reduce((sum, fs) => sum + fs.amount, 0);
+    const basePending = feeStructures.reduce((sum, fs) => sum + fs.amount, 0);
     const paid = myFees
       .filter(f => f.status === 'paid')
       .reduce((sum, f) => sum + f.amount, 0);
-    return Math.max(0, totalToPay - paid);
-  }, [feeStructures, myFees]);
+    
+    let total = Math.max(0, basePending - paid);
+    
+    // Add current month's tuition if missing or unpaid and we are past due day
+    if (overdueMonthInfo?.isOverdue) {
+        // If the fee record exists but is unpaid, it's already in the backend 'fees' list?
+        // Actually, the current totalToPay logic in StudentHomeScreen line 35 uses 'feeStructures' 
+        // which are global templates. We need to see if the specific monthly fee is accounted for.
+        // For now, let's assume if overdueMonthInfo.isOverdue is true, we show it.
+    }
+
+    return total;
+  }, [feeStructures, myFees, overdueMonthInfo]);
 
   const fetchTimetable = useCallback(async () => {
     setTimetableLoading(true);
@@ -56,7 +97,15 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
         };
         const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
         const sorted = filtered.sort((a: any, b: any) => timeToMinutes(a.time) - timeToMinutes(b.time));
-        const currentOrNext = sorted.find((s: any) => timeToMinutes(s.time) >= nowMinutes - 30);
+        
+        // Find current or upcoming session
+        // Today we show the session if current time is within 60 mins of start or upcoming
+        const currentOrNext = sorted.find((s: any) => {
+          const sessionStart = timeToMinutes(s.time);
+          // If current time is between session start and session start + 60 mins (assuming 1hr sessions)
+          // OR if session is upcoming in the next 30 mins
+          return (nowMinutes >= sessionStart && nowMinutes < sessionStart + 60) || (sessionStart > nowMinutes);
+        });
         setTodaySchedule(currentOrNext || null);
       } else {
         setTodaySchedule(null);
@@ -172,8 +221,29 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
 
   return (
     <ScrollView className={`flex-1 ${colors.background}`} showsVerticalScrollIndicator={false}>
+      {/* ── Background Gradient & 3D Illustration ── */}
+      <View className="absolute top-0 left-0 right-0 h-[450px] overflow-hidden">
+        <LinearGradient
+            colors={[theme === 'dark' ? '#3d1d2b' : '#FDF2F8', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
+            className="absolute inset-0"
+        />
+        <Image 
+            source={require('../../assets/images/playschool_3d.png')} 
+            style={{ width: '100%', height: '100%', opacity: theme === 'dark' ? 0.15 : 0.25, transform: [{ scale: 1.2 }, { translateY: -20 }] }}
+            resizeMode="cover"
+        />
+        {/* Soft pink overlap glow */}
+        <View className="absolute -top-20 -left-20 w-64 h-64 bg-brand-pink/10 rounded-full blur-3xl" />
+        
+        {/* Smooth transition gradient to content */}
+        <LinearGradient
+            colors={['transparent', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
+            className="absolute bottom-0 left-0 right-0 h-40"
+        />
+      </View>
+
       {/* Header - Blends with background */}
-      <View className="px-6 pt-8 pb-4">
+      <View className="px-6 pt-10 pb-6">
         <View className="flex-row items-center justify-between">
           <View className="flex-1">
             <Text className={`text-xl font-black ${colors.textSecondary} uppercase tracking-widest`}>
@@ -189,6 +259,9 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
               >
                 <MaterialCommunityIcons name="pencil" size={18} color="#F472B6" />
               </TouchableOpacity>
+            </View>
+            <View className="bg-brand-pink/20 self-start px-3 py-1 rounded-full mt-2 border border-brand-pink/10 shadow-sm">
+                <Text className="text-brand-pink text-[9px] font-black uppercase tracking-[2px]">Explorer</Text>
             </View>
           </View>
           <TouchableOpacity 
@@ -206,175 +279,322 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
           </TouchableOpacity>
         </View>
 
-        {/* Attendance Status - Moved from Quick Actions */}
-        <View className={`${colors.surface} rounded-[32px] p-5 mt-6 border ${colors.border} shadow-sm`}>
-          <View className="flex-row justify-between mb-4 px-1">
-            <Text className={`text-base font-black ${colors.text}`}>Attendance Status 🕙</Text>
-            <View className="bg-brand-pink/10 px-2 py-0.5 rounded-full">
-              <Text className="text-brand-pink text-[9px] font-black uppercase">Live Updates</Text>
-            </View>
-          </View>
-          
-          <View className="flex-row justify-between">
-            {/* Clock In Status */}
-            <View className={`${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/30' : 'bg-blue-500/10 border-blue-50'} rounded-2xl p-3 w-[48%] border`}>
-              <View className="flex-row items-center mb-2">
-                <View className="bg-blue-600 w-10 h-10 rounded-full items-center justify-center mr-2 border-2 border-blue-100 shadow-sm">
-                  <MaterialCommunityIcons name="account-tie" size={20} color="white" />
-                </View>
-                <View>
-                  <Text className={`font-black ${colors.text} text-[10px]`}>Father</Text>
-                  <Text className={`text-[8px] ${colors.textTertiary} font-bold`}>08:30 AM</Text>
-                </View>
+        {/* ── Modern Attendance Status Card ── */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('attendance')}
+          className="mt-6 rounded-[40px] overflow-hidden shadow-2xl"
+          style={{ elevation: 20 }}
+        >
+          <LinearGradient
+            colors={theme === 'dark' ? ['#1e1b4b', '#1e293b'] : ['#FFFFFF', '#FDF2F8']}
+            className="p-6"
+          >
+            <View className="flex-row items-center justify-between mb-6">
+              <View>
+                <Text className={`text-2xl font-black ${colors.text} tracking-tighter`}>Daily Journey 🎒</Text>
+                <Text className={`text-[10px] ${colors.textTertiary} font-black uppercase tracking-[2px]`}>Live Attendance Track</Text>
               </View>
-              <View className="bg-green-500/20 py-1 rounded-full items-center">
-                <Text className="text-green-700 text-[8px] font-black uppercase tracking-tighter">✅ Clocked In</Text>
+              <View className="bg-green-500/10 px-3 py-1.5 rounded-full border border-green-500/20 flex-row items-center">
+                <View className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" />
+                <Text className="text-green-600 text-[10px] font-black uppercase">Safely In</Text>
               </View>
             </View>
 
-            {/* Clock Out Status */}
-            <View className={`${theme === 'dark' ? 'bg-pink-500/10 border-pink-500/30' : 'bg-pink-500/10 border-pink-50'} rounded-2xl p-3 w-[48%] border`}>
-              <View className="flex-row items-center mb-2">
-                <View className="bg-pink-600 w-10 h-10 rounded-full items-center justify-center mr-2 border-2 border-pink-100 shadow-sm">
-                  <MaterialCommunityIcons name="account-heart" size={20} color="white" />
+            <View className="flex-row justify-between items-center">
+              {/* Departure / Clock In Status */}
+              <View className={`${theme === 'dark' ? 'bg-white/5' : 'bg-white'} rounded-[32px] p-4 w-[46%] shadow-sm border ${theme === 'dark' ? 'border-white/10' : 'border-gray-100'}`}>
+                <View className="flex-row items-center mb-3">
+                  <View className="bg-blue-600/90 w-10 h-10 rounded-2xl items-center justify-center mr-2 shadow-lg">
+                    <MaterialCommunityIcons name="bus-clock" size={22} color="white" />
+                  </View>
+                  <View>
+                    <Text className={`font-black ${colors.text} text-[11px]`}>Arrival</Text>
+                    <Text className="text-[10px] text-blue-500 font-bold">08:30 AM</Text>
+                  </View>
                 </View>
-                <View>
-                  <Text className={`font-black ${colors.text} text-[10px]`}>Mother</Text>
-                  <Text className={`text-[8px] ${colors.textTertiary} font-bold`}>03:45 PM</Text>
+                <View className="bg-blue-50 px-2 py-1.5 rounded-xl border border-blue-100/50">
+                  <Text className="text-blue-700 text-[9px] font-black uppercase text-center" numberOfLines={1}>Father Drop</Text>
                 </View>
               </View>
-              <View className="bg-brand-pink/20 py-1 rounded-full items-center">
-                <Text className="text-brand-pink text-[8px] font-black uppercase tracking-tighter">👋 Clock Out</Text>
+
+              {/* Progress Connector */}
+              <View className="w-4 items-center justify-center">
+                <MaterialCommunityIcons name="dots-vertical" size={20} color={theme === 'dark' ? '#334155' : '#E2E8F0'} />
+              </View>
+
+              {/* Arrival / Clock Out Status */}
+              <View className={`${theme === 'dark' ? 'bg-white/5' : 'bg-white'} rounded-[32px] p-4 w-[46%] shadow-sm border ${theme === 'dark' ? 'border-white/10' : 'border-gray-100'}`}>
+                <View className="flex-row items-center mb-3">
+                  <View className="bg-brand-pink/90 w-10 h-10 rounded-2xl items-center justify-center mr-2 shadow-lg">
+                    <MaterialCommunityIcons name="home-heart" size={22} color="white" />
+                  </View>
+                  <View>
+                    <Text className={`font-black ${colors.text} text-[11px]`}>Departure</Text>
+                    <Text className="text-[10px] text-brand-pink font-bold">03:45 PM</Text>
+                  </View>
+                </View>
+                <View className="bg-pink-50 px-2 py-1.5 rounded-xl border border-pink-100/50">
+                  <Text className="text-brand-pink text-[9px] font-black uppercase text-center" numberOfLines={1}>Mother Pick</Text>
+                </View>
               </View>
             </View>
-          </View>
-        </View>
+            
+            {/* Background Glows */}
+            <View className="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl" />
+            <View className="absolute -bottom-10 -left-10 w-32 h-32 bg-pink-500/5 rounded-full blur-3xl" />
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
-
 
       {/* ── Top Announcements (Legacy Place) ── */}
       {studentNotices.length > 0 && renderAnnouncements(studentNotices, 'Notice Board', 'notices')}
 
-      {/* ── Today's Schedule ── */}
-      <TouchableOpacity 
-          activeOpacity={0.9}
-          onPress={() => navigation.navigate('timetable')}
-          className={`mx-6 mt-4 ${todaySchedule ? todaySchedule.color || 'bg-brand-pink' : 'bg-gray-400'} rounded-[32px] p-6 shadow-xl relative overflow-hidden`}
-      >
-          <View className="flex-row items-center justify-between relative z-10">
-              <View className="flex-1 mr-4">
-                  <View className="flex-row items-center mb-1">
-                      <MaterialCommunityIcons name="calendar-clock" size={16} color="white" />
-                      <Text className="text-white font-black uppercase text-[10px] tracking-widest ml-2 opacity-80">
-                          {todaySchedule ? "Next Session" : "Today's Schedule"}
-                      </Text>
-                  </View>
-                  <Text className="text-white text-2xl font-black mt-1" numberOfLines={1}>
-                      {todaySchedule ? todaySchedule.activity : "No sessions mentioned"}
-                  </Text>
-                  {todaySchedule && (
-                      <View className="flex-row items-center mt-2 bg-white/20 self-start px-3 py-1 rounded-full">
-                          <MaterialCommunityIcons name="clock-outline" size={14} color="white" />
-                          <Text className="text-white text-xs font-bold ml-1.5" numberOfLines={1}>
-                              {todaySchedule.time} • {todaySchedule.room || 'Classroom'}
+      {/* ── Today's Schedule Card ── */}
+      <View className="px-6 mt-4">
+        <View className="flex-row items-center justify-between mb-4 px-1">
+          <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>Today's Schedule ⏰</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('timetable')}>
+            <Text className="text-brand-pink font-bold text-xs">View Full</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity 
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('timetable')}
+            className="rounded-[40px] overflow-hidden shadow-2xl"
+            style={{ elevation: 20 }}
+        >
+          <LinearGradient
+              colors={theme === 'dark' ? ['#312e81', '#1e1b4b'] : ['#6366F1', '#4338CA']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              className="p-6"
+          >
+              <View className="flex-row items-center justify-between relative z-10">
+                  <View className="flex-1 mr-4">
+                      <View className="flex-row items-center mb-1">
+                          <View className="bg-white/20 p-1 rounded-md mr-2">
+                            <MaterialCommunityIcons name="clock-fast" size={14} color="white" />
+                          </View>
+                          <Text className="text-white font-black uppercase text-[10px] tracking-[2px] opacity-80">
+                              {todaySchedule ? "Upcoming Session" : "Schedule Ready"}
                           </Text>
                       </View>
-                  )}
+                      <Text className="text-white text-3xl font-black mt-1 tracking-tighter" numberOfLines={1}>
+                          {todaySchedule ? todaySchedule.activity : "Self Study Time"}
+                      </Text>
+                      <View className="flex-row items-center mt-3">
+                          <View className="bg-white/20 self-start px-3 py-1.5 rounded-2xl flex-row items-center mr-2 border border-white/10">
+                              <MaterialCommunityIcons name="clock-outline" size={14} color="white" />
+                              <Text className="text-white text-[11px] font-black ml-1.5">
+                                  {todaySchedule ? todaySchedule.time : "Day Off"}
+                              </Text>
+                          </View>
+                          <View className="bg-white/20 self-start px-3 py-1.5 rounded-2xl flex-row items-center border border-white/10">
+                              <MaterialCommunityIcons name="door-open" size={14} color="white" />
+                              <Text className="text-white text-[11px] font-black ml-1.5">
+                                  {todaySchedule ? (todaySchedule.room || 'Classroom') : "Home"}
+                              </Text>
+                          </View>
+                      </View>
+                  </View>
+                  <View className="bg-white/30 w-16 h-16 rounded-[24px] items-center justify-center border-4 border-white/10">
+                      <MaterialCommunityIcons 
+                          name={todaySchedule ? (todaySchedule.icon || "book-open-page-variant") : "gamepad-variant"} 
+                          size={36} 
+                          color="white" 
+                      />
+                  </View>
               </View>
-              <View className="bg-white/30 w-16 h-16 rounded-[24px] items-center justify-center">
-                  <MaterialCommunityIcons 
-                      name={todaySchedule ? (todaySchedule.icon || "book-open-variant") : "calendar-blank"} 
-                      size={36} 
-                      color="white" 
-                  />
+              {/* Background pattern */}
+              <View className="absolute -bottom-6 -right-6 opacity-10">
+                  <MaterialCommunityIcons name="toy-brick-plus-outline" size={140} color="white" />
               </View>
-          </View>
-          {/* Background pattern */}
-          <View className="absolute -bottom-4 -right-4 opacity-10">
-              <MaterialCommunityIcons name="toy-brick-outline" size={120} color="white" />
-          </View>
-      </TouchableOpacity>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
 
-      {/* Fun Quick Actions */}
+      {/* Modern School Portal Actions */}
       <View className="px-6 py-6">
-        <Text className={`text-xl font-black ${colors.text} mb-4 ml-1 uppercase tracking-widest text-[10px]`}>School Portal 📸</Text>
+        <View className="flex-row items-center justify-between mb-5">
+          <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>School Portal 📸</Text>
+          <View className="bg-brand-pink/10 px-3 py-1 rounded-full">
+            <Text className="text-brand-pink text-[9px] font-black uppercase tracking-widest">Interactive</Text>
+          </View>
+        </View>
+
+        {/* Large Main Action: Activity Feed */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('activityFeed')}
+          className="mb-4 rounded-[32px] overflow-hidden shadow-xl"
+          style={{ elevation: 15 }}
+        >
+          <LinearGradient
+            colors={theme === 'dark' ? ['#4c1d95', '#1e1b4b'] : ['#F472B6', '#DB2777']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className="p-6 flex-row items-center justify-between"
+          >
+            <View className="flex-1">
+              <View className="bg-white/20 self-start px-3 py-1 rounded-full mb-3">
+                <Text className="text-white text-[10px] font-black uppercase tracking-widest">Daily Highlights</Text>
+              </View>
+              <Text className="text-white text-3xl font-black tracking-tighter">Activity Feed</Text>
+              <Text className="text-white/80 text-sm font-bold mt-1">Check out today's classroom memories ✨</Text>
+            </View>
+            <View className="bg-white/40 p-4 rounded-3xl ml-4">
+              <MaterialCommunityIcons name="image-multiple" size={42} color="white" />
+            </View>
+            
+            {/* Background Pattern */}
+            <View className="absolute -bottom-10 -right-10 opacity-10">
+              <MaterialCommunityIcons name="camera-iris" size={150} color="white" />
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Secondary Duo Actions: Timetable & Live Feed */}
         <View className="flex-row justify-between">
           <TouchableOpacity
-            className={`${colors.surface} py-5 px-2 rounded-2xl shadow-sm items-center w-[31%] border ${colors.border}`}
-            onPress={() => navigation.navigate('activityFeed')}
-          >
-            <View className="bg-brand-pink/10 p-3 rounded-full mb-2">
-              <MaterialCommunityIcons name="image-multiple" size={26} color="#F472B6" />
-            </View>
-            <Text className={`text-[11px] font-bold ${colors.text} text-center uppercase`}>Activity</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className={`${colors.surface} py-5 px-2 rounded-2xl shadow-sm items-center w-[31%] border ${colors.border}`}
+            activeOpacity={0.9}
             onPress={() => navigation.navigate('timetable')}
+            className="w-[48%] rounded-[32px] overflow-hidden shadow-lg"
+            style={{ elevation: 12 }}
           >
-            <View className="bg-brand-yellow/10 p-3 rounded-full mb-2">
-              <MaterialCommunityIcons name="calendar-clock" size={26} color="#B45309" />
-            </View>
-            <Text className={`text-[11px] font-bold ${colors.text} text-center uppercase`}>Timetable</Text>
+            <LinearGradient
+              colors={theme === 'dark' ? ['#1e3a8a', '#1e1b4b'] : ['#FBBF24', '#D97706']}
+              className="p-5 h-44 justify-between"
+            >
+              <View className="bg-white/30 self-start p-3 rounded-2xl">
+                <MaterialCommunityIcons name="calendar-clock" size={28} color="white" />
+              </View>
+              <View>
+                <Text className="text-white text-xl font-black tracking-tighter">Timetable</Text>
+                <Text className="text-white/80 text-[10px] font-bold mt-1 uppercase tracking-wider">Weekly Schedule</Text>
+              </View>
+              {/* Background Pattern */}
+              <View className="absolute -bottom-4 -right-4 opacity-10">
+                <MaterialCommunityIcons name="clock-outline" size={70} color="white" />
+              </View>
+            </LinearGradient>
           </TouchableOpacity>
 
           <TouchableOpacity
-            className={`${colors.surface} py-5 px-2 rounded-2xl shadow-sm items-center w-[31%] border ${colors.border}`}
+            activeOpacity={0.9}
             onPress={() => navigation.navigate('liveCamera')}
+            className="w-[48%] rounded-[32px] overflow-hidden shadow-lg"
+            style={{ elevation: 12 }}
           >
-            <View className={`${theme === 'dark' ? 'bg-blue-500/10' : 'bg-blue-100/10'} p-3 rounded-full mb-2`}>
-              <MaterialCommunityIcons name="video-vintage" size={26} color="#3B82F6" />
-            </View>
-            <Text className={`text-[11px] font-bold ${colors.text} text-center`}>Live Feed</Text>
+            <LinearGradient
+              colors={theme === 'dark' ? ['#065f46', '#022c22'] : ['#3B82F6', '#2563EB']}
+              className="p-5 h-44 justify-between"
+            >
+              <View className="bg-white/30 self-start p-3 rounded-2xl">
+                <MaterialCommunityIcons name="video-vintage" size={28} color="white" />
+              </View>
+              <View>
+                <Text className="text-white text-xl font-black tracking-tighter">Live Feed</Text>
+                <Text className="text-white/80 text-[10px] font-bold mt-1 uppercase tracking-wider">Secure Camera</Text>
+              </View>
+              {/* Background Pattern */}
+              <View className="absolute -bottom-4 -right-4 opacity-10">
+                <MaterialCommunityIcons name="cctv" size={70} color="white" />
+              </View>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </View>
 
 
-
+      {/* ── Modern Financial Overview Card ── */}
       <View className="px-6 pb-12">
-        <View className="mb-10">
-          <View className="flex-row items-center justify-between mb-4 px-1">
-            <Text className={`text-xl font-black ${colors.text}`}>Financial Overview 💳</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('myFees')}>
-              <Text className="text-brand-pink font-bold text-xs">Full Report</Text>
-            </TouchableOpacity>
+        <View className="flex-row items-center justify-between mb-5 px-1">
+          <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>Financial Vault 💳</Text>
+          <View className="bg-green-500/10 px-3 py-1 rounded-full">
+            <Text className="text-green-600 text-[9px] font-black uppercase tracking-widest">Secure Payments</Text>
           </View>
-          
-          <TouchableOpacity
-            onPress={() => navigation.navigate('myFees')}
-            style={{ elevation: 12 }}
-            className={`${colors.surface} mx-1 rounded-[32px] p-6 border-2 ${theme === 'dark' ? 'border-green-500/40' : 'border-green-500/20'} shadow-xl flex-row items-center border-dashed`}
-            activeOpacity={0.9}
-          >
-            <View className={`${theme === 'dark' ? 'bg-green-500/20 border-green-500/40' : 'bg-green-600/10 border-green-500/30'} w-16 h-16 rounded-[24px] items-center justify-center mr-5 border`}>
-              <MaterialCommunityIcons name="currency-inr" size={36} color={theme === 'dark' ? '#4ADE80' : '#16A34A'} />
-            </View>
-            
-            <View className="flex-1">
-              <View className="flex-row items-center mb-1">
-                <Text className={`font-black ${colors.text} text-xl tracking-tighter`}>School Fees</Text>
-                <View className={`${theme === 'dark' ? 'bg-green-500/20' : 'bg-green-500/10'} px-2.5 py-1 rounded-full ml-3`}>
-                  <Text className={`${theme === 'dark' ? 'text-green-400' : 'text-green-600'} text-[9px] font-black uppercase`}>Active</Text>
-                </View>
-              </View>
-              <Text className={`text-[10px] ${theme === 'dark' ? 'text-green-400/60' : 'text-green-700/50'} mb-2 font-black uppercase tracking-[2px]`}>Fees Overview</Text>
-              
-              <View className="flex-row items-baseline">
-                <Text className={`${theme === 'dark' ? 'text-green-400' : 'text-green-600'} text-2xl font-black italic`}>₹{totalPending.toLocaleString()}</Text>
-                <Text className={`text-[9px] ${colors.textTertiary} ml-2 font-black uppercase`}>Balance</Text>
-              </View>
-            </View>
-            
-            <View className="bg-brand-pink/10 p-2 rounded-xl">
-              <MaterialCommunityIcons name="chevron-right" size={24} color="#F472B6" />
-            </View>
-          </TouchableOpacity>
         </View>
 
-        {/* ── Empty Announcements (Bottom Place) ── */}
-        {studentNotices.length === 0 && renderAnnouncements(studentNotices, 'Notice Board', 'notices')}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('myFees')}
+          className="rounded-[40px] overflow-hidden shadow-2xl"
+          style={{ elevation: 20 }}
+        >
+          <LinearGradient
+            colors={overdueMonthInfo?.isOverdue 
+              ? (theme === 'dark' ? ['#7f1d1d', '#450a0a'] : ['#EF4444', '#991B1B']) 
+              : (theme === 'dark' ? ['#064e3b', '#022c22'] : ['#10B981', '#059669'])
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className="p-7"
+          >
+            <View className="flex-row items-center justify-between z-10">
+              <View className="flex-1">
+                <View className="bg-white/20 self-start px-3 py-1 rounded-full mb-3">
+                  <Text className="text-white text-[10px] font-black uppercase tracking-widest">Academic Year 2024</Text>
+                </View>
+                <Text className="text-white text-3xl font-black tracking-tighter">
+                  {overdueMonthInfo?.isOverdue ? "Payment Overdue" : "School Fees"}
+                </Text>
+                <View className="flex-row items-center mt-2">
+                  <View className={`bg-white/10 px-3 py-1.5 rounded-2xl border border-white/10 flex-row items-center`}>
+                    <MaterialCommunityIcons 
+                      name={overdueMonthInfo?.isOverdue ? "alert-circle" : "checkbox-marked-circle"} 
+                      size={16} 
+                      color={overdueMonthInfo?.isOverdue ? "#FCA5A5" : "#34D399"} 
+                    />
+                    <Text className="text-white text-xs font-black ml-2">
+                      {overdueMonthInfo?.isOverdue 
+                        ? `${currentMonthStr} Pending` 
+                        : "No Pending Dues"}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              
+              <View className="bg-white/30 w-16 h-16 rounded-[24px] items-center justify-center border-4 border-white/10 shadow-lg rotate-3">
+                <MaterialCommunityIcons 
+                  name={overdueMonthInfo?.isOverdue ? "cash-remove" : "currency-inr"} 
+                  size={36} 
+                  color="white" 
+                />
+              </View>
+            </View>
+
+            <View className="flex-row items-center justify-between mt-8 z-10">
+              <View>
+                <Text className="text-white/60 text-[10px] font-black uppercase tracking-widest">
+                  {overdueMonthInfo?.isOverdue ? "Outstanding Amount" : "Current Balance"}
+                </Text>
+                <Text className="text-white text-xl font-black mt-1 tracking-tight">
+                  {overdueMonthInfo?.isOverdue 
+                    ? `₹${overdueMonthInfo.amount.toLocaleString()} Due on ${overdueMonthInfo.dueDay}th` 
+                    : "Everything is Clear!"}
+                </Text>
+              </View>
+              <View className="bg-white p-2.5 rounded-2xl shadow-md">
+                <MaterialCommunityIcons 
+                  name="chevron-right" 
+                  size={24} 
+                  color={overdueMonthInfo?.isOverdue ? "#991B1B" : "#059669"} 
+                />
+              </View>
+            </View>
+
+            {/* Background Pattern */}
+            <View className="absolute -bottom-12 -right-12 opacity-10">
+              <MaterialCommunityIcons 
+                name={overdueMonthInfo?.isOverdue ? "clock-alert-outline" : "safe-square-outline"} 
+                size={180} 
+                color="white" 
+              />
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );

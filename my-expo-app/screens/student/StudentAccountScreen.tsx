@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Linking, Switch } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+
 
 interface NavigationProps {
   navigate: (screen: string) => void;
@@ -68,20 +70,44 @@ export default function StudentAccountScreen({ navigation }: StudentAccountScree
   };
 
   return (
-    <ScrollView className={`flex-1 ${colors.background}`} showsVerticalScrollIndicator={false}>
-      {/* Attractive Header - Blends with status bar */}
-      <View className="px-6 pt-8 pb-4">
+    <View className={`flex-1 ${colors.background}`} style={{ backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}>
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      {/* ── Background Gradient & 3D Illustration ── */}
+      <View className="absolute top-0 left-0 right-0 h-[450px] overflow-hidden">
+        <LinearGradient
+            colors={[theme === 'dark' ? '#3d1d2b' : '#FDF2F8', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
+            className="absolute inset-0"
+        />
+        <Image 
+            source={require('../../assets/images/playschool_account.png')} 
+            style={{ width: '100%', height: '100%', opacity: theme === 'dark' ? 0.15 : 0.25, transform: [{ scale: 1.1 }, { translateY: -10 }] }}
+            resizeMode="cover"
+        />
+        {/* Soft pink overlap glow */}
+        <View className="absolute -top-20 -left-20 w-64 h-64 bg-brand-pink/10 rounded-full blur-3xl" />
+        
+        {/* Smooth transition gradient to content */}
+        <LinearGradient
+            colors={['transparent', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
+            className="absolute bottom-0 left-0 right-0 h-40"
+        />
+      </View>
+
+      {/* Modern Header */}
+      <View className="px-6 pt-10 pb-6">
         <View className="flex-row items-center justify-between">
           <View className="flex-1">
-            <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>
-              My
+            <Text className={`text-xl font-black ${colors.textSecondary} uppercase tracking-widest`}>
+              Settings & Hub ⚙️
             </Text>
-            <Text className={`text-2xl font-bold text-brand-pink`}>
-              Account 👤
-            </Text>
-            <Text className={`text-sm ${colors.textTertiary} font-bold mt-1 uppercase tracking-widest`}>
-              Student Profile
-            </Text>
+            <View className="flex-row items-center mt-1">
+              <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>
+                {user?.name || 'My'} Account
+              </Text>
+            </View>
+            <View className="bg-brand-pink/20 self-start px-3 py-1 rounded-full mt-2 border border-brand-pink/10 shadow-sm">
+                <Text className="text-brand-pink text-[9px] font-black uppercase tracking-[2px]">Logged in as {user?.role || 'Student'}</Text>
+            </View>
           </View>
           <TouchableOpacity 
             className="bg-brand-yellow w-20 h-20 rounded-3xl items-center justify-center shadow-lg border-4 border-white rotate-3 relative overflow-hidden"
@@ -93,84 +119,142 @@ export default function StudentAccountScreen({ navigation }: StudentAccountScree
               <MaterialCommunityIcons name="face-man-shimmer-outline" size={42} color="#92400E" />
             )}
             <View className="absolute -bottom-1 -right-1 bg-brand-pink p-1.5 rounded-lg border-2 border-white">
-              <MaterialCommunityIcons name="camera" size={14} color="white" />
+              <MaterialCommunityIcons name="camera" size={12} color="white" />
             </View>
           </TouchableOpacity>
         </View>
       </View>
       
-      {/* Profile Card Summary */}
+      {/* ── Premium Identity Card ── */}
       <View className="px-6 py-4">
-        <View className={`${colors.surface} rounded-[32px] p-6 shadow-xl border border-yellow-50 flex-row items-center`}>
-          <View className="bg-brand-pink/10 p-4 rounded-2xl mr-4">
-            <MaterialCommunityIcons name="school-outline" size={32} color="#F472B6" />
-          </View>
-          <View className="flex-1">
-            <Text className={`text-xl font-black ${colors.text}`}>{user?.name}</Text>
-            <Text className={`text-sm ${colors.textSecondary} font-bold`}>{user?.email || 'student@school.com'}</Text>
-            <View className="flex-row items-center mt-2 flex-wrap">
-              <View className="bg-brand-yellow/20 px-3 py-1 rounded-full mr-2 mb-1">
-                <Text className="text-amber-900 text-[10px] font-black uppercase">ID: {user?.studentId || '#S-001'}</Text>
+        <TouchableOpacity
+          activeOpacity={0.97}
+          onPress={() => navigation.navigate('profile')}
+          className="rounded-[40px] overflow-hidden shadow-2xl"
+          style={{ elevation: 25 }}
+        >
+          <LinearGradient
+            colors={theme === 'dark' ? ['#1e1b4b', '#1e293b'] : ['#FDF2F8', '#FFFFFF']}
+            className="p-8 relative"
+          >
+            <View className="flex-row items-center justify-between z-10">
+              <View className="flex-1">
+                <View className="mb-3">
+                  <View className="flex-row items-center border-b border-gray-100 dark:border-white/5 pb-2 mb-2">
+                    <MaterialCommunityIcons name="at" size={14} color="#F472B6" />
+                    <Text className="text-brand-pink text-[10px] font-black uppercase tracking-widest ml-1">{user?.username || 'user_id'}</Text>
+                  </View>
+                  <Text className={`text-[9px] font-black ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest`}>Authorized Member</Text>
+                </View>
+                <Text className={`text-3xl font-black ${colors.text} tracking-tighter`}>{user?.name || 'Explorer'}</Text>
+                <Text className={`text-sm ${colors.textSecondary} font-bold mt-1`}>{user?.email || 'student@school.com'}</Text>
+                
+                <View className="flex-row items-center mt-6">
+                  <View className="bg-brand-yellow/20 px-3 py-1.5 rounded-2xl border border-brand-yellow/30 flex-row items-center">
+                    <MaterialCommunityIcons name="card-account-details-star" size={16} color="#B45309" />
+                    <Text className="text-amber-900 text-xs font-black ml-2">{user?.studentId || '#S-001'}</Text>
+                  </View>
+                </View>
               </View>
-              {user?.parentName && (
-                <View className="bg-blue-50 px-2 py-1 rounded-lg mr-2 mb-1">
-                  <Text className="text-blue-700 text-[9px] font-black uppercase">Guardian: {user.parentName}</Text>
+              
+              <View className="bg-brand-pink/10 w-20 h-20 rounded-[30px] items-center justify-center border-2 border-brand-pink/20 shadow-sm relative overflow-hidden">
+                <MaterialCommunityIcons name="school" size={40} color="#F472B6" />
+                <View className="absolute -bottom-2 -right-2 opacity-10">
+                   <MaterialCommunityIcons name="ribbon" size={60} color="#F472B6" />
                 </View>
-              )}
-              {user?.category && (
-                <View className="bg-pink-50 px-2 py-1 rounded-lg mb-1">
-                  <Text className="text-brand-pink text-[9px] font-black uppercase">{user.category}</Text>
-                </View>
-              )}
+              </View>
             </View>
-          </View>
-        </View>
+
+
+
+            {/* Background Glows */}
+            <View className="absolute -top-20 -right-20 w-48 h-48 bg-brand-pink/5 rounded-full blur-3xl" />
+            <View className="absolute -bottom-20 -left-20 w-48 h-48 bg-brand-yellow/5 rounded-full blur-3xl" />
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
 
-      {/* Menu Items */}
-      <View className="flex-1 px-6 py-4">
-        <Text className={`text-xl font-black ${colors.text} mb-4 ml-1`}>Settings ✨</Text>
-        {menuItems.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            className={`${colors.menuItemBackground} p-5 rounded-3xl shadow-sm mb-4 flex-row items-center border border-yellow-50`}
-            onPress={() => {
-              if (item.id === 'theme') {
-                toggleTheme();
-              } else if (item.id === 'profile') {
-                navigation.navigate('profile');
-              } else if (item.id === 'guardian') {
-                navigation.navigate('emergencyContact');
-              } else if (item.id === 'about') {
-                Linking.openURL('https://chithodehappykids.com').catch(err => 
-                  Alert.alert('Error', 'Could not open website')
-                );
-              } else {
-                console.log(`Navigate to ${item.id}`);
-                Alert.alert('Info', `${item.title} screen is coming soon! ✨`);
-              }
-            }}
-          >
-            <View className={`${item.color} p-3 rounded-2xl mr-4 bg-opacity-20`}>
-              <MaterialCommunityIcons name={item.icon as any} size={22} color={theme === 'dark' ? 'white' : 'rgba(0,0,0,0.6)'} />
-            </View>
-            <View className="flex-1">
-              <Text className={`text-base font-black ${colors.menuItemText}`}>{item.title}</Text>
-              <Text className={`text-xs ${colors.menuItemTextSecondary} font-bold`}>{item.subtitle}</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#D1D5DB" />
-          </TouchableOpacity>
-        ))}
- 
-        {/* Logout Button */}
+      {/* ── Modern Menu Hub ── */}
+      <View className="px-6 py-6">
+        <View className="flex-row items-center justify-between mb-5 px-1">
+          <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>Settings Hub ✨</Text>
+          <View className="bg-brand-pink/10 px-3 py-1 rounded-full">
+            <Text className="text-brand-pink text-[9px] font-black uppercase tracking-widest">Configuration</Text>
+          </View>
+        </View>
+
+        <View className={`${theme === 'dark' ? 'bg-white/5' : 'bg-white'} rounded-[40px] p-2 shadow-xl border ${theme === 'dark' ? 'border-white/10' : 'border-gray-50'}`}>
+          {menuItems.map((item, index) => (
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.7}
+              className={`p-5 flex-row items-center ${index !== menuItems.length - 1 ? 'border-b' : ''} ${theme === 'dark' ? 'border-white/5' : 'border-gray-50'}`}
+              onPress={() => {
+                if (item.id === 'theme') {
+                  toggleTheme();
+                } else if (item.id === 'profile') {
+                  navigation.navigate('profile');
+                } else if (item.id === 'guardian') {
+                  navigation.navigate('emergencyContact');
+                } else if (item.id === 'about') {
+                  Linking.openURL('https://chithodehappykids.com').catch(err => 
+                    Alert.alert('Error', 'Could not open website')
+                  );
+                } else {
+                  console.log(`Navigate to ${item.id}`);
+                  Alert.alert('Coming Soon', `${item.title} screen is coming soon! ✨`);
+                }
+              }}
+            >
+              <View className={`${item.color} w-12 h-12 rounded-2xl items-center justify-center mr-4 bg-opacity-20`}>
+                <MaterialCommunityIcons name={item.icon as any} size={24} color={theme === 'dark' ? 'white' : 'rgba(0,0,0,0.6)'} />
+              </View>
+              <View className="flex-1">
+                <Text className={`text-base font-black ${colors.text}`}>{item.title}</Text>
+                <Text className={`text-xs ${colors.textTertiary} font-bold`}>{item.subtitle}</Text>
+              </View>
+              {item.id === 'theme' ? (
+                <View className="flex-row items-center bg-gray-100/50 dark:bg-white/5 px-2 py-1 rounded-2xl">
+                    <Text className={`text-[10px] font-black mr-2 ${theme === 'dark' ? 'text-indigo-400' : 'text-orange-500'} uppercase tracking-tighter`}>{theme === 'dark' ? 'Dark' : 'Light'}</Text>
+                    <Switch
+                        value={theme === 'dark'}
+                        onValueChange={toggleTheme}
+                        trackColor={{ false: '#767577', true: '#F472B6' }}
+                        thumbColor={theme === 'dark' ? '#FFFFFF' : '#FFFFFF'}
+                        style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+                    />
+                </View>
+              ) : (
+                <View className="bg-gray-100/30 p-2 rounded-xl">
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} opacity={0.3} />
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* ── Sign Out Action ── */}
         <TouchableOpacity
-          className="bg-red-50 py-5 rounded-3xl mb-12 mt-6 flex-row items-center justify-center border border-red-100 shadow-sm"
+          activeOpacity={0.9}
           onPress={handleLogout}
+          className="mt-8 mb-12 rounded-[32px] overflow-hidden shadow-lg"
+          style={{ elevation: 12 }}
         >
-          <MaterialCommunityIcons name="power" size={24} color="#EF4444" />
-          <Text className="text-red-500 font-black text-lg ml-2">Sign Out</Text>
+          <LinearGradient
+            colors={['#EF4444', '#B91C1C']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className="p-5 flex-row items-center justify-center"
+          >
+            <MaterialCommunityIcons name="power" size={24} color="white" />
+            <Text className="text-white font-black text-lg ml-3">Secure Sign Out</Text>
+            
+            {/* Soft decorative glow */}
+            <View className="absolute inset-0 bg-white/10 opacity-50" />
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </ScrollView>
+    </View>
   );
 }

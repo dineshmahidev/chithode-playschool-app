@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { Alert } from 'react-native';
-import api, { setAuthToken } from '../services/api';
+import api, { setAuthToken, getMediaUrl } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { registerForPushNotificationsAsync, savePushToken } from '../services/notifications';
 
 export type UserRole = 'admin' | 'student' | 'teacher';
@@ -129,7 +130,18 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+const resolveArray = (data: any): any[] => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (data.data && Array.isArray(data.data)) return data.data;
+  // If it's an object, look for the first property that IS an array
+  for (const key in data) {
+    if (Array.isArray(data[key])) return data[key];
+  }
+  return [];
+};
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -145,74 +157,80 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (!auth_token) return;
       
       const [usersRes, announcementsRes, activitiesRes, transactionsRes, feesRes, feeStructuresRes] = await Promise.all([
-        api.get('/users'),
-        api.get('/announcements'),
-        api.get('/activities'),
-        api.get('/transactions'),
+        api.get('/users').catch(() => ({ data: [] })),
+        api.get('/announcements').catch(() => ({ data: [] })),
+        api.get('/activities').catch(() => ({ data: [] })),
+        api.get('/transactions').catch(() => ({ data: [] })),
         api.get('/fees').catch(() => ({ data: [] })),
         api.get('/fee-structures').catch(() => ({ data: [] }))
       ]);
 
-      setUsers(usersRes.data.map((u: any) => mapUser(u)));
+      setUsers(resolveArray(usersRes.data).map((u: any) => mapUser(u)));
 
-      setAnnouncements(announcementsRes.data.map((a: any) => ({
-        id: a.id.toString(),
-        title: a.title,
-        content: a.content,
-        image: a.image_url || undefined,
-        date: a.date,
+      setAnnouncements(resolveArray(announcementsRes.data).map((a: any) => ({
+        id: (a.id || a.announcement_id || Math.random()).toString(),
+        title: a.title || 'Untitled',
+        content: a.content || a.message || '',
+        image: getMediaUrl(a.image_url || a.image || a.banner),
+        date: a.date || a.created_at || new Date().toISOString().split('T')[0],
         target: a.target || 'all',
-        author: a.author || '',
+        author: a.author || 'Admin',
       })));
 
-      setActivities(activitiesRes.data.map((a: any) => ({
-        id: a.id.toString(),
-        title: a.title,
-        description: a.description,
-        mediaType: a.media_type,
-        mediaUrl: a.media_url,
-        thumbnailUrl: a.thumbnail_url,
-        date: a.date,
-        author: a.author,
-        studentIds: a.students ? a.students.map((s: any) => s.id.toString()) : [],
-        likesCount: a.likes_count || 0,
+      setActivities(resolveArray(activitiesRes.data).map((a: any) => ({
+        id: (a.id || Math.random()).toString(),
+        title: a.title || 'Activity',
+        description: a.description || '',
+        mediaType: a.media_type || 'image',
+        mediaUrl: getMediaUrl(a.media_url || a.image || a.video) || '',
+        thumbnailUrl: getMediaUrl(a.thumbnail_url || a.thumb),
+        date: a.date || a.created_at,
+        author: a.author || 'Teacher',
+        studentIds: a.student_id ? [a.student_id.toString()] : (a.students ? a.students.map((s: any) => s.id.toString()) : []),
+        likesCount: a.likes_count || a.likes || 0,
         comments: a.comments ? a.comments.map((c: any) => ({
           id: c.id.toString(),
-          user: c.user?.name || 'Unknown',
-          avatar: c.user?.avatar || undefined,
-          text: c.text,
-          time: new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          user: c.user?.name || 'User',
+          avatar: getMediaUrl(c.user?.avatar),
+          text: c.text || c.comment || '',
+          time: c.created_at ? new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'recently'
         })) : []
       })));
 
-      setTransactions(transactionsRes.data.map((t: any) => ({
-        id:       t.id.toString(),
-        name:     t.name,
+      setTransactions(resolveArray(transactionsRes.data).map((t: any) => ({
+        id:       (t.id || Math.random()).toString(),
+        name:     t.name || t.description || 'Transaction',
         amount:   parseFloat(t.amount) || 0,
-        category: t.category,
-        type:     t.type,
-        date:     t.date,
+        category: t.category || 'General',
+        type:     t.type || 'expense',
+        date:     t.date || t.created_at,
       })));
 
-      setFees(feesRes.data.map((f: any) => ({
-          id: f.id.toString(),
-          student_id: f.student_id,
-          student_name: f.student_name,
-          type: f.type,
+      setFees(resolveArray(feesRes.data).map((f: any) => ({
+          id: (f.id || Math.random()).toString(),
+          student_id: (f.student_id || '').toString(),
+          student_name: f.student_name || 'Student',
+          type: f.type || 'Monthly Fee',
           amount: parseFloat(f.amount) || 0,
-          status: f.status,
-          date: f.date,
+          status: f.status || 'unpaid',
+          date: f.date || f.created_at,
           due_date: f.due_date
         })));
 
-      setFeeStructures(feeStructuresRes?.data?.map((fs: any) => ({
-          id: fs.id.toString(),
-          name: fs.name,
+      setFeeStructures(resolveArray(feeStructuresRes.data).map((fs: any) => ({
+          id: (fs.id || Math.random()).toString(),
+          name: fs.name || 'Fee Structure',
           amount: parseFloat(fs.amount) || 0
-      })) || []);
+      })));
+
+      // If everything returned empty, maybe tell the user?
+      if (resolveArray(announcementsRes.data).length === 0) {
+        console.warn('No announcements found on server');
+      }
 
     } catch (error) {
-      console.error('Failed to fetch data:', error);
+      console.error('CRITICAL: Data Mapping Error:', error);
+      // Don't alert here to avoid annoying user, just log
     }
   }, []);
 
@@ -228,19 +246,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const refreshFees = useCallback(async () => {
-      try {
-          const res = await api.get('/fees');
-          setFees(res.data.map((f: any) => ({
-            id: f.id.toString(),
-            student_id: f.student_id,
-            student_name: f.student_name,
-            type: f.type,
-            amount: parseFloat(f.amount) || 0,
-            status: f.status,
-            date: f.date,
-            due_date: f.due_date
-        })));
-      } catch (e) {}
+    try {
+      const res = await api.get('/fees');
+      const data = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+      setFees(data.map((f: any) => ({
+        id: f.id.toString(),
+        student_id: f.student_id,
+        student_name: f.student_name,
+        type: f.type,
+        amount: parseFloat(f.amount) || 0,
+        status: f.status,
+        date: f.date,
+        due_date: f.due_date
+      })));
+    } catch (e) {}
   }, []);
 
   const mapUser = (u: any): User => ({
@@ -249,7 +268,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     username:      u.username,
     email:         u.email,
     role:          u.role,
-    avatar:        u.avatar,
+    avatar:        getMediaUrl(u.avatar),
     status:        u.status,
     studentId:     u.student_id,
     teacherId:     u.teacher_id,
@@ -265,10 +284,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     phone:         u.phone,
     gender:        u.gender,
     date_of_birth: u.date_of_birth,
-    studentPhoto:  u.student_photo,
-    fatherPhoto:   u.father_photo,
-    motherPhoto:   u.mother_photo,
-    guardianPhoto: u.guardian_photo,
+    studentPhoto:  getMediaUrl(u.student_photo),
+    fatherPhoto:   getMediaUrl(u.father_photo),
+    motherPhoto:   getMediaUrl(u.mother_photo),
+    guardianPhoto: getMediaUrl(u.guardian_photo),
     fees:          u.fees,
     admissionDate: u.admission_date,
     fee_due_day:   u.fee_due_day,
@@ -469,16 +488,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addAnnouncement = useCallback(async (announcement: Announcement) => {
     try {
+      let imageToShip = announcement.image;
+      
+      // If image is a local URI, we MUST convert to base64 so the server can store it/process it.
+      if (imageToShip && imageToShip.startsWith('file://')) {
+        try {
+          const base64 = await FileSystem.readAsStringAsync(imageToShip, {
+            encoding: 'base64',
+          });
+          imageToShip = `data:image/jpeg;base64,${base64}`;
+        } catch (e) {
+          console.error('File read error:', e);
+        }
+      }
+
       await api.post('/announcements', {
         title:     announcement.title,
         content:   announcement.content,
-        image_url: announcement.image || null,
+        image_url: imageToShip || null,
         date:      announcement.date,
         target:    announcement.target,
         author:    announcement.author,
       });
       await fetchData();
     } catch (error) {
+      console.error('Add Announcement Error:', error);
       Alert.alert('Error', 'Failed to post announcement');
     }
   }, [fetchData]);
@@ -494,18 +528,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addActivity = useCallback(async (activity: Activity) => {
     try {
+      let mediaToShip = activity.mediaUrl;
+      let thumbToShip = activity.thumbnailUrl;
+
+      // Handle local files for activities as well
+      if (mediaToShip && mediaToShip.startsWith('file://')) {
+        try {
+          const base64 = await FileSystem.readAsStringAsync(mediaToShip, {
+            encoding: 'base64',
+          });
+          mediaToShip = `data:${activity.mediaType === 'video' ? 'video/mp4' : 'image/jpeg'};base64,${base64}`;
+        } catch (e) {}
+      }
+
+      if (thumbToShip && thumbToShip.startsWith('file://')) {
+        try {
+          const base64 = await FileSystem.readAsStringAsync(thumbToShip, {
+            encoding: 'base64',
+          });
+          thumbToShip = `data:image/jpeg;base64,${base64}`;
+        } catch (e) {}
+      }
+
       await api.post('/activities', {
         title: activity.title,
         description: activity.description,
         media_type: activity.mediaType,
-        media_url: activity.mediaUrl,
-        thumbnail_url: activity.thumbnailUrl,
+        media_url: mediaToShip,
+        thumbnail_url: thumbToShip,
         date: activity.date,
         author: activity.author,
         student_ids: activity.studentIds
       });
       await fetchData();
     } catch (error) {
+      console.error('Add Activity Error:', error);
       Alert.alert('Error', 'Failed to post activity');
     }
   }, [fetchData]);

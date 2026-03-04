@@ -94,7 +94,12 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
         if (record) {
           setClockInTime(record.in_time);
           setClockOutTime(record.out_time);
+          // Only show as clocked in if there is an in_time but NO out_time
           setIsClockedIn(!!record.in_time && !record.out_time);
+        } else {
+          setClockInTime(null);
+          setClockOutTime(null);
+          setIsClockedIn(false);
         }
       }
       await Promise.all([
@@ -169,12 +174,12 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
           <Text className={`text-xs font-bold ${colors.textTertiary}`}>Swipe for more</Text>
         )}
       </View>
-      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} className="overflow-hidden rounded-[32px]">
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }} snapToInterval={Dimensions.get('window').width - 48 + 12} decelerationRate="fast">
         {list.length > 0 ? list.map((item) => (
           <TouchableOpacity 
             key={item.id} activeOpacity={0.9}
             style={{ width: Dimensions.get('window').width - 48, aspectRatio: 16 / 9 }}
-            className="mr-3 bg-brand-pink relative overflow-hidden rounded-[32px] border-4 border-white shadow-xl"
+            className="mr-3 bg-brand-pink relative overflow-hidden rounded-[32px] border-2 border-white shadow-xl"
             onPress={() => Alert.alert(item.title, item.content)}
           >
             {item.image ? <Image source={{ uri: item.image }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : (
@@ -194,9 +199,12 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
             </View>
           </TouchableOpacity>
         )) : (
-          <View style={{ width: Dimensions.get('window').width - 48, aspectRatio: 16 / 9 }} className="bg-brand-pink/10 items-center justify-center rounded-[32px] border-4 border-white border-dashed">
-            <MaterialCommunityIcons name="bullhorn-variant-outline" size={48} color="#F472B6" />
-            <Text className={`mt-4 font-bold ${colors.textTertiary}`}>No current {hint}</Text>
+          <View style={{ width: Dimensions.get('window').width - 48, aspectRatio: 16 / 9 }} className="bg-brand-pink/5 items-center justify-center rounded-[40px] border-2 border-brand-pink/10 border-dashed">
+            <View className="bg-brand-pink/10 w-20 h-20 rounded-full items-center justify-center mb-4">
+              <MaterialCommunityIcons name="bullhorn-variant-outline" size={42} color="#F472B6" />
+            </View>
+            <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>All Quiet ✨</Text>
+            <Text className="mt-1 font-black text-brand-pink/40 uppercase text-[8px] tracking-[3px]">No Active {hint}</Text>
           </View>
         )}
       </ScrollView>
@@ -484,8 +492,7 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
               </View>
             )}
 
-            {/* ── Empty Announcements ── */}
-            {teacherNotices.length === 0 && renderAnnouncements(teacherNotices, 'Official Notices', 'notices')}
+
           </View>
         </ScrollView>
     </View>

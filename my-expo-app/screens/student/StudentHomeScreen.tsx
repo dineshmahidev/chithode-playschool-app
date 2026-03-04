@@ -277,23 +277,18 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
             ))}
           </ScrollView>
         ) : (
-          <View className="items-center px-6 pb-8">
-            <View 
-              style={{ 
-                width: cardWidth, 
-                aspectRatio: 16 / 10,
-                elevation: 10
-              }}
-              className={`${colors.surface} items-center justify-center rounded-[32px] border-2 border-brand-pink/30 border-dashed shadow-xl`}
+          <View className="items-center px-6">
+            <LinearGradient
+              colors={theme === 'dark' ? ['#1e1e1e', '#1a1a14'] : ['#FFF5F8', '#FFFFFF']}
+              style={{ width: cardWidth, aspectRatio: 16 / 9 }}
+              className="items-center justify-center rounded-[40px] border-2 border-brand-pink/10 border-dashed"
             >
-              <View className="items-center justify-center">
-                <View className="bg-brand-pink/10 w-24 h-24 rounded-full items-center justify-center mb-5 border border-brand-pink/20">
-                  <MaterialCommunityIcons name="bullhorn-variant-outline" size={48} color="#F472B6" />
-                </View>
-                <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>All caught up! ✨</Text>
-                <Text className={`mt-2 font-black text-brand-pink/40 uppercase text-[9px] tracking-[4px]`}>No New Notices</Text>
+              <View className="bg-brand-pink/10 w-20 h-20 rounded-full items-center justify-center mb-4">
+                <MaterialCommunityIcons name="bullhorn-variant-outline" size={42} color="#F472B6" />
               </View>
-            </View>
+              <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>All Caught Up! ✨</Text>
+              <Text className="mt-1 font-black text-brand-pink/40 uppercase text-[8px] tracking-[3px]">No New Notices</Text>
+            </LinearGradient>
           </View>
         )}
       </View>

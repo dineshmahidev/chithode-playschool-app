@@ -49,7 +49,8 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
     try {
       const studentIds = users.filter(u => u.role === 'student').map(u => u.id.toString());
       const res = await api.get('/attendance');
-      const todayPresent = res.data.filter(
+      const data = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+      const todayPresent = data.filter(
         (r: any) => 
           r.date === todayStr && 
           r.status === 'present' &&
@@ -108,9 +109,9 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
     const cardWidth = screenWidth - 48;
 
     return (
-      <View className="mt-8 px-6">
+      <View className="mt-8">
         <View className="flex-row items-center justify-between mb-5 px-1">
-          <Text className={`text-xl font-black ${colors.text} uppercase tracking-widest opacity-60`}>{sectionTitle} 📢</Text>
+          <Text className={`text-xl font-black ${colors.text} uppercase tracking-widest opacity-60 ml-6`}>{sectionTitle} 📢</Text>
           <TouchableOpacity 
             onPress={() => navigation.navigate('announcements')}
             className="bg-brand-pink/10 px-4 py-1.5 rounded-full border border-brand-pink/20"
@@ -122,16 +123,17 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
         {list.length > 0 ? (
           <ScrollView 
             horizontal 
-            pagingEnabled
             showsHorizontalScrollIndicator={false}
-            className="overflow-hidden rounded-[40px]"
+            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
+            snapToInterval={cardWidth + 12}
+            decelerationRate="fast"
           >
             {list.map((item) => (
               <TouchableOpacity 
                 key={item.id}
                 activeOpacity={0.9}
                 style={{ width: cardWidth, aspectRatio: 16 / 9 }}
-                className="mr-3 bg-brand-pink relative overflow-hidden rounded-[40px] border-4 border-white shadow-2xl"
+                className="mr-3 bg-brand-pink relative overflow-hidden rounded-[40px] border-2 border-white shadow-2xl"
                 onPress={() => Alert.alert(item.title, item.content)}
               >
                 {item.image ? (
@@ -168,18 +170,18 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
             ))}
           </ScrollView>
         ) : (
-          <View 
-            style={{ 
-              width: '100%', 
-              aspectRatio: 16 / 9,
-            }}
-            className={`${theme === 'dark' ? 'bg-[#1e1e1e]' : 'bg-brand-pink/5'} items-center justify-center rounded-[40px] border-4 border-white border-dashed shadow-sm`}
-          >
-            <View className="bg-brand-pink/10 w-24 h-24 rounded-full items-center justify-center mb-4">
-              <MaterialCommunityIcons name="bullhorn-variant-outline" size={56} color="#F472B6" />
-            </View>
-            <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>Mission Complete! ✨</Text>
-            <Text className={`mt-2 font-black text-brand-pink/40 uppercase text-[9px] tracking-[4px]`}>No active {hint}</Text>
+          <View className="px-6">
+            <LinearGradient
+              colors={theme === 'dark' ? ['#1e1e1e', '#1a1a14'] : ['#FFF5F8', '#FFFFFF']}
+              style={{ width: '100%', aspectRatio: 16 / 9 }}
+              className="items-center justify-center rounded-[40px] border-2 border-brand-pink/10 border-dashed"
+            >
+              <View className="bg-brand-pink/10 w-20 h-20 rounded-full items-center justify-center mb-4">
+                <MaterialCommunityIcons name="bullhorn-variant-outline" size={42} color="#F472B6" />
+              </View>
+              <Text className={`text-xl font-black ${colors.text} tracking-tighter`}>Mission Complete! ✨</Text>
+              <Text className="mt-1 font-black text-brand-pink/40 uppercase text-[8px] tracking-[3px]">No Active {hint}</Text>
+            </LinearGradient>
           </View>
         )}
       </View>
@@ -233,16 +235,16 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
                 </View>
 
                 <TouchableOpacity
-                    className="bg-brand-yellow w-24 h-24 rounded-[36px] items-center justify-center shadow-2xl border-4 border-white rotate-3 relative overflow-hidden"
+                    className="bg-brand-yellow w-20 h-20 rounded-[32px] items-center justify-center shadow-2xl border-4 border-white rotate-3 relative overflow-hidden"
                     onPress={updateAvatar}
                 >
                     {user?.avatar ? (
                     <Image source={{ uri: user.avatar }} style={{ width: '100%', height: '100%' }} />
                     ) : (
-                    <MaterialCommunityIcons name="shield-crown-outline" size={48} color="#92400E" />
+                    <MaterialCommunityIcons name="shield-crown-outline" size={36} color="#92400E" />
                     )}
-                    <View className="absolute -bottom-1 -right-1 bg-brand-pink p-2 rounded-xl border-2 border-white">
-                        <MaterialCommunityIcons name="camera" size={14} color="white" />
+                    <View className="absolute -bottom-1 -right-1 bg-brand-pink p-1.5 rounded-xl border-2 border-white">
+                        <MaterialCommunityIcons name="camera" size={12} color="white" />
                     </View>
                 </TouchableOpacity>
             </View>
@@ -331,7 +333,7 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
                     >
                         <View className="flex-row items-center justify-between mb-6">
                             <View className="bg-brand-pink/10 dark:bg-brand-pink/20 w-11 h-11 rounded-2xl items-center justify-center">
-                                <MaterialCommunityIcons name="currency-usd" size={24} color="#F472B6" />
+                                <MaterialCommunityIcons name="currency-inr" size={24} color="#F472B6" />
                             </View>
                             <Text className="text-brand-pink font-black text-[8px] uppercase tracking-widest">Fees</Text>
                         </View>
@@ -387,7 +389,7 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
             </View>
         </View>
 
-        {(announcements?.length ?? 0) > 0 && renderAnnouncements(announcements, 'Central Notices', 'announcements')}
+        {announcements.length > 0 && renderAnnouncements(announcements, 'Central Notices', 'announcements')}
 
         {/* ── Modern Management Portal ── */}
         <View className="px-6 py-8">
@@ -565,7 +567,7 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
             </TouchableOpacity>
         </View>
 
-        {(announcements?.length ?? 0) === 0 && renderAnnouncements(announcements ?? [], 'Announcements', 'announcements')}
+        <View className="h-10" />
         </ScrollView>
     </View>
   );

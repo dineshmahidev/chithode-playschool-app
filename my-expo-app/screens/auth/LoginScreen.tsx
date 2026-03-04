@@ -106,7 +106,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   };
 
   const handleCallOffice = () => {
-    Linking.openURL('tel:1234567890'); // Placeholder number
+    Linking.openURL('tel:9787751430'); 
   };
 
   const insets = useSafeAreaInsets();
@@ -115,7 +115,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
 
   return (
     <View style={{ flex: 1, backgroundColor: isDark ? '#121212' : '#FDF2F8' }}>
-      <StatusBar style={isDark ? "light" : "dark"} />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       
       {/* Immersive Background */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: height * 0.65 }}>

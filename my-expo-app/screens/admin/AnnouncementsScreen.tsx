@@ -42,10 +42,12 @@ const AddAnnouncementForm = memo(({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [16, 9],
-        quality: 0.8,
+        quality: 0.5,
+        base64: true,
       });
       if (!result.canceled && result.assets[0]) {
-        setImage(result.assets[0].uri);
+        // Prefer base64 if available, fallback to uri
+        setImage(result.assets[0].base64 ? `data:image/jpeg;base64,${result.assets[0].base64}` : result.assets[0].uri);
       }
     } catch {
       Alert.alert('Error', 'Failed to pick image');

@@ -321,7 +321,7 @@ export default function AppNavigator() {
   if (!user) {
     return (
         <>
-            <StatusBar style="light" backgroundColor="#F472B6" />
+            <StatusBar style="light" translucent={true} backgroundColor="transparent" />
             <LoginScreen onLogin={() => navigate('home', true)} />
         </>
     );
@@ -330,20 +330,19 @@ export default function AppNavigator() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}>
-      <StatusBar style="light" backgroundColor="#F472B6" translucent={true} />
+      <StatusBar style="light" backgroundColor="#F472B6" translucent={false} />
       
       {isTabScreen ? (
         <View 
             className="flex-1" 
             style={{ 
               backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF',
-              paddingTop: insets.top // Added to ensure header offset in edge-to-edge
             }}
         >
           <View 
             className="flex-1" 
             style={{ 
-              paddingBottom: 85 + Math.max(insets.bottom, 20) // Corrected padding for better clearance
+              paddingBottom: 85 + Math.max(insets.bottom, 15) // Corrected padding for better clearance
             }}
         >
             {renderInnerContent()}
@@ -353,7 +352,7 @@ export default function AppNavigator() {
           <View 
             style={{ 
               position: 'absolute',
-              bottom: Math.max(insets.bottom, 20), // Increased slightly for button-nav devices
+              bottom: Math.max(insets.bottom, 15), // Increased slightly for button-nav devices
               left: 16,
               right: 16,
               zIndex: 1000,

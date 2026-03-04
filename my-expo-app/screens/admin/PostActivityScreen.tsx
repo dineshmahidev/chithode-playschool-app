@@ -106,14 +106,16 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: type === 'image' ? ImagePicker.MediaTypeOptions.Images : ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: type === 'image', // Enable editing only for images
-      quality: 0.6, // Balanced quality
+      allowsEditing: type === 'image', 
+      quality: 0.5, 
+      base64: type === 'image',
       videoExportPreset: ImagePicker.VideoExportPreset.MediumQuality,
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets[0]) {
       setMediaType(type);
-      setMediaUrl(result.assets[0].uri);
+      const asset = result.assets[0];
+      setMediaUrl(asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri);
       
       if (type === 'video') {
         try {

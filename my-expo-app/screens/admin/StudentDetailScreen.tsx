@@ -16,11 +16,65 @@ interface StudentDetailScreenProps {
 }
 
 export default function StudentDetailScreen({ navigation, route }: StudentDetailScreenProps) {
-  const { studentId } = route?.params || {};
-  const { users, user } = useAuth();
+  const { users, user, fees: allFees } = useAuth();
   const { colors, theme } = useTheme();
+  const { studentId } = route.params;
 
   const student = users.find(u => u.id === studentId);
+
+  // ── Smart Financial Logic (Synced with Student Home) ──
+  const { financialStatus, totalPending } = React.useMemo(() => {
+    if (!student) return { financialStatus: null, totalPending: 0 };
+    
+    const dbId = student.id?.toString();
+    const schoolId = student.studentId?.toString();
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    // Academic Year Logic
+    const d = new Date();
+    const monthYearCode = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+    const studentFees = allFees.filter(f => 
+      (f.student_id?.toString() === dbId || f.student_id?.toString() === schoolId)
+    );
+
+    const unpaidFees = studentFees.filter(f => f.status === 'unpaid');
+    const currentMonthPaid = studentFees.find(f => 
+       f.date?.includes(monthYearCode) && f.status === 'paid'
+    );
+    const currentMonthBilled = studentFees.find(f => f.date?.includes(monthYearCode));
+
+    // Cumulative Overdue
+    let hasAnyOverdue = unpaidFees.some(f => f.due_date && f.due_date < todayStr);
+    
+    // Virtual Overdue
+    if (!hasAnyOverdue && !currentMonthPaid && !currentMonthBilled) {
+       const dueDayNum = parseInt(student.fee_due_day || '5');
+       if (new Date().getDate() > dueDayNum) {
+          hasAnyOverdue = true;
+       }
+    }
+
+    const isPending = unpaidFees.length > 0 || (!currentMonthPaid && (student.fees && parseInt(student.fees) > 0));
+    
+    // Calculate total
+    const dbUnpaidAmount = unpaidFees.reduce((sum, f) => sum + (f.amount || 0), 0);
+    let extra = 0;
+    if (!currentMonthBilled && student.fees && parseInt(student.fees) > 0) {
+       extra = parseInt(student.fees);
+    }
+    const total = dbUnpaidAmount + extra;
+
+    return {
+      financialStatus: {
+        isOverdue: hasAnyOverdue,
+        isPending,
+        isPaid: !isPending && currentMonthPaid,
+        title: hasAnyOverdue ? 'Overdue Balance' : (isPending ? 'Pending Dues' : 'Account Clear')
+      },
+      totalPending: total
+    };
+  }, [student, allFees]);
 
   if (!student) {
     return (
@@ -126,9 +180,42 @@ export default function StudentDetailScreen({ navigation, route }: StudentDetail
             </View>
 
             <Text className={`text-4xl font-black ${colors.text} mt-8 tracking-tighter text-center`}>{student.name}</Text>
-            <View className="flex-row items-center mt-3 bg-brand-pink/10 px-6 py-2 rounded-full border border-brand-pink/20">
-              <MaterialCommunityIcons name="tag-outline" size={16} color="#F472B6" />
-              <Text className="text-brand-pink font-black text-xs ml-2 uppercase tracking-[3px]">{student.studentId}</Text>
+            
+            <View className="flex-row items-center mt-3 gap-2">
+              <View className="bg-brand-pink/10 px-6 py-2 rounded-full border border-brand-pink/20 flex-row items-center">
+                <MaterialCommunityIcons name="tag-outline" size={16} color="#F472B6" />
+                <Text className="text-brand-pink font-black text-xs ml-2 uppercase tracking-[3px]">{student.studentId}</Text>
+              </View>
+              
+              {/* Live Status Chip */}
+              <View className={`${financialStatus?.isOverdue ? 'bg-red-500' : (financialStatus?.isPending ? 'bg-amber-500' : 'bg-green-500')} px-6 py-2 rounded-full shadow-md`}>
+                <Text className="text-white font-black text-[10px] uppercase tracking-widest">
+                  {financialStatus?.isOverdue ? 'CRITICAL: OVERDUE' : (financialStatus?.isPending ? 'FEE PENDING' : 'SECURE: PAID')}
+                </Text>
+              </View>
+            </View>
+
+            {/* Financial Summary Card (Cumulative) */}
+            <View 
+               className={`mt-10 w-full overflow-hidden rounded-[40px] border-2 ${financialStatus?.isOverdue ? 'border-red-500/20 bg-red-500/5' : (financialStatus?.isPending ? 'border-amber-500/20 bg-amber-500/5' : 'border-green-500/20 bg-green-500/5')}`}
+            >
+              <View className="p-6 flex-row items-center justify-between">
+                 <View>
+                    <Text className={`text-[9px] font-black uppercase tracking-widest ${financialStatus?.isOverdue ? 'text-red-600' : (financialStatus?.isPending ? 'text-amber-600' : 'text-green-600')}`}>
+                      {financialStatus?.title}
+                    </Text>
+                    <Text className={`text-2xl font-black ${colors.text} tracking-tighter mt-1`}>
+                      ₹{totalPending.toLocaleString()}
+                    </Text>
+                 </View>
+                 <View className={`w-14 h-14 rounded-2xl items-center justify-center ${financialStatus?.isOverdue ? 'bg-red-500' : (financialStatus?.isPending ? 'bg-amber-500' : 'bg-green-500')}`}>
+                    <MaterialCommunityIcons 
+                      name={financialStatus?.isOverdue ? 'cash-remove' : (financialStatus?.isPending ? 'cash-clock' : 'cash-check')} 
+                      size={28} 
+                      color="white" 
+                    />
+                 </View>
+              </View>
             </View>
           </View>
         </View>

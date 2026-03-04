@@ -8,6 +8,7 @@ import { Video, ResizeMode } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PremiumPopup from '../../components/PremiumPopup';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const COLUMN_WIDTH = SCREEN_WIDTH / 3;
@@ -16,6 +17,7 @@ interface Student {
   id: string;
   name: string;
   avatar: string;
+  studentId?: string;
 }
 
 interface Activity {
@@ -505,7 +507,8 @@ export default function ActivityFeedScreen({ navigation }: ActivityFeedScreenPro
         groupParticipants: taggedStudents.map(s => ({
           id: s.id,
           name: s.name,
-          avatar: s.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + s.id
+          avatar: s.avatar || '',
+          studentId: s.studentId || s.id
         })),
         layoutType: index % 3 === 1 ? 'tall' : 'square',
         likesCount: act.likesCount || 0,
@@ -744,40 +747,50 @@ export default function ActivityFeedScreen({ navigation }: ActivityFeedScreenPro
         />
       </Modal>
 
-      {/* Group Modal */}
-      <Modal visible={showGroupModal} transparent={true} animationType="fade" onRequestClose={() => setShowGroupModal(false)}>
-        <View className="flex-1 bg-black/90 justify-end items-center">
-          <View className={`${colors.surface} w-full rounded-t-[50px] p-10 border-t-4 border-brand-pink shadow-2xl`}>
-            <View className="w-16 h-1.5 bg-gray-300 rounded-full self-center mb-8 opacity-50" />
-            <Text className={`text-3xl font-black ${colors.text} mb-8 tracking-tight`}>Active Group 👥</Text>
-            {currentParticipants.length > 0 ? (
-              currentParticipants.map((p) => (
-                <View key={p.id} className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'} rounded-[32px] p-5 mb-5 flex-row items-center border border-brand-pink/10`}>
-                  <Image source={{ uri: p.avatar }} className="w-14 h-14 rounded-full mr-5 border-4 border-white shadow-md" />
-                  <View>
-                    <Text className={`font-black ${colors.text} text-lg`}>{p.name}</Text>
-                    <Text className="text-brand-pink font-black text-[10px] uppercase tracking-widest">Verified Student</Text>
-                  </View>
-                  <View className="flex-1 items-end">
-                    <MaterialCommunityIcons name="check-decagram" size={24} color="#10B981" />
+      <PremiumPopup
+        visible={showGroupModal}
+        onClose={() => setShowGroupModal(false)}
+        title="Active Group"
+        type="action"
+        icon="account-group"
+        buttonText="Great! Close"
+        onButtonPress={() => setShowGroupModal(false)}
+      >
+        <View>
+          {currentParticipants.length > 0 ? (
+            currentParticipants.map((p) => (
+              <View key={p.id} className={`${theme === 'dark' ? 'bg-[#1a1a18]' : 'bg-gray-50'} rounded-[36px] p-5 mb-5 flex-row items-center border ${theme === 'dark' ? 'border-gray-800' : 'border-brand-pink/10'} shadow-sm`}>
+                <View className="relative">
+                  {p.avatar ? (
+                    <Image source={{ uri: p.avatar }} className="w-16 h-16 rounded-[24px] border-4 border-white shadow-xl" />
+                  ) : (
+                    <View className={`w-16 h-16 rounded-[24px] ${theme === 'dark' ? 'bg-gray-800' : 'bg-brand-pink/10'} items-center justify-center border-4 border-white shadow-xl`}>
+                      <MaterialCommunityIcons name="account-child" size={36} color="#F472B6" />
+                    </View>
+                  )}
+                  <View className="absolute -bottom-1 -right-1 bg-green-500 w-5 h-5 rounded-full border-2 border-white items-center justify-center">
+                    <MaterialCommunityIcons name="check" size={12} color="white" />
                   </View>
                 </View>
-              ))
-            ) : (
-              <View className="py-10 items-center">
-                <MaterialCommunityIcons name="account-off-outline" size={60} color={colors.textTertiary} />
-                <Text className={`text-lg font-bold ${colors.textTertiary} mt-4`}>No specific students tagged</Text>
+                <View className="ml-5 flex-1">
+                  <Text className={`font-black ${colors.text} text-xl tracking-tight`}>{p.name}</Text>
+                  <View className="bg-brand-pink/10 self-start px-3 py-0.5 rounded-lg mt-1 border border-brand-pink/20">
+                    <Text className="text-brand-pink font-black text-[9px] uppercase tracking-widest">ID: {p.studentId || "N/A"}</Text>
+                  </View>
+                </View>
+                <View className="bg-brand-pink/5 w-10 h-10 rounded-xl items-center justify-center">
+                  <MaterialCommunityIcons name="star-face" size={24} color="#F472B6" />
+                </View>
               </View>
-            )}
-            <TouchableOpacity 
-              onPress={() => setShowGroupModal(false)} 
-              className="bg-brand-pink py-6 rounded-[32px] mt-4 items-center shadow-2xl shadow-pink-500/50 active:scale-95"
-            >
-              <Text className="text-white font-black text-xl">Great! Close</Text>
-            </TouchableOpacity>
-          </View>
+            ))
+          ) : (
+            <View className="py-10 items-center">
+              <MaterialCommunityIcons name="account-off-outline" size={60} color={colors.textTertiary} />
+              <Text className={`text-lg font-bold ${colors.textTertiary} mt-4`}>No specific students tagged</Text>
+            </View>
+          )}
         </View>
-      </Modal>
+      </PremiumPopup>
 
       <CommentModal 
         visible={showCommentModal} 

@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Switch } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import LogoutModal from '../../components/LogoutModal';
 
 
 interface NavigationProps {
@@ -19,6 +20,8 @@ interface TeacherAccountScreenProps {
 export default function TeacherAccountScreen({ navigation }: TeacherAccountScreenProps) {
   const { user, logout, updateAvatar } = useAuth();
   const { theme, colors, toggleTheme } = useTheme();
+  const [showLogoutModal, setShowLogoutModal] = React.useState(false);
+  const [isNotificationsEnabled, setIsNotificationsEnabled] = React.useState(true);
 
   const menuItems = [
     {
@@ -66,14 +69,7 @@ export default function TeacherAccountScreen({ navigation }: TeacherAccountScree
   ];
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', onPress: logout },
-      ]
-    );
+    setShowLogoutModal(true);
   };
 
   return (
@@ -170,42 +166,115 @@ export default function TeacherAccountScreen({ navigation }: TeacherAccountScree
             </View>
         </View>
 
-        {menuItems.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            activeOpacity={0.7}
-            className={`${theme === 'dark' ? 'bg-[#1e1e1e]' : 'bg-white'} p-6 rounded-[32px] shadow-xl mb-4 flex-row items-center border ${theme === 'dark' ? 'border-gray-800' : 'border-gray-50'}`}
-            onPress={() => {
-              if (item.id === 'theme') {
-                toggleTheme();
-              } else {
-                console.log(`Navigate to ${item.id}`);
-              }
-            }}
-          >
-            <View className={`${item.color} p-4 rounded-2xl mr-5 bg-opacity-20`}>
-              <MaterialCommunityIcons name={item.icon as any} size={24} color={theme === 'dark' ? 'white' : 'rgba(0,0,0,0.6)'} />
-            </View>
-            <View className="flex-1">
-              <Text className={`text-lg font-black ${colors.text}`}>{item.title}</Text>
-              <Text className={`text-xs ${colors.textSecondary} font-bold opacity-60`}>{item.subtitle}</Text>
-            </View>
-            {item.id === 'theme' ? (
-                <View className="flex-row items-center bg-gray-100/50 dark:bg-white/5 px-2 py-1 rounded-2xl">
-                    <Text className={`text-[10px] font-black mr-2 ${theme === 'dark' ? 'text-indigo-400' : 'text-orange-500'} uppercase tracking-tighter`}>{theme === 'dark' ? 'Dark' : 'Light'}</Text>
+        <View 
+          className="rounded-[40px] overflow-hidden border shadow-2xl"
+          style={{ 
+            backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : '#FFFFFF',
+            borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#F3F4F6'
+          }}
+        >
+          {menuItems.map((item, index) => (
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.7}
+              className={`p-5 flex-row items-center justify-between ${index !== menuItems.length - 1 ? 'border-b' : ''}`}
+              style={{ borderBottomColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#F3F4F6' }}
+              onPress={() => {
+                if (item.id === 'theme') {
+                  toggleTheme();
+                } else {
+                  console.log(`Navigate to ${item.id}`);
+                }
+              }}
+            >
+              <View className="flex-row items-center flex-1">
+                <View 
+                  className={`p-3.5 rounded-[22px] mr-4 shadow-sm relative overflow-hidden`}
+                  style={{ 
+                    backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(244, 114, 182, 0.08)',
+                  }}
+                >
+                  <MaterialCommunityIcons 
+                    name={item.icon as any} 
+                    size={22} 
+                    color={theme === 'dark' ? '#F472B6' : '#DB2777'} 
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className={`text-base font-black ${colors.text} tracking-tight`}>{item.title}</Text>
+                  <Text className={`text-[11px] ${colors.textSecondary} font-bold opacity-60 mt-0.5`}>{item.subtitle}</Text>
+                </View>
+              </View>
+
+              {item.id === 'theme' ? (
+                <View 
+                  className="flex-row items-center px-4 py-1.5 rounded-full border"
+                  style={{ 
+                    backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                    borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
+                  }}
+                >
+                    <View className="flex-row items-center mr-3">
+                      <MaterialCommunityIcons 
+                        name={theme === 'dark' ? "moon-waning-crescent" : "white-balance-sunny"} 
+                        size={12} 
+                        color={theme === 'dark' ? '#818CF8' : '#F59E0B'} 
+                      />
+                      <Text 
+                        style={{ color: theme === 'dark' ? '#A5B4FC' : '#D97706' }}
+                        className="text-[10px] font-black ml-1.5 uppercase tracking-tighter"
+                      >
+                        {theme === 'dark' ? 'Dark' : 'Light'}
+                      </Text>
+                    </View>
                     <Switch
                         value={theme === 'dark'}
                         onValueChange={toggleTheme}
                         trackColor={{ false: '#D1D5DB', true: '#F472B6' }}
-                        thumbColor={theme === 'dark' ? '#FFFFFF' : '#FFFFFF'}
-                        style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+                        thumbColor="#FFFFFF"
+                        style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
                     />
                 </View>
-            ) : (
-                <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textTertiary} opacity={0.3} />
-            )}
-          </TouchableOpacity>
-        ))}
+              ) : item.id === 'notifications' ? (
+                <View 
+                  className="flex-row items-center px-4 py-1.5 rounded-full border"
+                  style={{ 
+                    backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                    borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
+                  }}
+                >
+                    <View className="flex-row items-center mr-3">
+                      <MaterialCommunityIcons 
+                        name={isNotificationsEnabled ? "bell-ring-outline" : "bell-off-outline"} 
+                        size={12} 
+                        color={isNotificationsEnabled ? '#10B981' : '#6B7280'} 
+                      />
+                      <Text 
+                        style={{ color: isNotificationsEnabled ? '#10B981' : '#6B7280' }}
+                        className="text-[10px] font-black ml-1.5 uppercase tracking-tighter"
+                      >
+                        {isNotificationsEnabled ? 'On' : 'Off'}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={isNotificationsEnabled}
+                      onValueChange={setIsNotificationsEnabled}
+                      trackColor={{ false: '#D1D5DB', true: '#10B981' }}
+                      thumbColor="#FFFFFF"
+                      style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+                    />
+                </View>
+              ) : (
+                <View 
+                  className="w-8 h-8 rounded-xl items-center justify-center"
+                  style={{ backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : '#F9FAFB' }}
+                >
+                  <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textTertiary} opacity={0.5} />
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
  
         {/* Logout Button */}
         <TouchableOpacity
@@ -226,6 +295,11 @@ export default function TeacherAccountScreen({ navigation }: TeacherAccountScree
         </TouchableOpacity>
       </View>
     </ScrollView>
+    <LogoutModal 
+      visible={showLogoutModal} 
+      onConfirm={logout} 
+      onCancel={() => setShowLogoutModal(false)} 
+    />
     </View>
   );
 }

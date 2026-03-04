@@ -17,11 +17,13 @@ interface StudentHomeScreenProps {
 }
 
 export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps) {
-  const { user, announcements, updateAvatar, fees: allFees, feeStructures } = useAuth();
+  const { user, announcements, updateAvatar, fees: allFees, feeStructures, refreshFees } = useAuth();
   const { colors, theme } = useTheme();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [todaySchedule, setTodaySchedule] = useState<any>(null);
   const [timetableLoading, setTimetableLoading] = useState(false);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [todayAttendance, setTodayAttendance] = useState<any>(null);
 
   const myFees = useMemo(() => {
     if (!user) return [];
@@ -29,55 +31,103 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
     return allFees.filter(f => f.student_id === studentUid);
   }, [allFees, user]);
 
-  const currentMonthStr = useMemo(() => {
+  const { currentMonthStr, currentMonthYearCode, academicYear } = useMemo(() => {
     const d = new Date();
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    return `${months[d.getMonth()]} ${d.getFullYear()}`;
+    const monthStr = months[d.getMonth()];
+    const year = d.getFullYear();
+    
+    // Academic year usually starts in June
+    const acadYearStart = d.getMonth() >= 5 ? year : year - 1;
+    const acadYearEnd = acadYearStart + 1;
+    
+    return {
+      currentMonthStr: `${monthStr} ${year}`,
+      currentMonthYearCode: `${year}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+      academicYear: `${acadYearStart}-${acadYearEnd.toString().slice(-2)}`
+    };
   }, []);
 
-  const overdueMonthInfo = useMemo(() => {
+  const financialStatus = useMemo(() => {
     if (!user || user.role !== 'student') return null;
     
-    // Check if current month fee exists in allFees for this student
-    const studentUid = user.studentId || (user.id ? user.id.toString() : '');
-    const currentMonthFee = allFees.find(f => 
-      f.student_id === studentUid && 
-      f.date === currentMonthStr &&
-      f.type === 'Monthly Fee'
+    const dbId = user.id?.toString();
+    const schoolId = user.studentId?.toString();
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Find ALL fees for this student
+    const studentFees = allFees.filter(f => 
+      (f.student_id?.toString() === dbId || f.student_id?.toString() === schoolId)
     );
 
-    const isPaid = currentMonthFee?.status === 'paid';
-    const dueDay = parseInt(user.fee_due_day || '5');
-    const today = new Date().getDate();
-    const isOverdue = !isPaid && today > dueDay;
-
-    return {
-      fee: currentMonthFee,
-      isPaid,
-      isOverdue,
-      amount: parseInt(user.fees || '0'),
-      dueDay
-    };
-  }, [allFees, user, currentMonthStr]);
-
-  const totalPending = useMemo(() => {
-    const basePending = feeStructures.reduce((sum, fs) => sum + fs.amount, 0);
-    const paid = myFees
-      .filter(f => f.status === 'paid')
-      .reduce((sum, f) => sum + f.amount, 0);
+    const unpaidFees = studentFees.filter(f => f.status === 'unpaid');
     
-    let total = Math.max(0, basePending - paid);
+    // Check if current month is already paid
+    const currentMonthPaid = studentFees.find(f => 
+       f.date?.includes(currentMonthYearCode) && f.status === 'paid'
+    );
+
+    // Cumulative logic:
+    // If ANY unpaid fee exists and is past its due date, the status is Overdue (Red)
+    let hasAnyOverdue = unpaidFees.some(f => f.due_date && f.due_date < todayStr);
     
-    // Add current month's tuition if missing or unpaid and we are past due day
-    if (overdueMonthInfo?.isOverdue) {
-        // If the fee record exists but is unpaid, it's already in the backend 'fees' list?
-        // Actually, the current totalToPay logic in StudentHomeScreen line 35 uses 'feeStructures' 
-        // which are global templates. We need to see if the specific monthly fee is accounted for.
-        // For now, let's assume if overdueMonthInfo.isOverdue is true, we show it.
+    // Check if current month has a virtual overdue
+    if (!hasAnyOverdue && !currentMonthPaid && !studentFees.some(f => f.date?.includes(currentMonthYearCode))) {
+       const dueDayNum = parseInt(user.fee_due_day || '5');
+       if (new Date().getDate() > dueDayNum) {
+          hasAnyOverdue = true;
+       }
     }
 
-    return total;
-  }, [feeStructures, myFees, overdueMonthInfo]);
+    const isPending = unpaidFees.length > 0 || (!currentMonthPaid && (user.fees && parseInt(user.fees) > 0));
+    const isPaid = !isPending && currentMonthPaid;
+    
+    // Sort unpaid by date for naming context
+    const sortedUnpaid = [...unpaidFees].sort((a,b) => (a.due_date || a.date).localeCompare(b.due_date || b.date));
+    const oldestFee = sortedUnpaid[0];
+
+    return {
+      isPaid,
+      isOverdue: hasAnyOverdue,
+      isPending,
+      dueDay: oldestFee?.due_date ? parseInt(oldestFee.due_date.split('-')[2]) : parseInt(user.fee_due_day || '5'),
+      exists: isPending || isPaid,
+      title: hasAnyOverdue ? 'Overdue Balance' : (isPending ? 'Monthly Fee' : 'Current Month')
+    };
+  }, [allFees, user, currentMonthYearCode]);
+
+  const feeBreakdown = useMemo(() => {
+    if (!user) return { total: 0, overdue: 0, current: 0 };
+    
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    // 1. Calculate Overdue from DB
+    const overdueAmount = myFees
+      .filter(f => f.status === 'unpaid' && f.due_date && f.due_date < todayStr)
+      .reduce((sum, f) => sum + (f.amount || 0), 0);
+    
+    // 2. Calculate Current/Upcoming from DB
+    const currentAmountDb = myFees
+      .filter(f => f.status === 'unpaid' && (!f.due_date || f.due_date >= todayStr))
+      .reduce((sum, f) => sum + (f.amount || 0), 0);
+    
+    // 3. Current month virtual fee
+    const currentMonthPaid = myFees.find(f => f.date?.includes(currentMonthYearCode) && f.status === 'paid');
+    const currentMonthInDb = myFees.find(f => f.date?.includes(currentMonthYearCode));
+    
+    let extra = 0;
+    if (!currentMonthInDb && !currentMonthPaid && user.fees && parseInt(user.fees) > 0) {
+       extra = parseInt(user.fees);
+    }
+
+    const totalCurrent = currentAmountDb + extra;
+
+    return {
+      total: overdueAmount + totalCurrent,
+      overdue: overdueAmount,
+      current: totalCurrent
+    };
+  }, [myFees, user, currentMonthYearCode]);
 
   const fetchTimetable = useCallback(async () => {
     setTimetableLoading(true);
@@ -117,14 +167,45 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
     }
   }, []);
 
+  const fetchTodayAttendance = useCallback(async () => {
+    if (!user) return;
+    setAttendanceLoading(true);
+    try {
+      // Use local date string instead of UTC ISO to avoid timezone shifts
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      
+      // Use user.id as it's the primary key used in the attendance table
+      const studentUid = user.id.toString();
+      
+      const response = await api.get(`/attendance?date=${today}`);
+      if (response.data && response.data.length > 0) {
+        // Find the specific record for THIS student among today's records
+        const myRecord = response.data.find((r: any) => 
+          r.student_id?.toString() === studentUid && 
+          r.date === today
+        );
+        setTodayAttendance(myRecord || null);
+      } else {
+        setTodayAttendance(null);
+      }
+    } catch (err) {
+      console.error('Fetch Attendance Error:', err);
+    } finally {
+      setAttendanceLoading(false);
+    }
+  }, [user]);
+
   // Update clock and fetch data
   useEffect(() => {
     fetchTimetable();
+    fetchTodayAttendance();
+    refreshFees();
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 60000); // Only need to update every min now
     return () => clearInterval(timer);
-  }, [fetchTimetable]);
+  }, [fetchTimetable, fetchTodayAttendance, refreshFees]);
 
   // Filter announcements for students
   const studentNotices = announcements.filter(a => a.target === 'all' || a.target === 'student');
@@ -295,47 +376,61 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
                 <Text className={`text-2xl font-black ${colors.text} tracking-tighter`}>Daily Journey 🎒</Text>
                 <Text className={`text-[10px] ${colors.textTertiary} font-black uppercase tracking-[2px]`}>Live Attendance Track</Text>
               </View>
-              <View className="bg-green-500/10 px-3 py-1.5 rounded-full border border-green-500/20 flex-row items-center">
-                <View className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" />
-                <Text className="text-green-600 text-[10px] font-black uppercase">Safely In</Text>
+              <View className={`${todayAttendance?.in_time ? 'bg-green-500/10 border-green-500/20' : 'bg-orange-500/10 border-orange-500/20'} px-3 py-1.5 rounded-full border flex-row items-center`}>
+                <View className={`w-2 h-2 ${todayAttendance?.in_time ? 'bg-green-500' : 'bg-orange-500'} rounded-full mr-2`} />
+                <Text className={`${todayAttendance?.in_time ? 'text-green-600' : 'text-orange-600'} text-[10px] font-black uppercase`}>
+                  {todayAttendance?.in_time ? (todayAttendance?.out_time ? 'Journey Complete' : 'Safely In') : 'Expecting Arrival'}
+                </Text>
               </View>
             </View>
 
             <View className="flex-row justify-between items-center">
               {/* Departure / Clock In Status */}
-              <View className={`${theme === 'dark' ? 'bg-white/5' : 'bg-white'} rounded-[32px] p-4 w-[46%] shadow-sm border ${theme === 'dark' ? 'border-white/10' : 'border-gray-100'}`}>
+              <View className={`${theme === 'dark' ? 'bg-white/5' : 'bg-white'} rounded-[32px] p-4 w-[46%] shadow-sm border ${theme === 'dark' ? 'border-white/10' : 'border-gray-100'} ${!todayAttendance?.in_time ? 'opacity-50' : ''}`}>
                 <View className="flex-row items-center mb-3">
-                  <View className="bg-blue-600/90 w-10 h-10 rounded-2xl items-center justify-center mr-2 shadow-lg">
+                  <View className={`${todayAttendance?.in_time ? 'bg-blue-600' : 'bg-gray-400'} w-10 h-10 rounded-2xl items-center justify-center mr-2 shadow-lg`}>
                     <MaterialCommunityIcons name="bus-clock" size={22} color="white" />
                   </View>
                   <View>
                     <Text className={`font-black ${colors.text} text-[11px]`}>Arrival</Text>
-                    <Text className="text-[10px] text-blue-500 font-bold">08:30 AM</Text>
+                    <Text className={`text-[10px] font-bold ${todayAttendance?.in_time ? 'text-blue-500' : colors.textTertiary}`}>
+                      {todayAttendance?.in_time || '--:--'}
+                    </Text>
                   </View>
                 </View>
-                <View className="bg-blue-50 px-2 py-1.5 rounded-xl border border-blue-100/50">
-                  <Text className="text-blue-700 text-[9px] font-black uppercase text-center" numberOfLines={1}>Father Drop</Text>
+                <View className={`${todayAttendance?.in_time ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'} px-2 py-1.5 rounded-xl border`}>
+                  <Text className={`${todayAttendance?.in_time ? 'text-blue-700' : 'text-gray-400'} text-[9px] font-black uppercase text-center`} numberOfLines={1}>
+                    {todayAttendance?.dropped_by_type ? `${todayAttendance.dropped_by_type} Drop` : 'Waiting...'}
+                  </Text>
                 </View>
               </View>
 
               {/* Progress Connector */}
               <View className="w-4 items-center justify-center">
-                <MaterialCommunityIcons name="dots-vertical" size={20} color={theme === 'dark' ? '#334155' : '#E2E8F0'} />
+                <MaterialCommunityIcons 
+                  name="dots-vertical" 
+                  size={20} 
+                  color={todayAttendance?.in_time ? (theme === 'dark' ? '#334155' : '#E2E8F0') : '#F1F5F9'} 
+                />
               </View>
 
               {/* Arrival / Clock Out Status */}
-              <View className={`${theme === 'dark' ? 'bg-white/5' : 'bg-white'} rounded-[32px] p-4 w-[46%] shadow-sm border ${theme === 'dark' ? 'border-white/10' : 'border-gray-100'}`}>
+              <View className={`${theme === 'dark' ? 'bg-white/5' : 'bg-white'} rounded-[32px] p-4 w-[46%] shadow-sm border ${theme === 'dark' ? 'border-white/10' : 'border-gray-100'} ${!todayAttendance?.out_time ? 'opacity-50' : ''}`}>
                 <View className="flex-row items-center mb-3">
-                  <View className="bg-brand-pink/90 w-10 h-10 rounded-2xl items-center justify-center mr-2 shadow-lg">
+                  <View className={`${todayAttendance?.out_time ? 'bg-brand-pink' : 'bg-gray-400'} w-10 h-10 rounded-2xl items-center justify-center mr-2 shadow-lg`}>
                     <MaterialCommunityIcons name="home-heart" size={22} color="white" />
                   </View>
                   <View>
                     <Text className={`font-black ${colors.text} text-[11px]`}>Departure</Text>
-                    <Text className="text-[10px] text-brand-pink font-bold">03:45 PM</Text>
+                    <Text className={`text-[10px] font-bold ${todayAttendance?.out_time ? 'text-brand-pink' : colors.textTertiary}`}>
+                      {todayAttendance?.out_time || '--:--'}
+                    </Text>
                   </View>
                 </View>
-                <View className="bg-pink-50 px-2 py-1.5 rounded-xl border border-pink-100/50">
-                  <Text className="text-brand-pink text-[9px] font-black uppercase text-center" numberOfLines={1}>Mother Pick</Text>
+                <View className={`${todayAttendance?.out_time ? 'bg-pink-50 border-pink-100' : 'bg-gray-50 border-gray-100'} px-2 py-1.5 rounded-xl border`}>
+                  <Text className={`${todayAttendance?.out_time ? 'text-brand-pink' : 'text-gray-400'} text-[9px] font-black uppercase text-center`} numberOfLines={1}>
+                    {todayAttendance?.picked_by_type ? `${todayAttendance.picked_by_type} Pick` : 'In School'}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -524,9 +619,11 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
           style={{ elevation: 20 }}
         >
           <LinearGradient
-            colors={overdueMonthInfo?.isOverdue 
+            colors={financialStatus?.isOverdue 
               ? (theme === 'dark' ? ['#7f1d1d', '#450a0a'] : ['#EF4444', '#991B1B']) 
-              : (theme === 'dark' ? ['#064e3b', '#022c22'] : ['#10B981', '#059669'])
+              : (financialStatus?.isPending
+                ? (theme === 'dark' ? ['#7c2d12', '#431407'] : ['#F59E0B', '#D97706'])
+                : (theme === 'dark' ? ['#064e3b', '#022c22'] : ['#10B981', '#059669']))
             }
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -535,22 +632,22 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
             <View className="flex-row items-center justify-between z-10">
               <View className="flex-1">
                 <View className="bg-white/20 self-start px-3 py-1 rounded-full mb-3">
-                  <Text className="text-white text-[10px] font-black uppercase tracking-widest">Academic Year 2024</Text>
+                  <Text className="text-white text-[10px] font-black uppercase tracking-widest">Academic Year {academicYear}</Text>
                 </View>
                 <Text className="text-white text-3xl font-black tracking-tighter">
-                  {overdueMonthInfo?.isOverdue ? "Payment Overdue" : "School Fees"}
+                  {financialStatus?.isOverdue ? "Payment Overdue" : (financialStatus?.isPending ? "Fee Pending" : "School Fees")}
                 </Text>
                 <View className="flex-row items-center mt-2">
                   <View className={`bg-white/10 px-3 py-1.5 rounded-2xl border border-white/10 flex-row items-center`}>
                     <MaterialCommunityIcons 
-                      name={overdueMonthInfo?.isOverdue ? "alert-circle" : "checkbox-marked-circle"} 
+                      name={financialStatus?.isOverdue ? "alert-circle" : (financialStatus?.isPending ? "clock-outline" : "checkbox-marked-circle")} 
                       size={16} 
-                      color={overdueMonthInfo?.isOverdue ? "#FCA5A5" : "#34D399"} 
+                      color={financialStatus?.isOverdue ? "#FCA5A5" : (financialStatus?.isPending ? "#FDE68A" : "#34D399")} 
                     />
                     <Text className="text-white text-xs font-black ml-2">
-                      {overdueMonthInfo?.isOverdue 
-                        ? `${currentMonthStr} Pending` 
-                        : "No Pending Dues"}
+                      {financialStatus?.isOverdue 
+                        ? `${financialStatus.title} Overdue` 
+                        : (financialStatus?.isPending ? `${financialStatus.title} Pending` : "No Pending Dues")}
                     </Text>
                   </View>
                 </View>
@@ -558,7 +655,7 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
               
               <View className="bg-white/30 w-16 h-16 rounded-[24px] items-center justify-center border-4 border-white/10 shadow-lg rotate-3">
                 <MaterialCommunityIcons 
-                  name={overdueMonthInfo?.isOverdue ? "cash-remove" : "currency-inr"} 
+                  name={financialStatus?.isOverdue ? "cash-remove" : (financialStatus?.isPending ? "cash-fast" : "currency-inr")} 
                   size={36} 
                   color="white" 
                 />
@@ -568,19 +665,25 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
             <View className="flex-row items-center justify-between mt-8 z-10">
               <View>
                 <Text className="text-white/60 text-[10px] font-black uppercase tracking-widest">
-                  {overdueMonthInfo?.isOverdue ? "Outstanding Amount" : "Current Balance"}
+                  {financialStatus?.isOverdue ? "Cumulative Balance" : (financialStatus?.isPending ? "Amount to Pay" : "Current Balance")}
                 </Text>
                 <Text className="text-white text-xl font-black mt-1 tracking-tight">
-                  {overdueMonthInfo?.isOverdue 
-                    ? `₹${overdueMonthInfo.amount.toLocaleString()} Due on ${overdueMonthInfo.dueDay}th` 
-                    : "Everything is Clear!"}
+                  {feeBreakdown.total > 0 
+                    ? `₹${feeBreakdown.total.toLocaleString()} Total Due` 
+                    : (financialStatus?.isPaid ? "Paid for this Month" : "No Pending Dues")}
                 </Text>
+                
+                {financialStatus?.isOverdue && feeBreakdown.overdue > 0 && feeBreakdown.current > 0 && (
+                  <Text className="text-white/80 text-[9px] font-black mt-1 uppercase tracking-wider">
+                    (₹{feeBreakdown.overdue.toLocaleString()} Overdue + ₹{feeBreakdown.current.toLocaleString()} Current Month)
+                  </Text>
+                )}
               </View>
               <View className="bg-white p-2.5 rounded-2xl shadow-md">
                 <MaterialCommunityIcons 
                   name="chevron-right" 
                   size={24} 
-                  color={overdueMonthInfo?.isOverdue ? "#991B1B" : "#059669"} 
+                  color={financialStatus?.isOverdue ? "#991B1B" : (financialStatus?.isPending ? "#D97706" : "#059669")} 
                 />
               </View>
             </View>
@@ -588,7 +691,7 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
             {/* Background Pattern */}
             <View className="absolute -bottom-12 -right-12 opacity-10">
               <MaterialCommunityIcons 
-                name={overdueMonthInfo?.isOverdue ? "clock-alert-outline" : "safe-square-outline"} 
+                name={financialStatus?.isOverdue ? "clock-alert-outline" : "safe-square-outline"} 
                 size={180} 
                 color="white" 
               />

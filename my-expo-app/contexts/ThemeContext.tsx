@@ -77,7 +77,7 @@ export const darkTheme: ThemeColors = {
   tabBarActiveBg: 'bg-[#3d2d34]',
   tabBarInactiveBg: 'bg-[#2d2d24]',
 
-  text: 'text-cream',
+  text: 'text-white',
   textSecondary: 'text-gray-200',
   textTertiary: 'text-gray-300',
 
@@ -86,7 +86,7 @@ export const darkTheme: ThemeColors = {
 
   menuItemBackground: 'bg-[#2d2d24]',
   menuItemBorder: 'border-[#3e3e34]',
-  menuItemText: 'text-cream',
+  menuItemText: 'text-white',
   menuItemTextSecondary: 'text-gray-300',
 
   border: 'border-[#4e4e44]',

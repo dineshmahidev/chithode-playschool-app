@@ -3,8 +3,10 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Image, Acti
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import { useAuth, Activity } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import PremiumPopup from '../../components/PremiumPopup';
 
 interface NavigationProps {
   navigate: (screen: string) => void;
@@ -16,39 +18,69 @@ interface PostActivityScreenProps {
 }
 
 export default function PostActivityScreen({ navigation }: PostActivityScreenProps) {
+  const { users, user, addActivity } = useAuth();
   const { colors, theme } = useTheme();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [image, setImage] = useState('');
   const [isPosting, setIsPosting] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const students = users.filter(u => u.role === 'student');
+
+  const toggleStudentSelection = (id: string) => {
+    setSelectedStudentIds(prev => 
+      prev.includes(id) 
+        ? prev.filter(sid => sid !== id) 
+        : [...prev, id]
+    );
+  };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: false,
-      quality: 0.8,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, // Enable free crop and zoom
+      quality: 0.7,
     });
     if (!result.canceled && result.assets[0]) {
       setImage(result.assets[0].uri);
     }
   };
 
-  const handlePost = () => {
-    if (!title || !description) {
-      Alert.alert('Missing Fields', 'Please fill all fields');
+  const handlePost = async () => {
+    if (!title || !description || selectedStudentIds.length === 0) {
+      Alert.alert('Missing Fields', 'Please fill all fields and tag at least one student');
       return;
     }
     
     setIsPosting(true);
-    // Simulate posting
-    setTimeout(() => {
-        setIsPosting(false);
-        Alert.alert('Success ✨', 'Activity posted successfully to school gallery!');
-        setTitle('');
-        setDescription('');
-        setImage('');
-        navigation.goBack();
-    }, 1500);
+    
+    try {
+      const newActivity: Activity = {
+        id: Date.now().toString(),
+        title,
+        description,
+        mediaType: 'image',
+        mediaUrl: image || 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?q=80&w=800&auto=format&fit=crop',
+        studentIds: selectedStudentIds,
+        date: new Date().toISOString().split('T')[0],
+        author: user?.name || 'Teacher',
+        likesCount: 0,
+        comments: [],
+      };
+
+      await addActivity(newActivity);
+      setIsPosting(false);
+      setShowSuccessModal(true);
+      setTitle('');
+      setDescription('');
+      setImage('');
+      setSelectedStudentIds([]);
+    } catch (error) {
+      setIsPosting(false);
+      Alert.alert('Error', 'Failed to post activity. Please try again.');
+    }
   };
 
   return (
@@ -111,6 +143,78 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
                             onChangeText={setTitle}
                         />
                     </View>
+                </View>
+
+                {/* Student Selector Section */}
+                <View className="mb-8">
+                    <View className="flex-row items-center justify-between mb-5">
+                        <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textSecondary} opacity-70`}>Tag Students 👥</Text>
+                        <View className="bg-brand-pink/10 px-3 py-1 rounded-full border border-brand-pink/20">
+                            <Text className="text-brand-pink text-[8px] font-black uppercase tracking-widest">{selectedStudentIds.length} Tagged</Text>
+                        </View>
+                    </View>
+                    
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="py-2">
+                        <TouchableOpacity 
+                            onPress={() => {
+                                if (selectedStudentIds.length === students.length) {
+                                    setSelectedStudentIds([]);
+                                } else {
+                                    setSelectedStudentIds(students.map(s => s.id));
+                                }
+                            }}
+                            className="items-center mr-5"
+                        >
+                            <View className={`w-20 h-20 rounded-[28px] items-center justify-center border-2 border-dashed ${selectedStudentIds.length === students.length ? 'border-brand-pink bg-brand-pink/10' : (theme === 'dark' ? 'border-gray-800 bg-black/20' : 'border-gray-200 bg-gray-50')}`}>
+                                <MaterialCommunityIcons 
+                                    name={selectedStudentIds.length === students.length ? "minus-circle-outline" : "plus-circle-outline"} 
+                                    size={32} 
+                                    color={selectedStudentIds.length === students.length ? '#F472B6' : colors.textTertiary} 
+                                />
+                            </View>
+                            <Text className={`text-[9px] font-black mt-3 uppercase tracking-widest ${selectedStudentIds.length === students.length ? 'text-brand-pink' : colors.textTertiary}`}>
+                                {selectedStudentIds.length === students.length ? 'Deselect' : 'All'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        {students.map((student) => {
+                            const isSelected = selectedStudentIds.includes(student.id);
+                            return (
+                                <TouchableOpacity 
+                                    key={student.id} 
+                                    onPress={() => toggleStudentSelection(student.id)}
+                                    className="items-center mr-6"
+                                >
+                                    <View className={`w-24 h-24 rounded-[32px] overflow-hidden border-2 shadow-sm ${isSelected ? 'border-brand-pink bg-brand-pink/10' : (theme === 'dark' ? 'border-gray-800 bg-[#2d2d24]' : 'border-white bg-white')}`}>
+                                        {student.avatar ? (
+                                            <Image source={{ uri: student.avatar }} className="w-full h-full" />
+                                        ) : (
+                                            <View className="flex-1 items-center justify-center">
+                                                <MaterialCommunityIcons 
+                                                    name="account-child-circle" 
+                                                    size={48} 
+                                                    color={isSelected ? '#F472B6' : (theme === 'dark' ? '#3d3d2b' : '#FDF2F8')} 
+                                                />
+                                            </View>
+                                        )}
+                                        {isSelected && (
+                                            <View className="absolute inset-0 bg-brand-pink/40 items-center justify-center">
+                                                <View className="bg-white p-2 rounded-full shadow-2xl">
+                                                    <MaterialCommunityIcons name="check-bold" size={16} color="#F472B6" />
+                                                </View>
+                                            </View>
+                                        )}
+                                    </View>
+                                    <Text className={`text-[10px] font-black mt-3 uppercase tracking-tighter text-center w-24 ${isSelected ? 'text-brand-pink' : colors.text}`} numberOfLines={1}>
+                                        {student.name}
+                                    </Text>
+                                    <Text className={`text-[8px] font-bold ${isSelected ? 'text-brand-pink/60' : colors.textTertiary} uppercase tracking-widest mt-0.5`}>
+                                        {isSelected ? 'TAGGED' : (student.studentId || 'ID#---')}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
                 </View>
 
                 {/* Description Input */}
@@ -185,6 +289,18 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <PremiumPopup
+        visible={showSuccessModal}
+        type="success"
+        title="Post Live! 🌟"
+        message="Your school activity has been published. Parents and kids will be thrilled to see today's updates! ✨"
+        buttonText="Return to Feed"
+        onClose={() => {
+          setShowSuccessModal(false);
+          navigation.goBack();
+        }}
+      />
     </View>
   );
 }

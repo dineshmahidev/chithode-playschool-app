@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert, KeyboardAvoidingView, Platform, Image, Modal } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -79,12 +79,48 @@ function DatePickerModal({ visible, initialValue, onConfirm, onClose, theme, col
 }
 
 export default function ProfileScreen({ navigation, route }: ProfileScreenProps) {
-  const { user, users, updateProfile, updateUser } = useAuth();
+  const { user, users, updateProfile, updateUser, fees: allFees } = useAuth();
   const { colors, theme } = useTheme();
-  const scrollRef = React.useRef<ScrollView>(null);
-
+  
+  const scrollRef = useRef<ScrollView>(null);
   const studentId = route?.params?.studentId;
   const targetUser = studentId ? users.find(u => u.id === studentId) : user;
+
+  // ── Unified Financial Status Logic ──
+  const financialSummary = React.useMemo(() => {
+    if (!targetUser || targetUser.role !== 'student') return null;
+    
+    const dbId = targetUser.id?.toString();
+    const schoolId = targetUser.studentId?.toString();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const monthYearCode = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
+    const myFeesList = allFees.filter(f => (f.student_id?.toString() === dbId || f.student_id?.toString() === schoolId));
+    const unpaidFees = myFeesList.filter(f => f.status === 'unpaid');
+    const currentMonthPaid = myFeesList.find(f => f.date?.includes(monthYearCode) && f.status === 'paid');
+    const currentMonthBilled = myFeesList.find(f => f.date?.includes(monthYearCode));
+
+    let isOverdue = unpaidFees.some(f => f.due_date && f.due_date < todayStr);
+    if (!isOverdue && !currentMonthPaid && !currentMonthBilled) {
+      const dueDayNum = parseInt(targetUser.fee_due_day || '5');
+      if (new Date().getDate() > dueDayNum) isOverdue = true;
+    }
+
+    const isPending = unpaidFees.length > 0 || (!currentMonthPaid && (targetUser.fees && parseInt(targetUser.fees) > 0));
+    
+    const dbUnpaidAmount = unpaidFees.reduce((sum, f) => sum + (f.amount || 0), 0);
+    let extra = 0;
+    if (!currentMonthBilled && targetUser.fees && parseInt(targetUser.fees) > 0) {
+       extra = parseInt(targetUser.fees);
+    }
+    const totalAmount = dbUnpaidAmount + extra;
+
+    return {
+      status: isOverdue ? 'overdue' : (isPending ? 'pending' : 'paid'),
+      total: totalAmount,
+      title: isOverdue ? 'Balance Overdue' : (isPending ? 'Fees Pending' : 'Financials Secure')
+    };
+  }, [targetUser, allFees]);
 
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
@@ -362,6 +398,30 @@ export default function ProfileScreen({ navigation, route }: ProfileScreenProps)
                          <Text className="text-green-600 font-black text-[10px] uppercase tracking-widest">Verified Record</Text>
                        </View>
                     </View>
+
+                    {/* Financial Summary Card (Cumulative) */}
+                    {financialSummary && (
+                       <View className={`mb-10 rounded-[32px] overflow-hidden border-2 ${financialSummary.status === 'overdue' ? 'border-red-500/20 bg-red-500/5' : (financialSummary.status === 'pending' ? 'border-amber-500/20 bg-amber-500/5' : 'border-green-500/20 bg-green-500/5')}`}>
+                          <View className="p-6 flex-row items-center justify-between">
+                             <View>
+                                <Text className={`text-[9px] font-black uppercase tracking-widest ${financialSummary.status === 'overdue' ? 'text-red-600' : (financialSummary.status === 'pending' ? 'text-amber-600' : 'text-green-600')}`}>
+                                  {financialSummary.title}
+                                </Text>
+                                <Text className={`text-2xl font-black ${colors.text} tracking-tighter mt-1`}>
+                                  ₹{financialSummary.total.toLocaleString()}
+                                </Text>
+                             </View>
+                             <View className={`w-14 h-14 rounded-2xl items-center justify-center ${financialSummary.status === 'overdue' ? 'bg-red-500' : (financialSummary.status === 'pending' ? 'bg-amber-500' : 'bg-green-500')}`}>
+                                <MaterialCommunityIcons 
+                                  name={financialSummary.status === 'overdue' ? 'cash-remove' : (financialSummary.status === 'pending' ? 'cash-clock' : 'cash-check')} 
+                                  size={28} 
+                                  color="white" 
+                                />
+                             </View>
+                          </View>
+                       </View>
+                    )}
+
 
                     <View className="mb-10">
                       <View className="flex-row items-center justify-between mb-6">

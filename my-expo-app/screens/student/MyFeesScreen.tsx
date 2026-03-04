@@ -25,24 +25,34 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
 
   const myFees = useMemo(() => {
     if (!user) return [];
-    const studentUid = user.studentId || (user.id ? user.id.toString() : '');
-    return allFees.filter(f => f.student_id === studentUid);
+    const dbId = user.id?.toString();
+    const directoryId = user.studentId?.toString();
+    
+    return allFees.filter(f => 
+      f.student_id?.toString() === dbId || 
+      f.student_id?.toString() === directoryId
+    );
   }, [allFees, user]);
 
-  const currentMonthStr = useMemo(() => {
+  const { currentMonthStr, currentMonthYearCode } = useMemo(() => {
     const d = new Date();
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    return `${months[d.getMonth()]} ${d.getFullYear()}`;
+    return {
+      currentMonthStr: `${months[d.getMonth()]} ${d.getFullYear()}`,
+      currentMonthYearCode: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    };
   }, []);
 
   const overdueMonthInfo = useMemo(() => {
     if (!user || user.role !== 'student') return null;
     
-    const studentUid = user.studentId || (user.id ? user.id.toString() : '');
+    const dbId = user.id?.toString();
+    const directoryId = user.studentId?.toString();
+    
     const currentMonthFee = allFees.find(f => 
-      f.student_id === studentUid && 
-      f.date === currentMonthStr &&
-      f.type === 'Monthly Fee'
+      (f.student_id?.toString() === dbId || f.student_id?.toString() === directoryId) && 
+      f.date?.includes(currentMonthYearCode) &&
+      (f.type || '').split(',').some(t => t.trim().toLowerCase().includes('monthly'))
     );
 
     const isPaid = currentMonthFee?.status === 'paid';
@@ -60,9 +70,9 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
   }, [allFees, user, currentMonthStr]);
 
   const feeDetails = useMemo(() => {
-    return feeStructures.map(fs => {
+    const details = feeStructures.map(fs => {
       const paidForCategory = myFees
-        .filter(f => f.type === fs.name && f.status === 'paid')
+        .filter(f => (f.type || '').toLowerCase().includes(fs.name.toLowerCase()) && f.status?.toLowerCase() === 'paid')
         .reduce((sum, f) => sum + f.amount, 0);
       
       return {
@@ -73,17 +83,50 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
         status: paidForCategory >= fs.amount ? 'paid' : 'pending'
       };
     });
-  }, [feeStructures, myFees]);
+
+    // Add current monthly tuition if not already in ledger
+    if (user && user.fees && parseInt(user.fees) > 0) {
+      const currentMonthPaid = myFees.find(f => 
+        f.date?.includes(currentMonthYearCode) && 
+        f.status?.toLowerCase() === 'paid' &&
+        (f.type || '').toLowerCase().includes('monthly')
+      );
+      const currentMonthBilled = myFees.find(f => 
+        f.date?.includes(currentMonthYearCode) &&
+        (f.type || '').toLowerCase().includes('monthly')
+      );
+      
+      if (!currentMonthPaid) {
+        details.unshift({
+          id: 'VIRTUAL_MONTHLY',
+          title: `Tuition Fee (${currentMonthStr})`,
+          amount: parseInt(user.fees),
+          paid: 0,
+          status: 'pending'
+        });
+      } else if (currentMonthPaid) {
+        details.unshift({
+          id: 'VIRTUAL_MONTHLY',
+          title: `Tuition Fee (${currentMonthStr})`,
+          amount: currentMonthPaid.amount,
+          paid: currentMonthPaid.amount,
+          status: 'paid'
+        });
+      }
+    }
+
+    return details;
+  }, [feeStructures, myFees, user, currentMonthYearCode, currentMonthStr]);
 
   const paymentHistory = useMemo(() => {
-    return myFees.map(f => ({
+    return [...myFees].sort((a,b) => b.date.localeCompare(a.date)).map(f => ({
       id: f.id,
       month: f.date,
       amount: f.amount,
       date: f.date,
       invoiceNo: `INV-2026-${f.id.toString().padStart(3, '0')}`,
-      status: f.status,
-      paymentType: 'Online',
+      status: (f.status || 'paid').toLowerCase(),
+      paymentType: 'Offline/Admin',
       transactionId: `TXN${f.id}${Date.now().toString().slice(-6)}`,
       feeCategories: [`${f.type}: ₹${f.amount.toLocaleString()}`]
     }));
@@ -91,7 +134,14 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
 
   const totalAmount = feeDetails.reduce((sum, fee) => sum + fee.amount, 0);
   const totalPaid = feeDetails.reduce((sum, fee) => sum + fee.paid, 0);
-  const totalPending = totalAmount - totalPaid;
+  const totalPendingBalance = totalAmount - totalPaid;
+
+  const totalOverdue = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return myFees
+      .filter(f => f.status?.toLowerCase() === 'unpaid' && f.due_date && f.due_date < todayStr)
+      .reduce((sum, f) => sum + f.amount, 0);
+  }, [myFees]);
 
   const handleViewInvoice = (payment: any) => {
     setSelectedInvoice(payment);
@@ -410,10 +460,16 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
                 </View>
                 
                 <View className={`border-t ${colors.border} pt-3 mt-2`}>
+                  {totalOverdue > 0 && (
+                    <View className="flex-row justify-between mb-2">
+                       <Text className="text-red-500 font-bold text-[10px] uppercase tracking-widest">Historical Overdue</Text>
+                       <Text className="text-red-500 font-black">₹{totalOverdue.toLocaleString()}</Text>
+                    </View>
+                  )}
                   <View className="flex-row justify-between">
-                    <Text className={`${colors.text} font-black text-lg`}>Pending Balance</Text>
-                    <Text className={`${(totalPending > 0 || overdueMonthInfo?.isOverdue) ? 'text-red-600' : 'text-green-600'} font-black text-xl`}>
-                      ₹{(totalPending + (overdueMonthInfo?.isOverdue ? overdueMonthInfo.amount : 0)).toLocaleString()}
+                    <Text className={`${colors.text} font-black text-lg`}>Total Balance</Text>
+                    <Text className={`${(totalPendingBalance > 0 || overdueMonthInfo?.isOverdue) ? 'text-red-500' : 'text-green-600'} font-black text-xl`}>
+                      ₹{totalPendingBalance.toLocaleString()}
                     </Text>
                   </View>
                 </View>

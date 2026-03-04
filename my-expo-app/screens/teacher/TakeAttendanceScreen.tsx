@@ -4,7 +4,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../services/api';
+import StatusModal from '../../components/StatusModal';
+import ChoiceModal from '../../components/ChoiceModal';
+import PremiumPopup from '../../components/PremiumPopup';
 
 interface NavigationProps {
   navigate: (screen: string) => void;
@@ -253,19 +257,23 @@ const ViewDropdown = React.memo(({
       animationType="fade"
       onRequestClose={() => setIsOpen(false)}
     >
-      <View className="flex-1 bg-black/90 justify-end">
+      <View className="flex-1 bg-black/90 justify-center items-center px-6">
         <TouchableOpacity 
           activeOpacity={1} 
           onPress={() => setIsOpen(false)}
           className="absolute inset-0"
         />
         <View 
-            style={{ backgroundColor: appTheme === 'dark' ? '#1a1a1a' : '#FFFFFF' }}
-            className="rounded-t-[45px] p-6 pb-12 border-t border-white/5 shadow-2xl shadow-black"
+            style={{ backgroundColor: appTheme === 'dark' ? '#1c1c14' : '#FFFFFF' }}
+            className="w-full rounded-[48px] p-8 border-4 border-brand-pink shadow-2xl relative overflow-hidden"
         >
-          <View className="items-center mb-6">
-            <View className={`w-10 h-1.5 ${appTheme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'} rounded-full mb-6`} />
-            <Text className={`text-xl font-black ${colors.text}`}>Select Attendance View</Text>
+          {/* Decorative Header Area */}
+          <View className="items-center mb-8">
+            <View className={`w-20 h-20 rounded-[28px] bg-brand-pink items-center justify-center mb-4 shadow-xl rotate-3 border-4 border-white`}>
+              <MaterialCommunityIcons name="calendar-multiselect" size={42} color="white" />
+            </View>
+            <Text className={`text-2xl font-black ${colors.text} tracking-tighter text-center`}>Select View Mode</Text>
+            <Text className={`text-[10px] ${colors.textTertiary} font-black uppercase tracking-[2px] mt-1`}>Attendance Dashboard</Text>
           </View>
 
           <TouchableOpacity 
@@ -303,6 +311,14 @@ const ViewDropdown = React.memo(({
             </View>
             {activeTab === 'month' && <MaterialCommunityIcons name="check-circle" size={22} color="#F472B6" />}
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            onPress={() => setIsOpen(false)}
+            activeOpacity={0.8}
+            className={`mt-6 py-4 rounded-[22px] border-2 border-dashed ${appTheme === 'dark' ? 'border-white/10' : 'border-gray-200'} items-center`}
+          >
+            <Text className={`font-black uppercase tracking-[2px] ${colors.textTertiary} text-[9px]`}>Cancel Selection</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -321,13 +337,14 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
 
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, StudentAttendance>>({});
   const [monthlyRecords, setMonthlyRecords] = useState<any[]>([]);
-  const [guardianModalVisible, setGuardianModalVisible] = useState(false);
   const [markingStudentId, setMarkingStudentId] = useState<string | null>(null);
   const [markingType, setMarkingType] = useState<'IN' | 'OUT'>('IN');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [initialLoading, setInitialLoading] = useState(false);
   const [isMonthlyLoading, setIsMonthlyLoading] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [statusModal, setStatusModal] = useState({ visible: false, title: '', message: '', type: 'error' as any });
+  const [choiceModal, setChoiceModal] = useState({ visible: false, title: '', message: '', options: [] as any[], iconName: '', accentColor: '' });
 
   // Synchronous ref for all state-dependent callbacks to keep them stable
   const stateRef = useRef({ attendanceRecords, users, colors });
@@ -338,15 +355,26 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
     return users.filter(u => u.role === 'student');
   }, [users]);
 
+  const markingStudent = useMemo(() => {
+    return students.find(s => s.id === markingStudentId);
+  }, [markingStudentId, students]);
+
   // Attendance summary calculated only when records change
   const attendanceSummary = useMemo(() => {
-    const records = Object.values(attendanceRecords || {});
+    const rawRecords = attendanceRecords || {};
+    const studentIds = students.map(s => s.id.toString());
+    
+    // Only count records for students currently in our list
+    const activeRecords = Object.entries(rawRecords)
+      .filter(([id]) => studentIds.includes(id))
+      .map(([_, r]) => r);
+
     const totalCount = students?.length || 0;
     return {
       total: totalCount,
-      in: records.filter(r => !!r.inTime).length,
-      out: records.filter(r => !!r.outTime).length,
-      absent: records.filter(r => r.status === 'absent').length
+      in: activeRecords.filter(r => !!r.inTime).length,
+      out: activeRecords.filter(r => !!r.outTime).length,
+      absent: activeRecords.filter(r => r.status === 'absent').length
     };
   }, [attendanceRecords, students]);
 
@@ -420,7 +448,6 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
       [studentId]: newRecord
     }));
 
-    setGuardianModalVisible(false);
     setMarkingStudentId(null);
 
     // Auto-submit change
@@ -439,7 +466,7 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
       });
     } catch (error) {
       console.error('Error auto-submitting attendance present:', error);
-      Alert.alert('Error', 'Failed to save attendance change.');
+      setStatusModal({ visible: true, title: 'Error', message: 'Failed to save attendance change.', type: 'error' });
     }
   }, [markingType, attendanceRecords]); 
 
@@ -447,7 +474,7 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
     const rawRecords = attendanceRecords || {};
     const records = Object.values(rawRecords);
     if (records.length === 0) {
-      Alert.alert('No Changes', 'No attendance records to submit.');
+      setStatusModal({ visible: true, title: 'No Changes', message: 'No attendance records to submit.', type: 'warning' });
       return;
     }
 
@@ -469,10 +496,18 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
         return api.post('/attendance', payload);
       });
       await Promise.all(promises);
-      Alert.alert('Success', 'Attendance stored! 💾✨');
-      navigation.goBack();
+      setStatusModal({ 
+        visible: true, 
+        title: 'Success!', 
+        message: 'Attendance stored safely in the vault! 💾✨', 
+        type: 'success' 
+      });
+      setTimeout(() => {
+        setStatusModal(prev => ({ ...prev, visible: false }));
+        navigation.goBack();
+      }, 1500);
     } catch (error) {
-       Alert.alert('Error', 'Failed to store attendance.');
+       setStatusModal({ visible: true, title: 'Error', message: 'Failed to store attendance.', type: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -563,64 +598,68 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
   const markAbsent = useCallback((studentId: string) => {
     const record = stateRef.current.attendanceRecords[studentId];
     if (record?.status === 'present') {
-      Alert.alert('Action Denied', 'Student is already marked Present. Please undo the Present marking first.');
+      setStatusModal({ visible: true, title: 'Action Denied', message: 'Student is already marked Present. Please undo the Present marking first.', type: 'warning' });
       return;
     }
 
-    Alert.alert(
-      'Mark Absent',
-      'Mark this student as Absent for today?',
-      [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Confirm Absent', 
-              style: 'destructive', 
-              onPress: async () => {
-                const newRecord: StudentAttendance = {
-                  id: studentId,
-                  status: 'absent',
-                  inTime: null,
-                  outTime: null
-                };
-                
-                setAttendanceRecords(prev => ({
-                  ...prev,
-                  [studentId]: newRecord
-                }));
+    setChoiceModal({
+      visible: true,
+      title: 'Mark Absent',
+      message: 'Mark this student as Absent for today?',
+      iconName: 'account-remove-outline',
+      accentColor: '#EF4444',
+      options: [
+        { 
+          label: 'Confirm Absent', 
+          type: 'destructive',
+          onPress: async () => {
+            const newRecord: StudentAttendance = {
+              id: studentId,
+              status: 'absent',
+              inTime: null,
+              outTime: null
+            };
+            
+            setAttendanceRecords(prev => ({
+              ...prev,
+              [studentId]: newRecord
+            }));
 
-                // Auto-submit change
-                try {
-                  const today = getTodayDateString();
-                  await api.post('/attendance', {
-                    student_id: studentId,
-                    date: today,
-                    status: 'absent',
-                    in_time: null,
-                    out_time: null
-                  });
-                } catch (error) {
-                  console.error('Error auto-submitting attendance absent:', error);
-                  Alert.alert('Error', 'Failed to save attendance change.');
-                }
-              }
+            // Auto-submit change
+            try {
+              const today = getTodayDateString();
+              await api.post('/attendance', {
+                student_id: studentId,
+                date: today,
+                status: 'absent',
+                in_time: null,
+                out_time: null
+              });
+            } catch (error) {
+              console.error('Error auto-submitting attendance absent:', error);
+              setStatusModal({ visible: true, title: 'Error', message: 'Failed to save attendance change.', type: 'error' });
             }
-          ]
-        );
-      }, []);
+          }
+        }
+      ]
+    });
+  }, []);
 
   const onDayStudentTap = useCallback((studentId: string) => {
     const record = stateRef.current.attendanceRecords[studentId];
     
     // Case 1: Already marked Absent
     if (record?.status === 'absent') {
-      Alert.alert(
-        'Student Absent',
-        'Would you like to undo the Absent marking?',
-        [
-          { text: 'No', style: 'cancel' },
-          { text: 'Yes, Undo', style: 'destructive', onPress: () => unmarkAttendance(studentId) }
+      setChoiceModal({
+        visible: true,
+        title: 'Student Absent',
+        message: 'Would you like to undo the Absent marking?',
+        iconName: 'account-question',
+        accentColor: '#EF4444',
+        options: [
+          { label: 'Yes, Undo', type: 'destructive', onPress: () => unmarkAttendance(studentId) }
         ]
-      );
+      });
       return;
     }
 
@@ -628,35 +667,38 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
       // Mark IN
       setMarkingStudentId(studentId);
       setMarkingType('IN');
-      setGuardianModalVisible(true);
     } else if (!record?.outTime) {
       // Offer Mark OUT or Undo
-      Alert.alert(
-        'Attendance Options',
-        'Student is already marked IN. What next?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Undo In-Marking', style: 'destructive', onPress: () => unmarkAttendance(studentId) },
+      setChoiceModal({
+        visible: true,
+        title: 'Attendance Options',
+        message: 'Student is already marked IN. What next?',
+        iconName: 'account-clock',
+        accentColor: '#10B981',
+        options: [
           { 
-            text: 'Mark OUT', 
+            label: 'Mark OUT', 
+            type: 'primary',
             onPress: () => {
               setMarkingStudentId(studentId);
               setMarkingType('OUT');
-              setGuardianModalVisible(true);
             }
-          }
+          },
+          { label: 'Undo In-Marking', type: 'destructive', onPress: () => unmarkAttendance(studentId) },
         ]
-      );
+      });
     } else {
       // Already marked OUT, offer Undo
-      Alert.alert(
-        'Attendance Complete',
-        'Attendance cycle finished for this student. Undo marking?',
-        [
-          { text: 'No', style: 'cancel' },
-          { text: 'Yes, Undo', style: 'destructive', onPress: () => unmarkAttendance(studentId) }
+      setChoiceModal({
+        visible: true,
+        title: 'Attendance Complete',
+        message: 'Attendance cycle finished for this student. Undo marking?',
+        iconName: 'check-all',
+        accentColor: '#F472B6',
+        options: [
+          { label: 'Yes, Undo', type: 'destructive', onPress: () => unmarkAttendance(studentId) }
         ]
-      );
+      });
     }
   }, [unmarkAttendance]); 
 
@@ -714,6 +756,20 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
       </View>
     );
   }, [attendanceSummary, colors, appTheme]);
+
+  const markAttendanceSync = useCallback((guardianLabel: string) => {
+    let guardianType: 'Mother' | 'Father' | 'Guardian';
+    if (guardianLabel === 'Father') {
+      guardianType = 'Father';
+    } else if (guardianLabel === 'Mother') {
+      guardianType = 'Mother';
+    } else {
+      guardianType = 'Guardian';
+    }
+    if (markingStudentId) {
+      markPresent(markingStudentId, guardianType);
+    }
+  }, [markingStudentId, markPresent]);
 
   return (
     <SafeAreaView 
@@ -885,71 +941,163 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
           )}
       </View>
 
-      {/* Guardian Selection Modal */}
-      <Modal visible={guardianModalVisible} transparent animationType="fade">
-        <View className="flex-1 bg-black/90 justify-end">
-          <TouchableOpacity 
-              activeOpacity={1} 
-              onPress={() => setGuardianModalVisible(false)}
-              className="absolute inset-0"
-          />
-          <View 
-            style={{ backgroundColor: appTheme === 'dark' ? '#1a1a1a' : '#FFFFFF' }}
-            className="rounded-t-[45px] p-6 pb-12 border-t border-white/5 shadow-2xl"
-          >
-            {/* Handlebar */}
-            <View className="items-center mb-6">
-              <View className={`w-10 h-1.5 ${appTheme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'} rounded-full`} />
+      {/* Full Screen Marking Dashboard */}
+      <Modal 
+        visible={!!markingStudentId} 
+        animationType="slide" 
+        transparent={false}
+        onRequestClose={() => setMarkingStudentId(null)}
+      >
+        <SafeAreaView className={`flex-1 ${colors.background}`}>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Immersive Header Background */}
+            <View className="h-64 absolute top-0 left-0 right-0 overflow-hidden">
+                <LinearGradient
+                  colors={markingType === 'IN' ? ['#10B98120', 'transparent'] : ['#F472B620', 'transparent']}
+                  className="flex-1"
+                />
             </View>
 
-            <View className="mb-8 text-left">
-              <Text className={`text-3xl font-black ${colors.text} tracking-tighter`}>Who is reporting?</Text>
-              <View className="flex-row items-center mt-2">
-                <View className={`px-3 py-1 rounded-full ${markingType === 'IN' ? 'bg-green-500/10' : 'bg-brand-pink/10'} border ${markingType === 'IN' ? 'border-green-500/20' : 'border-brand-pink/20'}`}>
-                  <Text className={`text-[9px] font-black uppercase tracking-[2px] ${markingType === 'IN' ? 'text-green-500' : 'text-brand-pink'}`}>
-                    {markingType === 'IN' ? 'Check-In Mode' : 'Check-Out Mode'}
-                  </Text>
+            {/* Top Bar */}
+            <View className="px-6 pt-6 flex-row items-center justify-between z-10">
+               <View>
+                  <Text className={`text-[10px] font-black uppercase tracking-[4px] ${colors.textTertiary}`}>Attendance Mode</Text>
+                  <Text className={`text-2xl font-black ${colors.text}`}>Report Entry</Text>
+               </View>
+               <TouchableOpacity 
+                 onPress={() => setMarkingStudentId(null)}
+                 className={`${appTheme === 'dark' ? 'bg-[#25251d]' : 'bg-gray-100'} w-12 h-12 rounded-2xl items-center justify-center border ${appTheme === 'dark' ? 'border-white/10' : 'border-gray-200'} shadow-sm`}
+               >
+                 <MaterialCommunityIcons name="close" size={28} color={colors.text} />
+               </TouchableOpacity>
+            </View>
+
+            {/* Primary Content Container */}
+            <View className="flex-1 px-6 mt-10">
+                {/* Cyber-Premium ID Badge Redesign - Compact Version */}
+                {markingStudent && (
+                <View className="items-center mb-10 w-full">
+                    <View 
+                        style={{ elevation: 20 }}
+                        className={`${appTheme === 'dark' ? 'bg-[#111111] border-white/10' : 'bg-white border-gray-100'} w-full rounded-[40px] border-b-[6px] border-gray-200/50 dark:border-white/5 shadow-2xl overflow-hidden`}
+                    >
+                    {/* Immersive Header Strip - Compact */}
+                    <View className={`h-16 w-full flex-row items-center px-6 ${markingType === 'IN' ? 'bg-green-500' : 'bg-brand-pink'} relative`}>
+                        <View className="absolute top-[-10] right-[-10] opacity-20">
+                            <MaterialCommunityIcons name="face-recognition" size={100} color="white" />
+                        </View>
+                        <MaterialCommunityIcons name="shield-check-outline" size={20} color="white" />
+                        <Text className="text-white font-black text-[9px] uppercase tracking-[3px] ml-2">Verified Profile</Text>
+                    </View>
+
+                    {/* Main Content Area - Compact */}
+                    <View className="p-6 items-center bg-transparent mt-[-40]">
+                        {/* Halo Portrait Frame - Compact */}
+                        <View className="relative mb-4">
+                            <View className={`w-28 h-28 rounded-full p-1.5 bg-white dark:bg-[#111111] shadow-xl border-[3px] ${markingType === 'IN' ? 'border-green-500' : 'border-brand-pink'}`}>
+                                <View className="w-full h-full rounded-full overflow-hidden border-2 border-gray-50 dark:border-white/5">
+                                    {markingStudent.avatar ? (
+                                        <Image source={{ uri: markingStudent.avatar }} className="w-full h-full" resizeMode="cover" />
+                                    ) : (
+                                        <View className="w-full h-full items-center justify-center bg-gray-100 dark:bg-gray-800">
+                                            <MaterialCommunityIcons name="account" size={48} color={colors.textTertiary} />
+                                        </View>
+                                    )}
+                                </View>
+                            </View>
+                            {/* Technical Badge Overlay - Compact */}
+                            <View className={`absolute bottom-0 right-0 w-10 h-10 rounded-xl ${markingType === 'IN' ? 'bg-green-500' : 'bg-brand-pink'} items-center justify-center border-4 ${appTheme === 'dark' ? 'border-[#111111]' : 'border-white'} shadow-lg`}>
+                                <MaterialCommunityIcons name={markingType === 'IN' ? "login" : "logout"} size={18} color="white" />
+                            </View>
+                        </View>
+
+                        <View className="items-center">
+                            <Text className={`text-3xl font-black ${colors.text} tracking-tighter text-center`}>{markingStudent.name}</Text>
+                            
+                            <View className="flex-row items-center mt-2.5 bg-gray-50 dark:bg-white/5 px-4 py-1.5 rounded-xl border border-gray-100 dark:border-white/10">
+                                <MaterialCommunityIcons name="fingerprint" size={12} color="#F472B6" />
+                                <Text className="text-brand-pink text-[10px] font-black uppercase tracking-[2px] ml-2">
+                                    ID • {markingStudent.studentId || 'N/A'}
+                                </Text>
+                            </View>
+
+                            {/* SCAN-READY Status Indicator - Compact */}
+                            <View className="flex-row items-center mt-6 gap-3">
+                                <View className="items-center px-3">
+                                    <Text className={`text-[8px] font-black uppercase tracking-widest ${colors.textTertiary}`}>Status</Text>
+                                    <Text className={`text-[10px] font-black ${markingType === 'IN' ? 'text-green-500' : 'text-brand-pink'} mt-0.5`}>ACTIVE</Text>
+                                </View>
+                                <View className="w-[1px] h-8 bg-gray-100 dark:bg-white/10" />
+                                <View className="items-center px-3">
+                                    <Text className={`text-[8px] font-black uppercase tracking-widest ${colors.textTertiary}`}>Mode</Text>
+                                    <Text className="text-[10px] font-black text-brand-pink mt-0.5 uppercase">{markingType}</Text>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+                    </View>
                 </View>
-                <Text className={`ml-3 text-[10px] font-black uppercase tracking-tight ${colors.textTertiary}`}>Select category</Text>
-              </View>
-            </View>
+                )}
 
-            <View className="flex-row justify-between mb-2">
-              {[
-                { type: 'Father', icon: 'account-child', color: '#3B82F6', label: 'Father' },
-                { type: 'Mother', icon: 'account-circle', color: '#F472B6', label: 'Mother' },
-                { type: 'Guardian', icon: 'account-group', color: '#10B981', label: 'Guardian' }
-              ].map((item) => (
-                <TouchableOpacity
-                  key={item.type}
-                  onPress={() => markPresent(markingStudentId!, item.type as any)}
-                  activeOpacity={0.7}
-                  className="items-center w-[30%]"
-                >
-                  <View 
-                    style={{ 
-                      backgroundColor: appTheme === 'dark' ? `${item.color}15` : `${item.color}08`,
-                      borderColor: appTheme === 'dark' ? `${item.color}30` : `${item.color}20`
-                    }} 
-                    className="w-full aspect-square rounded-[24px] items-center justify-center mb-2 border-2 shadow-sm"
-                  >
-                    <MaterialCommunityIcons name={item.icon as any} size={38} color={item.color} />
-                  </View>
-                  <Text className={`font-black ${colors.text} text-[10px] uppercase tracking-wider`}>{item.label}</Text>
-                </TouchableOpacity>
-              ))}
+                {/* Question Prompt */}
+                <View className="mb-8 px-2">
+                    <Text className={`text-xl font-black ${colors.text} tracking-tight`}>Who is reporting?</Text>
+                    <Text className={`text-[11px] font-black uppercase tracking-widest ${colors.textTertiary} mt-1 opacity-60`}>Select the guardian present</Text>
+                </View>
+
+                {/* Guardian Options Grid */}
+                <View className="flex-row flex-wrap justify-between mb-20 px-1">
+                    {[
+                        { label: 'Father', icon: 'face-man', color: '#3B82F6', desc: 'Primary Guardian' },
+                        { label: 'Mother', icon: 'face-woman', color: '#F472B6', desc: 'Primary Guardian' },
+                        { label: 'Guardian', icon: 'account-child', color: '#10B981', desc: 'Relative / Other' },
+                    ].map((item, idx) => (
+                        <TouchableOpacity
+                        key={idx}
+                        activeOpacity={0.8}
+                        onPress={() => markAttendanceSync(item.label)}
+                        className="w-full mb-4"
+                        >
+                        <View className={`${appTheme === 'dark' ? 'bg-[#1a1a18] border-white/5' : 'bg-white border-gray-100'} p-6 rounded-[36px] flex-row items-center border shadow-xl`}>
+                            <View 
+                                style={{ backgroundColor: item.color + '15' }}
+                                className="w-16 h-16 rounded-3xl items-center justify-center mr-6 border border-white/10"
+                            >
+                                <MaterialCommunityIcons name={item.icon as any} size={36} color={item.color} />
+                            </View>
+                            <View className="flex-1">
+                                <Text className={`text-lg font-black ${colors.text}`}>{item.label}</Text>
+                                <Text className={`text-[10px] font-bold uppercase tracking-widest ${colors.textTertiary} mt-1 opacity-50`}>{item.desc}</Text>
+                            </View>
+                            <View className={`${appTheme === 'dark' ? 'bg-white/5' : 'bg-gray-50'} w-10 h-10 rounded-2xl items-center justify-center`}>
+                                <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textTertiary} />
+                            </View>
+                        </View>
+                        </TouchableOpacity>
+                    ))}
+                </View>
             </View>
-            
-            <TouchableOpacity 
-                onPress={() => setGuardianModalVisible(false)}
-                activeOpacity={0.8}
-                className={`mt-8 py-4 rounded-[22px] border border-transparent ${appTheme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'} items-center`}
-            >
-                <Text className={`font-black uppercase tracking-[2px] ${colors.textTertiary} text-[9px]`}>Dismiss Selection</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+          </ScrollView>
+        </SafeAreaView>
       </Modal>
+
+      <StatusModal
+        visible={statusModal.visible}
+        title={statusModal.title}
+        message={statusModal.message}
+        type={statusModal.type}
+        onClose={() => setStatusModal({ ...statusModal, visible: false })}
+      />
+
+      <ChoiceModal
+        visible={choiceModal.visible}
+        title={choiceModal.title}
+        message={choiceModal.message}
+        options={choiceModal.options}
+        iconName={choiceModal.iconName}
+        accentColor={choiceModal.accentColor}
+        onClose={() => setChoiceModal({ ...choiceModal, visible: false })}
+      />
     </SafeAreaView>
   );
 }

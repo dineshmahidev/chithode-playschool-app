@@ -211,17 +211,6 @@ const FeeEditorModal = memo(({ visible, onClose, item, onSave, colors, theme, st
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
           <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
             {/* ── Background Gradient & 3D Illustration ── */}
-            <View className="absolute top-0 left-0 right-0 h-[350px] overflow-hidden">
-              <LinearGradient
-                  colors={[theme === 'dark' ? '#1e1b4b' : '#FDF2F8', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
-                  className="absolute inset-0"
-              />
-              <Image 
-                  source={require('../../assets/images/playschool_actions.png')} 
-                  style={{ width: '100%', height: '100%', opacity: theme === 'dark' ? 0.08 : 0.15, transform: [{ scale: 1.2 }, { translateY: -20 }] }}
-                  resizeMode="cover"
-              />
-            </View>
 
             {/* Header */}
             <View className="px-6 pt-12 pb-6 flex-row items-center justify-between">
@@ -374,7 +363,10 @@ const StatusToggleModal = memo(({ visible, onClose, item, onConfirm, colors, the
       >
         <View className={`${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-white'} w-full rounded-[45px] p-8 shadow-2xl items-center`}>
           {/* Visual Indicator */}
-          <View style={{ backgroundColor: color + '15' }} className="w-24 h-24 rounded-[36px] items-center justify-center mb-6 border-2" sx={{ borderColor: color + '30' }}>
+          <View 
+            style={{ backgroundColor: color + '15', borderColor: color + '30' }} 
+            className="w-24 h-24 rounded-[36px] items-center justify-center mb-6 border-2"
+          >
             <MaterialCommunityIcons 
               name={targetStatus === 'paid' ? 'check-decagram' : 'alert-circle-outline'} 
               size={56} 
@@ -415,7 +407,7 @@ const StatusToggleModal = memo(({ visible, onClose, item, onConfirm, colors, the
 
 export default function FeesManagementScreen({ navigation }: any) {
   const { colors, theme } = useTheme();
-  const { users, fees, refreshFees } = useAuth();
+  const { users, fees, refreshFees, addTransaction, fetchData } = useAuth();
   const [activeTab, setActiveTab] = useState('manage');
   const [editModal, setEditModal] = useState({ visible: false, item: null });
   const [statusModal, setStatusModal] = useState({ visible: false, item: null });
@@ -492,7 +484,15 @@ export default function FeesManagementScreen({ navigation }: any) {
   const handleInvoiceAction = async (item: FeeRecord, mode: 'view' | 'download') => {
     try {
       setIsProcessingPdf(true);
-      const html = generateInvoiceHtml(item);
+      
+      // Resolve the actual directory Student ID for the invoice
+      const student = users.find(u => u.id?.toString() === item.student_id?.toString() || u.studentId === item.student_id);
+      const resolvedItem = {
+        ...item,
+        student_id: student?.studentId || item.student_id
+      };
+      
+      const html = generateInvoiceHtml(resolvedItem);
       
       if (mode === 'view') {
         await Print.printAsync({ html });
@@ -519,38 +519,83 @@ export default function FeesManagementScreen({ navigation }: any) {
 
   const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
 
-  // Memoize filtered data to prevent re-calculations during render
   const filteredFees = useMemo(() => {
-    let list = fees;
+    let list = [...fees];
     const sq = searchQuery.toLowerCase();
 
-    // 1. Search filter
+    // 2. Tab & Month & Year filter
+    const yCode = activeYear.code;
+    const mCode = activeMonth.code;
+    const monthPrefix = `${yCode}-${mCode}-`;
+
+    let baseList: any[] = [];
+
+    if (activeTab === 'manage') {
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        // Find existing monthly fees
+        const existingMonthly = list.filter(f => {
+            const types = (f.type || '').toLowerCase();
+            const isSelectedMonth = f.date.includes(monthPrefix);
+            const isOverdue = f.status === 'unpaid' && f.due_date && f.due_date < todayStr;
+            return !types.includes('admission') && (isSelectedMonth || isOverdue);
+        });
+
+        // Add "Implicit Fees" for students who don't have a record for this month yet
+        const implicitFees: any[] = [];
+        students.forEach(student => {
+            const studentFeeAmount = parseInt(student.fees || '0');
+            if (studentFeeAmount > 0) {
+                // Check if this student already has a monthly record for THIS SPECIFIC selected month
+                const dbId = student.id?.toString();
+                const schoolId = student.studentId?.toString();
+                
+                const hasRecordThisMonth = list.some(f => 
+                    (f.student_id?.toString() === dbId || f.student_id?.toString() === schoolId) && 
+                    f.date.includes(monthPrefix) &&
+                    !(f.type || '').toLowerCase().includes('admission')
+                );
+
+                if (!hasRecordThisMonth) {
+                    const dueDay = student.fee_due_day || '5';
+                    const dueDate = `${yCode}-${mCode}-${dueDay.padStart(2, '0')}`;
+                    
+                    implicitFees.push({
+                        id: `VIRTUAL_${student.id}_${mCode}_${yCode}`,
+                        student_id: student.studentId || student.id, // Prefer directory ID
+                        student_name: student.name,
+                        type: 'Monthly Fee',
+                        amount: studentFeeAmount,
+                        status: 'unpaid', // Default to unpaid for the ledger
+                        date: `${yCode}-${mCode}-01`,
+                        due_date: dueDate,
+                        isVirtual: true
+                    });
+                }
+            }
+        });
+
+        baseList = [...existingMonthly, ...implicitFees];
+    } else if (activeTab === 'admission') {
+        baseList = list.filter(f => (f.type || '').split(',').some((t:any) => t.trim().toLowerCase() === 'admission'));
+    } else if (activeTab === 'history') {
+        // Show all paid records globally for a true "history", or filtered by month if active
+        baseList = list.filter(f => 
+          (f.status || '').toLowerCase() === 'paid' || 
+          f.date.includes(monthPrefix)
+        );
+    }
+
+    // 3. Search filter at the end
     if (sq) {
-        list = list.filter(f => 
+        baseList = baseList.filter(f => 
             (f.student_name || '').toLowerCase().includes(sq) || 
             (f.student_id || '').toLowerCase().includes(sq)
         );
     }
 
-    // 2. Tab & Month & Year filter
-    const yCode = activeYear.code;
-    const mCode = activeMonth.code;
-
-    if (activeTab === 'manage') {
-        const todayStr = new Date().toISOString().split('T')[0];
-        return list.filter(f => {
-            const types = (f.type || '').toLowerCase();
-            const isSelectedMonth = f.date.includes(`${yCode}-${mCode}-`);
-            const isOverdue = f.status === 'unpaid' && f.due_date && f.due_date < todayStr;
-            return !types.includes('admission') && (isSelectedMonth || isOverdue);
-        });
-    } else if (activeTab === 'admission') {
-        return list.filter(f => (f.type || '').split(',').some((t:any) => t.trim().toLowerCase() === 'admission'));
-    } else if (activeTab === 'history') {
-        return list.filter(f => f.date.includes(`${yCode}-${mCode}-`));
-    }
-    return [];
-  }, [fees, activeTab, activeMonth, activeYear, searchQuery]);
+    return baseList.sort((a, b) => b.date.localeCompare(a.date));
+  }, [fees, activeTab, activeMonth, activeYear, searchQuery, students]);
 
   const stats = useMemo(() => {
     const total = filteredFees.reduce((acc, f) => acc + (f.amount || 0), 0);
@@ -579,16 +624,40 @@ export default function FeesManagementScreen({ navigation }: any) {
           date: updatedItem.date,
           due_date: updatedItem.due_date
       };
-      if (updatedItem.id === 'NEW') await api.post('/fees', payload);
-      else await api.put(`/fees/${updatedItem.id}`, payload);
+      if (updatedItem.id === 'NEW' || (updatedItem.id?.toString().startsWith('VIRTUAL_'))) {
+        await api.post('/fees', payload);
+      } else {
+        await api.put(`/fees/${updatedItem.id}`, payload);
+      }
       
       await refreshFees();
-      setEditModal({ visible: false, item: null });
-      Alert.alert('Treasury Update ✨', 'The record has been updated in the cloud.');
-    } catch (err) {
-      Alert.alert('Error', 'Financial update failed.');
-    } finally {
+      
+      // Automatically post to income ledger if marked as paid
+      if (updatedItem.status === 'paid') {
+        try {
+          await addTransaction({
+            id: Date.now().toString(),
+            name: `Fee: ${updatedItem.student_name} (${updatedItem.type})`,
+            amount: updatedItem.amount,
+            category: 'Fees',
+            type: 'income',
+            date: new Date().toISOString().split('T')[0]
+          });
+        } catch (txErr) {
+          console.error('Failed to auto-post income:', txErr);
+        }
+      }
+
       setIsLocalLoading(false);
+      setEditModal({ visible: false, item: null });
+      // Small timeout to allow state to settle before alert
+      setTimeout(() => {
+        Alert.alert('Treasury Update ✨', 'The record has been updated and posted to income history.');
+      }, 300);
+    } catch (err) {
+      console.error('Update fee error:', err);
+      setIsLocalLoading(false);
+      Alert.alert('Error', 'Financial update failed.');
     }
   };
 
@@ -598,20 +667,60 @@ export default function FeesManagementScreen({ navigation }: any) {
 
   const handleConfirmStatus = async (item: any) => {
     try {
-      setIsLocalLoading(true);
-      await api.post(`/fees/${item.id}/toggle-status`);
-      await refreshFees();
+      // Close modal first for snappier UI
       setStatusModal({ visible: false, item: null });
-    } catch (err) {
-      Alert.alert('Error', 'Update failed.');
-    } finally {
+      setIsLocalLoading(true);
+      const targetStatus = item.status === 'paid' ? 'unpaid' : 'paid';
+      
+      if (item.id.toString().startsWith('VIRTUAL_')) {
+        // Correct logic for virtual items: create new record
+        const payload = {
+          student_id: item.student_id,
+          student_name: item.student_name,
+          type: item.type,
+          amount: item.amount,
+          status: targetStatus,
+          date: item.date, // Preserve the month/year of the virtual item
+          due_date: item.due_date
+        };
+        await api.post('/fees', payload);
+      } else {
+        await api.post(`/fees/${item.id}/toggle-status`);
+      }
+
+      // Automatically post to income ledger if marked as paid
+      if (targetStatus === 'paid') {
+          try {
+            await addTransaction({
+              id: Date.now().toString(),
+              name: `Payment: ${item.student_name} (${item.type})`,
+              amount: item.amount,
+              category: 'Fees',
+              type: 'income',
+              date: new Date().toISOString().split('T')[0]
+            });
+          } catch (txErr) {
+            console.error('Failed to auto-post income:', txErr);
+          }
+      }
+
+      // Re-load everything to ensure Transactions sync up too
+      await Promise.all([refreshFees(), fetchData()]);
       setIsLocalLoading(false);
+    } catch (err) {
+      console.error('Status toggle error:', err);
+      setIsLocalLoading(false);
+      Alert.alert('Error', 'Update failed.');
     }
   };
 
   const renderFeeItem = useCallback(({ item }: any) => {
     const isOverdue = item.status === 'unpaid' && item.due_date && new Date(item.due_date) < new Date(new Date().toISOString().split('T')[0]);
     
+    // Find directory ID if the record has database ID
+    const student = users.find(u => u.id?.toString() === item.student_id?.toString() || u.studentId === item.student_id);
+    const displayId = student?.studentId || item.student_id;
+
     return (
       <View 
         style={{ elevation: 8 }}
@@ -626,7 +735,7 @@ export default function FeesManagementScreen({ navigation }: any) {
                   <Text className={`font-black text-xl tracking-tighter ${colors.text}`} numberOfLines={1}>{item.student_name}</Text>
                   <View className="flex-row items-center mt-0.5">
                     <Text className={`text-[10px] font-black uppercase tracking-widest ${isOverdue ? "text-red-500" : colors.textTertiary}`}>
-                        ID: {item.student_id} • {item.due_date || 'N/A'}
+                        ID: {displayId} • {item.due_date || 'N/A'}
                     </Text>
                   </View>
                </View>
@@ -634,10 +743,10 @@ export default function FeesManagementScreen({ navigation }: any) {
             
             <TouchableOpacity 
               onPress={() => toggleStatus(item as any)}
-              className={`px-5 py-2.5 rounded-[18px] shadow-sm ${item.status === 'paid' ? 'bg-green-500' : 'bg-red-500'}`}
+              className={`px-5 py-2.5 rounded-[18px] shadow-sm ${item.status?.toLowerCase() === 'paid' ? 'bg-green-500' : 'bg-red-500'}`}
             >
                <Text className="text-[10px] font-black text-white uppercase tracking-widest">
-                  {item.status}
+                  {item.status?.toUpperCase()}
                </Text>
             </TouchableOpacity>
          </View>
@@ -656,7 +765,7 @@ export default function FeesManagementScreen({ navigation }: any) {
                  <MaterialCommunityIcons name="pencil-outline" size={22} color={theme === 'dark' ? '#9CA3AF' : '#4B5563'} />
               </TouchableOpacity>
               
-              {item.status === 'paid' && (
+              {(item.status?.toLowerCase() === 'paid') && (
                 <>
                   <TouchableOpacity 
                     onPress={() => handleInvoiceAction(item as any, 'view')} 
@@ -687,17 +796,6 @@ export default function FeesManagementScreen({ navigation }: any) {
   const ListHeader = useMemo(() => (
     <View className={`${theme === 'dark' ? 'bg-[#1c1c14]' : 'bg-white'}`}>
       {/* ── Background Header Illustration ── */}
-      <View className="absolute top-0 left-0 right-0 h-[450px] overflow-hidden">
-        <LinearGradient
-            colors={[theme === 'dark' ? '#1e1b4b' : '#FEF2F2', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
-            className="absolute inset-0"
-        />
-        <Image 
-            source={require('../../assets/images/playschool_actions.png')} 
-            style={{ width: '100%', height: '100%', opacity: theme === 'dark' ? 0.08 : 0.1, transform: [{ scale: 1.5 }, { translateY: -40 }] }}
-            resizeMode="cover"
-        />
-      </View>
 
       {/* Header */}
       <View className="px-6 pt-12 pb-4">

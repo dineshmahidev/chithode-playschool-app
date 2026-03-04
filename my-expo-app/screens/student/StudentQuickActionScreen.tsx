@@ -21,6 +21,15 @@ export default function StudentQuickActionScreen({ navigation }: StudentQuickAct
   const { colors, theme } = useTheme();
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  const { currentMonthStr, currentMonthYearCode } = useMemo(() => {
+    const d = new Date();
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return {
+      currentMonthStr: `${months[d.getMonth()]} ${d.getFullYear()}`,
+      currentMonthYearCode: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    };
+  }, []);
+
   const myFees = useMemo(() => {
     if (!user) return [];
     return allFees.filter(f => 
@@ -29,11 +38,76 @@ export default function StudentQuickActionScreen({ navigation }: StudentQuickAct
     );
   }, [allFees, user]);
 
-  const totalPaid = useMemo(() => {
-    return myFees
+  const financialStatus = useMemo(() => {
+    if (!user) return null;
+    
+    const dbId = user.id?.toString();
+    const schoolId = user.studentId?.toString();
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const studentFees = allFees.filter(f => 
+      (f.student_id?.toString() === dbId || f.student_id?.toString() === schoolId)
+    );
+
+    const unpaidFees = studentFees.filter(f => f.status === 'unpaid');
+    const currentMonthPaid = studentFees.find(f => 
+       f.date?.includes(currentMonthYearCode) && f.status === 'paid'
+    );
+
+    let isOverdue = false;
+    let isPending = false;
+    let title = 'Monthly Fee';
+
+    if (unpaidFees.length > 0) {
+      const sortedUnpaid = [...unpaidFees].sort((a, b) => (a.due_date || a.date).localeCompare(b.due_date || b.date));
+      const activeFee = sortedUnpaid[0];
+      isOverdue = activeFee.due_date ? activeFee.due_date < todayStr : false;
+      isPending = true;
+      title = activeFee.type || 'Monthly Fee';
+    } else if (!currentMonthPaid && (user.fees && parseInt(user.fees) > 0)) {
+       isPending = true;
+       const dueDayNum = parseInt(user.fee_due_day || '5');
+       isOverdue = new Date().getDate() > dueDayNum;
+       title = 'Current Month Fee';
+    }
+
+    return { isPaid: !!currentMonthPaid, isOverdue, isPending, title };
+  }, [allFees, user, currentMonthYearCode]);
+
+  const totalSummary = useMemo(() => {
+    if (!user) return { paid: 0, pending: 0, overdue: 0, current: 0 };
+    
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const paid = myFees
       .filter(f => f.status === 'paid')
-      .reduce((sum, f) => sum + f.amount, 0);
-  }, [myFees]);
+      .reduce((sum, f) => sum + (f.amount || 0), 0);
+
+    const overdueDb = myFees
+      .filter(f => f.status === 'unpaid' && f.due_date && f.due_date < todayStr)
+      .reduce((sum, f) => sum + (f.amount || 0), 0);
+    
+    const currentDb = myFees
+      .filter(f => f.status === 'unpaid' && (!f.due_date || f.due_date >= todayStr))
+      .reduce((sum, f) => sum + (f.amount || 0), 0);
+    
+    const currentMonthInDb = myFees.find(f => f.date?.includes(currentMonthYearCode));
+    const currentMonthPaid = myFees.find(f => f.date?.includes(currentMonthYearCode) && f.status === 'paid');
+    
+    let virtualExtra = 0;
+    if (!currentMonthInDb && !currentMonthPaid && user.fees && parseInt(user.fees) > 0) {
+       virtualExtra = parseInt(user.fees);
+    }
+
+    const totalCurrent = currentDb + virtualExtra;
+
+    return { 
+      paid, 
+      pending: overdueDb + totalCurrent,
+      overdue: overdueDb,
+      current: totalCurrent
+    };
+  }, [myFees, user, currentMonthYearCode]);
 
   // Update clock every second
   useEffect(() => {
@@ -164,7 +238,12 @@ export default function StudentQuickActionScreen({ navigation }: StudentQuickAct
           style={{ elevation: 20 }}
         >
           <LinearGradient
-            colors={theme === 'dark' ? ['#064e3b', '#022c22'] : ['#10B981', '#059669']}
+            colors={financialStatus?.isOverdue 
+              ? (theme === 'dark' ? ['#7f1d1d', '#450a0a'] : ['#EF4444', '#991B1B']) 
+              : (financialStatus?.isPending
+                ? (theme === 'dark' ? ['#7c2d12', '#431407'] : ['#F59E0B', '#D97706'])
+                : (theme === 'dark' ? ['#064e3b', '#022c22'] : ['#10B981', '#059669']))
+            }
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             className="p-6"
@@ -172,13 +251,30 @@ export default function StudentQuickActionScreen({ navigation }: StudentQuickAct
             <View className="flex-row items-center justify-between z-10">
               <View className="flex-1">
                 <View className="bg-white/20 self-start px-3 py-1 rounded-full mb-2">
-                  <Text className="text-white text-[10px] font-black uppercase tracking-widest">Financial Status</Text>
+                  <Text className="text-white text-[10px] font-black uppercase tracking-widest">
+                    {financialStatus?.isOverdue ? "Overdue Alert" : (financialStatus?.isPending ? "Pending Payment" : "Financial Status")}
+                  </Text>
                 </View>
                 <Text className="text-white text-3xl font-black tracking-tighter">My Fees</Text>
                 <View className="flex-row items-center mt-3">
-                  <View className="bg-white/10 px-3 py-1.5 rounded-2xl border border-white/10 flex-row items-center">
-                    <MaterialCommunityIcons name="check-decagram" size={16} color="#34D399" />
-                    <Text className="text-white text-xs font-black ml-2">₹{totalPaid.toLocaleString()} Processed</Text>
+                  <View className="bg-white/10 px-3 py-1.5 rounded-2xl border border-white/10">
+                    <View className="flex-row items-center">
+                        <MaterialCommunityIcons 
+                           name={financialStatus?.isOverdue ? "alert-circle" : (financialStatus?.isPending ? "clock-outline" : "check-decagram")} 
+                           size={16} 
+                           color={financialStatus?.isOverdue ? "#FCA5A5" : (financialStatus?.isPending ? "#FDE68A" : "#34D399")} 
+                        />
+                        <Text className="text-white text-xs font-black ml-2">
+                          {totalSummary.pending > 0 
+                            ? `₹${totalSummary.pending.toLocaleString()} Total Due` 
+                            : `₹${totalSummary.paid.toLocaleString()} Paid`}
+                        </Text>
+                    </View>
+                    {financialStatus?.isOverdue && totalSummary.overdue > 0 && totalSummary.current > 0 && (
+                       <Text className="text-white/80 text-[8px] font-black uppercase mt-1">
+                          (₹{totalSummary.overdue.toLocaleString()} Overdue + ₹{totalSummary.current.toLocaleString()} Cur.)
+                       </Text>
+                    )}
                   </View>
                 </View>
               </View>

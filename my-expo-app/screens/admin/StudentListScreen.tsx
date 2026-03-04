@@ -16,9 +16,64 @@ interface StudentListScreenProps {
 }
 
 export default function StudentListScreen({ navigation }: StudentListScreenProps) {
-  const { users } = useAuth();
+  const { users, fees: allFees } = useAuth();
   const { colors, theme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
+  const [attendanceToday, setAttendanceToday] = useState<Record<string, any>>({});
+  const [loadingAttendance, setLoadingAttendance] = useState(false);
+
+  React.useEffect(() => {
+    const fetchTodayAttendance = async () => {
+      try {
+        setLoadingAttendance(true);
+        const today = new Date().toISOString().split('T')[0];
+        const response = await api.get(`/attendance?date=${today}`);
+        const data = response.data;
+        const map: Record<string, any> = {};
+        data.forEach((r: any) => {
+          map[r.student_id] = r;
+        });
+        setAttendanceToday(map);
+      } catch (error) {
+        console.error('Error fetching today attendance for roster:', error);
+      } finally {
+        setLoadingAttendance(false);
+      }
+    };
+    fetchTodayAttendance();
+  }, []);
+
+  // ── Unified Financial Status Memo ──
+  const studentFinancials = React.useMemo(() => {
+    const map: Record<string, { status: 'overdue' | 'pending' | 'paid', title: string }> = {};
+    const todayStr = new Date().toISOString().split('T')[0];
+    const monthYearCode = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
+    users.forEach(student => {
+      if (student.role !== 'student') return;
+      const dbId = student.id?.toString();
+      const schoolId = student.studentId?.toString();
+
+      const myFees = allFees.filter(f => (f.student_id?.toString() === dbId || f.student_id?.toString() === schoolId));
+      const unpaidFees = myFees.filter(f => f.status === 'unpaid');
+      const currentMonthPaid = myFees.find(f => f.date?.includes(monthYearCode) && f.status === 'paid');
+      const currentMonthBilled = myFees.find(f => f.date?.includes(monthYearCode));
+
+      let isOverdue = unpaidFees.some(f => f.due_date && f.due_date < todayStr);
+      if (!isOverdue && !currentMonthPaid && !currentMonthBilled) {
+        const dueDayNum = parseInt(student.fee_due_day || '5');
+        if (new Date().getDate() > dueDayNum) isOverdue = true;
+      }
+
+      const isPending = unpaidFees.length > 0 || (!currentMonthPaid && (student.fees && parseInt(student.fees) > 0));
+      
+      map[student.id] = {
+        status: (isPending && isOverdue) ? 'overdue' : (isPending ? 'pending' : 'paid'),
+        title: (isPending && isOverdue) ? 'OVERDUE' : (isPending ? 'PENDING' : 'PAID')
+      };
+    });
+    return map;
+  }, [users, allFees]);
 
   const students = users.filter(u => u.role === 'student');
   
@@ -200,12 +255,45 @@ export default function StudentListScreen({ navigation }: StudentListScreenProps
                         </View>
                       </View>
                       
-                      <View className="flex-row items-center mt-3">
+                      <View className="flex-row items-center mt-3 gap-2">
                          <View className={`px-4 py-1.5 rounded-full flex-row items-center ${getCategoryColor(student.category)}`}>
                            <View className="w-1.5 h-1.5 rounded-full bg-current mr-2 opacity-50" />
                            <Text className="text-[10px] font-black uppercase tracking-widest">{student.category || "General"}</Text>
                          </View>
+                         
+                         {/* Financial Status Chip */}
+                         <View className={`px-4 py-1.5 rounded-full ${studentFinancials[student.id]?.status === 'overdue' ? 'bg-red-500' : (studentFinancials[student.id]?.status === 'pending' ? 'bg-amber-500' : 'bg-green-500')}`}>
+                           <Text className="text-white text-[9px] font-black tracking-widest uppercase">{studentFinancials[student.id]?.title}</Text>
+                         </View>
                       </View>
+
+                       {/* Today's Attendance Real-time Status */}
+                       {attendanceToday[student.id] && (
+                        <View className="flex-row flex-wrap mt-3 gap-2">
+                           {attendanceToday[student.id].in_time && (
+                              <View className={`${theme === 'dark' ? 'bg-green-500/10' : 'bg-green-50'} px-3 py-1 rounded-lg border border-green-500/20 flex-row items-center`}>
+                                 <MaterialCommunityIcons name="login" size={10} color="#10B981" />
+                                 <Text className="text-green-600 dark:text-green-400 text-[8px] font-black ml-1 uppercase">
+                                    {attendanceToday[student.id].dropped_by_type || 'In'}: {attendanceToday[student.id].in_time}
+                                 </Text>
+                              </View>
+                           )}
+                           {attendanceToday[student.id].out_time && (
+                              <View className={`${theme === 'dark' ? 'bg-amber-500/10' : 'bg-amber-50'} px-3 py-1 rounded-lg border border-amber-500/20 flex-row items-center`}>
+                                 <MaterialCommunityIcons name="logout" size={10} color="#F59E0B" />
+                                 <Text className="text-amber-600 dark:text-amber-400 text-[8px] font-black ml-1 uppercase">
+                                    {attendanceToday[student.id].picked_by_type || 'Out'}: {attendanceToday[student.id].out_time}
+                                 </Text>
+                              </View>
+                           )}
+                           {attendanceToday[student.id].status === 'absent' && (
+                              <View className={`${theme === 'dark' ? 'bg-red-500/10' : 'bg-red-50'} px-3 py-1 rounded-lg border border-red-500/20 flex-row items-center`}>
+                                 <MaterialCommunityIcons name="close-circle-outline" size={10} color="#EF4444" />
+                                 <Text className="text-red-600 dark:text-red-400 text-[8px] font-black ml-1 uppercase">Absent Today</Text>
+                              </View>
+                           )}
+                        </View>
+                       )}
                     </View>
 
                     <View className="bg-gray-50 dark:bg-white/5 w-14 h-14 rounded-[24px] items-center justify-center border border-gray-100 dark:border-white/10">

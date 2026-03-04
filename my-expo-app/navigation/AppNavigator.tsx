@@ -45,6 +45,7 @@ import ParentMessagesScreen from '../screens/teacher/ParentMessagesScreen';
 import MyAttendanceScreen from '../screens/teacher/MyAttendanceScreen';
 import StudentAttendanceReportScreen from '../screens/teacher/StudentAttendanceReportScreen';
 import TeacherAttendanceReportScreen from '../screens/admin/TeacherAttendanceReportScreen';
+import SplashScreen from '../screens/auth/SplashScreen';
 
 type ScreenType = 'login' | 'home' | 'quickAction' | 'account' | 'userManagement' | 'feesManagement' | 'announcements' | 'reports' | 'backup' | 'settings' | 'attendance' | 'activityFeed' | 'liveCamera' | 'homework' | 'emergencyContact' | 'myFees' | 'rewards' | 'profile' | 'timetable' | 'postHomework' | 'takeAttendance' | 'postActivity' | 'viewSubmissions' | 'classSchedule' | 'parentMessages' | 'studentList' | 'studentDetail' | 'incomeExpense' | 'myAttendance' | 'studentAttendanceReport' | 'teacherAttendanceReport';
 
@@ -56,6 +57,7 @@ export default function AppNavigator() {
   const [navigationStack, setNavigationStack] = useState<ScreenType[]>(['login']);
   const [params, setParams] = useState<any>(null);
   const [isHomeBlinking, setIsHomeBlinking] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const navigate = useCallback((screen: ScreenType, resetOrParams: boolean | any = false, screenParams: any = null) => {
     setCurrentScreen(screen);
@@ -90,16 +92,26 @@ export default function AppNavigator() {
 
   const insets = useSafeAreaInsets();
   
-  // Redirect logic
+  // Redirect logic with splash transition
   useEffect(() => {
     if (!isLoading) {
       if (!user) {
         if (currentScreen !== 'login') {
-          setCurrentScreen('login');
-          setNavigationStack(['login']);
+          // Trigger logout splash transition
+          setIsTransitioning(true);
+          setTimeout(() => {
+            setCurrentScreen('login');
+            setNavigationStack(['login']);
+            setIsTransitioning(false);
+          }, 2000); // 2 seconds splash for logout
         }
       } else if (currentScreen === 'login') {
-        navigate('home', true);
+        // Trigger login splash transition
+        setIsTransitioning(true);
+        setTimeout(() => {
+            navigate('home', true);
+            setIsTransitioning(false);
+        }, 2000); // 2 seconds splash for login
       }
     }
   }, [user, isLoading, currentScreen, navigate]);
@@ -302,14 +314,8 @@ export default function AppNavigator() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF', justifyContent: 'center', alignItems: 'center' }}>
-        <StatusBar style="light" backgroundColor="#F472B6" />
-        <ActivityIndicator size="large" color="#F472B6" />
-        <Text style={{ marginTop: 20, color: '#F472B6', fontWeight: 'bold' }}>Restoring Session...</Text>
-      </View>
-    );
+  if (isLoading || isTransitioning) {
+    return <SplashScreen />;
   }
 
   if (!user) {
@@ -324,22 +330,22 @@ export default function AppNavigator() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}>
-      <StatusBar style="light" backgroundColor="#F472B6" translucent={false} />
+      <StatusBar style="light" backgroundColor="#F472B6" translucent={true} />
       
       {isTabScreen ? (
         <View 
             className="flex-1" 
             style={{ 
               backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF',
-              paddingTop: insets.top
+              paddingTop: insets.top // Added to ensure header offset in edge-to-edge
             }}
         >
           <View 
             className="flex-1" 
             style={{ 
-              paddingBottom: 85 + Math.max(insets.bottom, 16) 
+              paddingBottom: 85 + Math.max(insets.bottom, 20) // Corrected padding for better clearance
             }}
-          >
+        >
             {renderInnerContent()}
           </View>
           
@@ -347,7 +353,7 @@ export default function AppNavigator() {
           <View 
             style={{ 
               position: 'absolute',
-              bottom: Math.max(insets.bottom, 10),
+              bottom: Math.max(insets.bottom, 20), // Increased slightly for button-nav devices
               left: 16,
               right: 16,
               zIndex: 1000,
@@ -406,7 +412,7 @@ export default function AppNavigator() {
                               alignItems: 'center',
                               justifyContent: 'center',
                               borderWidth: 6,
-                              borderColor: theme === 'dark' ? '#0f0f0a' : '#FFFFFF',
+                              borderColor: '#FFFFFF',
                               shadowColor: '#FBBF24',
                               shadowOffset: { width: 0, height: 8 },
                               shadowOpacity: 0.5,
@@ -447,7 +453,7 @@ export default function AppNavigator() {
                             alignItems: 'center',
                             justifyContent: 'center',
                             borderWidth: isActive ? 4 : 1,
-                            borderColor: isActive ? (theme === 'dark' ? '#0f0f0a' : '#FFFFFF') : (theme === 'dark' ? '#3e3e34' : '#E5E7EB'),
+                            borderColor: theme === 'dark' ? '#FFFFFF' : (isActive ? '#FFFFFF' : '#E5E7EB'),
                             shadowColor: isActive ? (tab === 'home' ? '#6366F1' : '#F472B6') : 'transparent',
                             shadowOffset: { width: 0, height: 4 },
                             shadowOpacity: isActive ? 0.3 : 0,

@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth, Activity } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import PremiumPopup from '../../components/PremiumPopup';
 
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
@@ -28,6 +29,7 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -86,8 +88,7 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
       
       setTimeout(() => {
         setIsUploading(false);
-        Alert.alert('Success', 'Activity posted to Kids Activity! 🎊');
-        navigation.goBack();
+        setShowSuccessModal(true);
       }, 500);
     } catch (error) {
       setIsUploading(false);
@@ -105,10 +106,9 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: type === 'image' ? ImagePicker.MediaTypeOptions.Images : ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: false,
-      aspect: [4, 3],
-      quality: 0.4, // Reduced quality to compress file size
-      videoExportPreset: ImagePicker.VideoExportPreset.MediumQuality, // Specific to video compression
+      allowsEditing: type === 'image', // Enable editing only for images
+      quality: 0.6, // Balanced quality
+      videoExportPreset: ImagePicker.VideoExportPreset.MediumQuality,
     });
 
     if (!result.canceled) {
@@ -234,30 +234,30 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
                                 onPress={() => toggleStudentSelection(student.id)}
                                 className="items-center mr-6"
                             >
-                                <View className={`w-28 h-28 rounded-[36px] overflow-hidden border-2 shadow-xl ${isSelected ? 'border-brand-pink bg-brand-pink/10' : (theme === 'dark' ? 'border-gray-800 bg-[#25251d]' : 'border-white bg-white')}`}>
+                                <View className={`w-24 h-24 rounded-[32px] overflow-hidden border-2 shadow-sm ${isSelected ? 'border-brand-pink bg-brand-pink/10' : (theme === 'dark' ? 'border-gray-800 bg-[#2d2d24]' : 'border-white bg-white')}`}>
                                     {student.avatar ? (
                                         <Image source={{ uri: student.avatar }} className="w-full h-full" />
                                     ) : (
                                         <View className="flex-1 items-center justify-center">
                                             <MaterialCommunityIcons 
                                                 name="account-child-circle" 
-                                                size={56} 
+                                                size={48} 
                                                 color={isSelected ? '#F472B6' : (theme === 'dark' ? '#3d3d2b' : '#FDF2F8')} 
                                             />
                                         </View>
                                     )}
                                     {isSelected && (
                                         <View className="absolute inset-0 bg-brand-pink/40 items-center justify-center">
-                                            <View className="bg-white p-2 rounded-full shadow-2xl scale-125">
-                                                <MaterialCommunityIcons name="check-bold" size={24} color="#F472B6" />
+                                            <View className="bg-white p-2 rounded-full shadow-2xl">
+                                                <MaterialCommunityIcons name="check-bold" size={16} color="#F472B6" />
                                             </View>
                                         </View>
                                     )}
                                 </View>
-                                <Text className={`text-[11px] font-black mt-3 uppercase tracking-tighter text-center w-28 ${isSelected ? 'text-brand-pink' : colors.text}`} numberOfLines={1}>
+                                <Text className={`text-[10px] font-black mt-3 uppercase tracking-tighter text-center w-24 ${isSelected ? 'text-brand-pink' : colors.text}`} numberOfLines={1}>
                                     {student.name}
                                 </Text>
-                                <Text className={`text-[9px] font-bold ${isSelected ? 'text-brand-pink/60' : colors.textTertiary} uppercase tracking-widest mt-0.5`}>
+                                <Text className={`text-[8px] font-bold ${isSelected ? 'text-brand-pink/60' : colors.textTertiary} uppercase tracking-widest mt-0.5`}>
                                     {isSelected ? 'TAGGED' : (student.studentId || 'ID#---')}
                                 </Text>
                             </TouchableOpacity>
@@ -418,6 +418,18 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
             <View className="absolute inset-0 -z-10 bg-brand-pink/5 blur-3xl rounded-full" />
         </View>
       </Modal>
+
+      <PremiumPopup
+        visible={showSuccessModal}
+        type="success"
+        title="Epic Upload! 🚀"
+        message="Your magical activity has been successfully published to the school gallery. Everyone is going to love it! ✨"
+        buttonText="Back to Desk"
+        onClose={() => {
+          setShowSuccessModal(false);
+          navigation.goBack();
+        }}
+      />
     </View>
   );
 }

@@ -12,6 +12,9 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import api from '../../services/api';
+import ChoiceModal from '../../components/ChoiceModal';
+import PremiumPopup from '../../components/PremiumPopup';
 
 interface NavigationProps { navigate: (screen: string) => void; goBack: () => void; }
 interface IncomeExpenseScreenProps { navigation: NavigationProps; }
@@ -201,6 +204,7 @@ const NewEntryForm = memo(({ theme, colors, onSubmit, isSubmitting, initialData,
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   })());
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -278,20 +282,28 @@ const NewEntryForm = memo(({ theme, colors, onSubmit, isSubmitting, initialData,
             <View className="flex-1">
                 <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textTertiary} mb-3 opacity-60`}>Classification</Text>
                 <TouchableOpacity 
-                  onPress={() => Alert.alert('Audit Classification', 'Assign transaction category', [
-                    { text: 'Salaries', onPress: () => setCategory('Salaries') },
-                    { text: 'Fees Revenue', onPress: () => setCategory('Fees') },
-                    { text: 'Utility/Maint', onPress: () => setCategory('Maintenance') },
-                    { text: 'Infrastructure', onPress: () => setCategory('Infrastructure') },
-                    { text: 'Stationery', onPress: () => setCategory('Stationery') },
-                    { text: 'Other Audit', onPress: () => setCategory('Miscellaneous') },
-                    { text: 'Cancel', style: 'cancel' }
-                  ])}
+                  onPress={() => setShowCategoryModal(true)}
                   className={`p-6 rounded-[28px] ${theme === 'dark' ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-100'} border-2 flex-row justify-between items-center shadow-sm`}
                 >
                   <Text className={`font-black text-[10px] tracking-widest uppercase ${category ? colors.text : colors.textTertiary}`}>{category || 'TYPE'}</Text>
                   <MaterialCommunityIcons name="layers-triple-outline" size={20} color={theme === 'dark' ? '#F472B6' : colors.textTertiary} />
                 </TouchableOpacity>
+                <ChoiceModal
+                  visible={showCategoryModal}
+                  onClose={() => setShowCategoryModal(false)}
+                  title="Entry Classification"
+                  message="Select the strategic audit group for this ledger transaction."
+                  iconName="layers-triple"
+                  accentColor="#F472B6"
+                  options={[
+                    { label: 'Staff Salaries', icon: 'account-cash', onPress: () => setCategory('Salaries') },
+                    { label: 'Fees Revenue', icon: 'school-outline', onPress: () => setCategory('Fees') },
+                    { label: 'Utility & Maint', icon: 'hammer-wrench', onPress: () => setCategory('Maintenance') },
+                    { label: 'Infrastructure', icon: 'office-building-marker', onPress: () => setCategory('Infrastructure') },
+                    { label: 'Office Stationery', icon: 'pencil-ruler', onPress: () => setCategory('Stationery') },
+                    { label: 'Other Audit', icon: 'dots-horizontal-circle', onPress: () => setCategory('Miscellaneous') },
+                  ]}
+                />
             </View>
           </View>
 
@@ -334,7 +346,7 @@ const NewEntryForm = memo(({ theme, colors, onSubmit, isSubmitting, initialData,
 });
 
 // ─── Daily Log Item (Matches Attendance Log Style) ───────────────────────────────────
-const TxItem = memo(({ item, theme, colors, onDelete, onEdit }: { item: Transaction; theme: string; colors: any; onDelete: (id: string) => void; onEdit: (t: Transaction) => void; }) => (
+const TxItem = memo(({ item, theme, colors, onDelete, onEdit, onPrint }: { item: Transaction; theme: string; colors: any; onDelete: (id: string) => void; onEdit: (t: Transaction) => void; onPrint?: (t: Transaction, mode: 'view' | 'download') => void; }) => (
     <TouchableOpacity 
         activeOpacity={0.9} 
         onPress={() => onEdit(item)}
@@ -373,6 +385,22 @@ const TxItem = memo(({ item, theme, colors, onDelete, onEdit }: { item: Transact
                     >
                         <MaterialCommunityIcons name="pencil-outline" size={18} color={theme === 'dark' ? '#9CA3AF' : '#4B5563'} />
                     </TouchableOpacity>
+                    {item.category === 'Fees' && item.type === 'income' && onPrint && (
+                      <>
+                        <TouchableOpacity 
+                            onPress={() => onPrint(item, 'view')} 
+                            className="w-10 h-10 bg-indigo-500 rounded-xl items-center justify-center shadow-md shadow-indigo-500/20"
+                        >
+                            <MaterialCommunityIcons name="printer-outline" size={18} color="white" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            onPress={() => onPrint(item, 'download')} 
+                            className="w-10 h-10 bg-brand-pink rounded-xl items-center justify-center shadow-md shadow-brand-pink/20"
+                        >
+                            <MaterialCommunityIcons name="share-variant-outline" size={18} color="white" />
+                        </TouchableOpacity>
+                      </>
+                    )}
                     <TouchableOpacity 
                         onPress={() => onDelete(item.id)} 
                         className="w-10 h-10 bg-red-500 rounded-xl items-center justify-center shadow-md shadow-red-500/20"
@@ -386,7 +414,7 @@ const TxItem = memo(({ item, theme, colors, onDelete, onEdit }: { item: Transact
 ));
 
 export default function IncomeExpenseScreen({ navigation }: IncomeExpenseScreenProps) {
-  const { transactions, addTransaction, deleteTransaction, updateTransaction } = useAuth();
+  const { transactions, addTransaction, deleteTransaction, updateTransaction, users, fees, fetchData } = useAuth();
   const { theme, colors } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -398,6 +426,62 @@ export default function IncomeExpenseScreen({ navigation }: IncomeExpenseScreenP
   const [typeFilter,   setTypeFilter]   = useState<'all' | 'income' | 'expense'>('all');
   const [pdfLoading,   setPdfLoading]   = useState(false);
 
+  const generateInvoiceHtml = (item: any) => `
+    <html>
+      <head>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+          body { font-family: 'Inter', sans-serif; padding: 40px; color: #1F2937; line-height: 1.5; }
+          .header { text-align: center; margin-bottom: 50px; }
+          .logo { background: #F472B6; color: white; width: 60px; height: 60px; border-radius: 15px; display: inline-flex; align-items: center; justify-content: center; font-weight: 900; font-size: 24px; margin-bottom: 10px; }
+          .title { font-size: 28px; font-weight: 900; color: #111827; letter-spacing: -1px; }
+          .subtitle { color: #F472B6; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 2px; }
+          .receipt-box { border: 2px solid #F3F4F6; border-radius: 24px; padding: 30px; margin-top: 30px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+          .row { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px dashed #E5E7EB; padding-bottom: 10px; }
+          .label { font-size: 10px; font-weight: 900; color: #9CA3AF; text-transform: uppercase; letter-spacing: 1px; }
+          .value { font-size: 14px; font-weight: 700; color: #1F2937; }
+          .amount-box { background: #FDF2F8; border: 1px solid #FBCFE8; padding: 20px; border-radius: 20px; text-align: center; margin-top: 40px; }
+          .paid-stamp { border: 3px solid #10B981; color: #10B981; display: inline-block; padding: 5px 20px; border-radius: 10px; font-weight: 900; transform: rotate(-10deg); position: absolute; top: 100px; right: 80px; font-size: 24px; opacity: 0.5; }
+          .footer { margin-top: 80px; text-align: center; font-size: 10px; color: #9CA3AF; border-top: 1px solid #F3F4F6; padding-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="paid-stamp">PAID</div>
+        <div class="header">
+          <div class="logo">H</div>
+          <div class="title">CHITHODE HAPPYKIDS</div>
+          <div class="subtitle">Official Fee Receipt</div>
+        </div>
+        <div class="receipt-box">
+          <div class="row"><span class="label">Payment Date</span><span class="value">${item.date}</span></div>
+          <div class="row" style="margin-top: 20px;"><span class="label">Reference</span><span class="value" style="font-size: 18px;">${item.name}</span></div>
+          <div class="row"><span class="label">Classification</span><span class="value">${item.category}</span></div>
+        </div>
+        <div class="amount-box">
+            <div class="amount-value">₹${item.amount.toLocaleString('en-IN')}</div>
+        </div>
+        <div class="footer">Computer Generated Document • Issued on ${new Date().toLocaleDateString()}</div>
+      </body>
+    </html>
+  `;
+
+  const handleInvoiceAction = async (item: Transaction, mode: 'view' | 'download') => {
+    try {
+      setPdfLoading(true);
+      const html = generateInvoiceHtml(item);
+      if (mode === 'view') {
+        await Print.printAsync({ html });
+      } else {
+        const { uri } = await Print.printToFileAsync({ html });
+        await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      }
+    } catch (err) {
+      Alert.alert('PDF Error', 'Action could not be completed.');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const filtered = useMemo(() => {
     let list = [...transactions];
     if (typeFilter !== 'all') list = list.filter(t => t.type === typeFilter);
@@ -405,6 +489,8 @@ export default function IncomeExpenseScreen({ navigation }: IncomeExpenseScreenP
     if (toDate)   list = list.filter(t => t.date <= toDate);
     return list.sort((a, b) => b.date.localeCompare(a.date));
   }, [transactions, typeFilter, fromDate, toDate]);
+
+  const [statusModal, setStatusModal] = useState({ visible: false, title: '', message: '', type: 'info' as 'success' | 'info' | 'error' | 'action' });
 
   const totalIncome  = useMemo(() => filtered.filter(t => t.type === 'income').reduce((s, t)  => s + parseFloat(t.amount as any || 0), 0), [filtered]);
   const totalExpense = useMemo(() => filtered.filter(t => t.type === 'expense').reduce((s, t) => s + parseFloat(t.amount as any || 0), 0), [filtered]);
@@ -415,16 +501,31 @@ export default function IncomeExpenseScreen({ navigation }: IncomeExpenseScreenP
     try {
       if (editingItem) {
         await updateTransaction(editingItem.id, data);
-        Alert.alert('Updated ✅', 'The transaction record has been updated.');
+        setStatusModal({
+          visible: true,
+          title: 'Updated ✅',
+          message: 'The transaction record has been successfully updated in the school audit log.',
+          type: 'success'
+        });
       } else {
         await addTransaction({ ...data, id: Date.now().toString() });
-        Alert.alert('Posted 🚀', 'New transaction has been recorded.');
+        setStatusModal({
+          visible: true,
+          title: 'Posted 🚀',
+          message: 'New transaction has been recorded and verified in the ledger.',
+          type: 'success'
+        });
       }
       setEditingItem(null);
       setActiveTab('history');
     } catch (err) {
       console.error('Transaction Action Error:', err);
-      Alert.alert('Error ❌', 'Failed to save the transaction.');
+      setStatusModal({
+        visible: true,
+        title: 'Error ❌',
+        message: 'Failed to save the transaction to the database. Please check your connection.',
+        type: 'error'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -534,7 +635,7 @@ export default function IncomeExpenseScreen({ navigation }: IncomeExpenseScreenP
           keyExtractor={item => item.id}
           renderItem={({item}) => (
             <View className="px-6">
-                <TxItem item={item} theme={theme} colors={colors} onDelete={handleDelete} onEdit={handleEdit} />
+                <TxItem item={item} theme={theme} colors={colors} onDelete={handleDelete} onEdit={handleEdit} onPrint={handleInvoiceAction} />
             </View>
           )}
           showsVerticalScrollIndicator={false}
@@ -630,7 +731,7 @@ export default function IncomeExpenseScreen({ navigation }: IncomeExpenseScreenP
         </ScrollView>
       )}
 
-      {(isSubmitting || pdfLoading) && (
+       {(isSubmitting || pdfLoading) && (
           <View className="absolute inset-0 bg-black/60 items-center justify-center z-50">
              <View className="bg-white dark:bg-[#1a1a18] p-10 rounded-[40px] items-center shadow-2xl">
                 <ActivityIndicator color="#F472B6" size="large" />
@@ -638,6 +739,15 @@ export default function IncomeExpenseScreen({ navigation }: IncomeExpenseScreenP
              </View>
           </View>
       )}
+
+      <PremiumPopup
+        visible={statusModal.visible}
+        title={statusModal.title}
+        message={statusModal.message}
+        type={statusModal.type}
+        onClose={() => setStatusModal({ ...statusModal, visible: false })}
+        buttonText="Acknowledge"
+      />
     </View>
   );
 }

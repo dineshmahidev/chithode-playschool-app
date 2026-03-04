@@ -47,9 +47,13 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
 
   const fetchTodayAttendance = useCallback(async () => {
     try {
+      const studentIds = users.filter(u => u.role === 'student').map(u => u.id.toString());
       const res = await api.get('/attendance');
       const todayPresent = res.data.filter(
-        (r: any) => r.date === todayStr && r.status === 'present'
+        (r: any) => 
+          r.date === todayStr && 
+          r.status === 'present' &&
+          studentIds.includes(r.student_id?.toString())
       ).length;
       setPresentToday(todayPresent);
     } catch {
@@ -57,7 +61,7 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
     } finally {
       setAttendanceLoaded(true);
     }
-  }, [todayStr]);
+  }, [todayStr, users]);
 
   const fetchTimetable = useCallback(async () => {
     try {
@@ -220,17 +224,9 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
                     <Text className={`text-xl font-black ${colors.textSecondary} uppercase tracking-widest`}>
                         Admin Hub 🔐
                     </Text>
-                    <View className="flex-row items-center mt-1">
-                        <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>
-                            {user?.name || 'Administrator'}
-                        </Text>
-                        <TouchableOpacity 
-                            onPress={() => navigation.navigate('profile')}
-                            className="ml-3 bg-brand-pink/10 p-2 rounded-2xl"
-                        >
-                            <MaterialCommunityIcons name="pencil-box-outline" size={24} color="#F472B6" />
-                        </TouchableOpacity>
-                    </View>
+                    <Text className={`text-4xl font-black ${colors.text} tracking-tighter mt-1`}>
+                        {user?.name || 'Administrator'}
+                    </Text>
                     <View className="bg-brand-pink/20 self-start px-4 py-1.5 rounded-full mt-3 border border-brand-pink/10 shadow-sm">
                         <Text className="text-brand-pink text-[10px] font-black uppercase tracking-[2px]">Master Control Panel</Text>
                     </View>
@@ -316,14 +312,16 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
         {/* ── School Overview ── */}
         <View className="px-6 mt-6">
             <View className="flex-row items-center justify-between mb-4 px-1">
-                <Text style={{ color: colors.text }} className="text-xl font-black tracking-tighter">School Metrics 📊</Text>
+                <Text className={`text-xl font-black tracking-tighter ${colors.text}`}>School Metrics 📊</Text>
                 <View className="bg-brand-pink/10 px-3 py-1 rounded-full">
                     <Text className="text-brand-pink text-[9px] font-black uppercase tracking-widest">Real-time</Text>
                 </View>
             </View>
 
             <View className="flex-row justify-between">
-                <View 
+                <TouchableOpacity 
+                   activeOpacity={0.9}
+                   onPress={() => handleQuickAction('feesManagement')}
                    style={{ elevation: 15 }}
                    className={`w-[48%] rounded-[40px] overflow-hidden shadow-2xl ${theme === 'dark' ? 'bg-[#1a1a18] border-gray-800' : 'bg-white border-brand-pink/5'}`}
                 >
@@ -338,9 +336,9 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
                             <Text className="text-brand-pink font-black text-[8px] uppercase tracking-widest">Fees</Text>
                         </View>
                         <View className="flex-row items-center">
-                            <Text style={{ color: colors.text }} className="text-3xl font-black">{paidFeeCount}</Text>
+                            <Text className={`text-3xl font-black ${colors.text}`}>{paidFeeCount}</Text>
                             <Text className="text-gray-400 text-[12px] font-bold mx-1 opacity-40">/</Text>
-                            <Text className="text-gray-400 text-[10px] font-black uppercase tracking-widest">{totalFeeCount}</Text>
+                            <Text className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-gray-300' : 'text-gray-400'}`}>{totalFeeCount}</Text>
                         </View>
                         <Text className="text-gray-400 text-[9px] font-bold uppercase opacity-60 tracking-tighter">Collected</Text>
                         
@@ -352,9 +350,11 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
                         </View>
                         <Text className="text-brand-pink font-black text-[10px] mt-3 uppercase tracking-tighter self-end">{Math.round(totalFeeCount > 0 ? (paidFeeCount / totalFeeCount) * 100 : 0)}% Clear</Text>
                     </LinearGradient>
-                </View>
+                </TouchableOpacity>
 
-                <View 
+                <TouchableOpacity 
+                   activeOpacity={0.9}
+                   onPress={() => handleQuickAction('takeAttendance')}
                    style={{ elevation: 15 }}
                    className={`w-[48%] rounded-[40px] overflow-hidden shadow-2xl ${theme === 'dark' ? 'bg-[#1a1a18] border-gray-800' : 'bg-white border-brand-pink/5'}`}
                 >
@@ -369,9 +369,9 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
                             <Text className="text-blue-500 font-black text-[8px] uppercase tracking-widest">Presence</Text>
                         </View>
                         <View className="flex-row items-center">
-                             <Text style={{ color: colors.text }} className="text-3xl font-black">{presentToday}</Text>
+                             <Text className={`text-3xl font-black ${colors.text}`}>{presentToday}</Text>
                              <Text className="text-gray-400 text-[12px] font-bold mx-1 opacity-40">/</Text>
-                             <Text className="text-gray-400 text-[10px] font-black uppercase tracking-widest">{studentCount}</Text>
+                             <Text className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-gray-300' : 'text-gray-400'}`}>{studentCount}</Text>
                         </View>
                         <Text className="text-gray-400 text-[9px] font-bold uppercase opacity-60 tracking-tighter">Attending Today</Text>
                         
@@ -383,7 +383,7 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
                         </View>
                         <Text className="text-blue-500 font-black text-[10px] mt-3 uppercase tracking-tighter self-end">{Math.round(studentCount > 0 ? (presentToday / studentCount) * 100 : 100)}% Present</Text>
                     </LinearGradient>
-                </View>
+                </TouchableOpacity>
             </View>
         </View>
 

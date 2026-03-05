@@ -2,7 +2,7 @@ import React, { useState, useCallback, memo, useMemo, useEffect } from 'react';
 import { 
   View, Text, ScrollView, Pressable, TextInput, Alert, Modal, 
   ActivityIndicator, FlatList, TouchableOpacity, Image, Platform,
-  KeyboardAvoidingView
+  KeyboardAvoidingView, RefreshControl
 } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import { useAuth, FeeRecord } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import api from '../../services/api';
 
 // ─── CONSTANTS ───
@@ -408,6 +409,19 @@ const StatusToggleModal = memo(({ visible, onClose, item, onConfirm, colors, the
 export default function FeesManagementScreen({ navigation }: any) {
   const { colors, theme } = useTheme();
   const { users, fees, refreshFees, addTransaction, fetchData } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchData();
+    } catch (error) {
+      console.error('Refresh Error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchData]);
+
   const [activeTab, setActiveTab] = useState('manage');
   const [editModal, setEditModal] = useState({ visible: false, item: null });
   const [statusModal, setStatusModal] = useState({ visible: false, item: null });
@@ -435,7 +449,8 @@ export default function FeesManagementScreen({ navigation }: any) {
           .amount-label { font-size: 10px; font-weight: 900; color: #DB2777; text-transform: uppercase; letter-spacing: 2px; }
           .amount-value { font-size: 36px; font-weight: 900; color: #BE185D; margin-top: 5px; }
           .paid-stamp { border: 3px solid #10B981; color: #10B981; display: inline-block; padding: 5px 20px; border-radius: 10px; font-weight: 900; transform: rotate(-10deg); position: absolute; top: 100px; right: 80px; font-size: 24px; opacity: 0.5; }
-          .footer { margin-top: 80px; text-align: center; font-size: 10px; color: #9CA3AF; border-top: 1px solid #F3F4F6; padding-top: 20px; }
+          .footer { margin-top: 60px; text-align: center; font-size: 10px; color: #9CA3AF; border-top: 1px solid #F3F4F6; padding-top: 20px; }
+          .contact-info { font-size: 10px; font-weight: 700; color: #4B5563; margin-top: 5px; }
         </style>
       </head>
       <body>
@@ -444,6 +459,7 @@ export default function FeesManagementScreen({ navigation }: any) {
           <div class="logo">H</div>
           <div class="title">CHITHODE HAPPYKIDS</div>
           <div class="subtitle">Official Fee Receipt</div>
+          <div class="contact-info">Chithode, Erode | Phone: +91 97877 51430</div>
         </div>
         
         <div class="receipt-box">
@@ -467,6 +483,18 @@ export default function FeesManagementScreen({ navigation }: any) {
             <span class="label">Fee Category</span>
             <span class="value">${item.type}</span>
           </div>
+          <div class="row" style="margin-top: 20px;">
+            <span class="label">Name of Payer</span>
+            <span class="value">${(item as any).parent_name || (item as any).father_name || '---'}</span>
+          </div>
+          <div class="row">
+            <span class="label">Monthly Due Day</span>
+            <span class="value">Day ${(item as any).due_day || '05'} of month</span>
+          </div>
+          <div class="row">
+            <span class="label">Contact Number</span>
+            <span class="value">${(item as any).phone || '---'}</span>
+          </div>
         </div>
 
         <div class="amount-box">
@@ -485,23 +513,51 @@ export default function FeesManagementScreen({ navigation }: any) {
     try {
       setIsProcessingPdf(true);
       
-      // Resolve the actual directory Student ID for the invoice
       const student = users.find(u => u.id?.toString() === item.student_id?.toString() || u.studentId === item.student_id);
       const resolvedItem = {
         ...item,
-        student_id: student?.studentId || item.student_id
+        student_id: student?.studentId || item.student_id,
+        parent_name: student?.parentName || student?.fatherName || '',
+        due_day: student?.fee_due_day || '05',
+        phone: student?.phone || student?.fatherPhone || student?.motherPhone || ''
       };
       
-      const html = generateInvoiceHtml(resolvedItem);
+      const html = generateInvoiceHtml(resolvedItem as any);
       
       if (mode === 'view') {
         await Print.printAsync({ html });
       } else {
         const { uri } = await Print.printToFileAsync({ html });
-        await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+        
+        // Requested format: StudentName_Date.pdf
+        const sanitizedName = (item.student_name || 'Student').replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_');
+        const fileName = `${sanitizedName}_${item.date}.pdf`;
+        const newUri = `${FileSystem.cacheDirectory}${fileName}`;
+        
+        try {
+          // Idempotent delete avoids need for getInfoAsync check
+          await FileSystem.deleteAsync(newUri, { idempotent: true });
+          await FileSystem.moveAsync({ from: uri, to: newUri });
+        } catch (fileErr) {
+          console.error('File operation error:', fileErr);
+          // Fallback to original if renaming fails
+          await Sharing.shareAsync(uri, { 
+            UTI: 'com.adobe.pdf', 
+            mimeType: 'application/pdf'
+          });
+          return;
+        }
+        
+        // Share/Download
+        await Sharing.shareAsync(newUri, { 
+          UTI: 'com.adobe.pdf', 
+          mimeType: 'application/pdf',
+          dialogTitle: `Save Receipt: ${sanitizedName}`
+        });
       }
-    } catch (err) {
-      Alert.alert('PDF Error', 'Action could not be completed.');
+    } catch (err: any) {
+      console.error('PDF Generation/Sharing Error:', err);
+      Alert.alert('PDF Error', `Action could not be completed: ${err.message || 'Unknown error'}`);
     } finally {
       setIsProcessingPdf(false);
     }
@@ -517,7 +573,7 @@ export default function FeesManagementScreen({ navigation }: any) {
     refreshFees();
   }, []);
 
-  const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
+  const students = useMemo(() => users.filter(u => u.role === 'student' && u.status === 'active'), [users]);
 
   const filteredFees = useMemo(() => {
     let list = [...fees];
@@ -594,8 +650,12 @@ export default function FeesManagementScreen({ navigation }: any) {
         );
     }
 
-    return baseList.sort((a, b) => b.date.localeCompare(a.date));
-  }, [fees, activeTab, activeMonth, activeYear, searchQuery, students]);
+    return baseList.filter(f => {
+      const student = users.find(u => u.id?.toString() === f.student_id?.toString() || u.studentId === f.student_id);
+      // Only show fees for students who exist in the system and are active
+      return student && student.status === 'active';
+    }).sort((a, b) => b.date.localeCompare(a.date));
+  }, [fees, activeTab, activeMonth, activeYear, searchQuery, students, users]);
 
   const stats = useMemo(() => {
     const total = filteredFees.reduce((acc, f) => acc + (f.amount || 0), 0);
@@ -735,9 +795,17 @@ export default function FeesManagementScreen({ navigation }: any) {
                   <Text className={`font-black text-xl tracking-tighter ${colors.text}`} numberOfLines={1}>{item.student_name}</Text>
                   <View className="flex-row items-center mt-0.5">
                     <Text className={`text-[10px] font-black uppercase tracking-widest ${isOverdue ? "text-red-500" : colors.textTertiary}`}>
-                        ID: {displayId} • {item.due_date || 'N/A'}
+                         ID: {displayId} • {item.due_date || 'N/A'}
                     </Text>
                   </View>
+                  {item.status === 'paid' && item.paid_at && (
+                    <View className="flex-row items-center mt-1">
+                       <MaterialCommunityIcons name="clock-check-outline" size={12} color="#10B981" />
+                       <Text className="text-[9px] font-bold text-green-600 uppercase tracking-widest ml-1">
+                         Paid: {new Date(item.paid_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                       </Text>
+                    </View>
+                  )}
                </View>
             </View>
             
@@ -760,26 +828,22 @@ export default function FeesManagementScreen({ navigation }: any) {
                <Text className={`font-black text-3xl tracking-tighter ${colors.text}`}>₹{item.amount.toLocaleString()}</Text>
             </View>
             
-            <View className="flex-row gap-3">
-              <TouchableOpacity onPress={() => setEditModal({ visible: true, item: item as any })} className="w-12 h-12 rounded-2xl bg-white dark:bg-white/10 border border-gray-100 dark:border-white/10 items-center justify-center shadow-sm">
-                 <MaterialCommunityIcons name="pencil-outline" size={22} color={theme === 'dark' ? '#9CA3AF' : '#4B5563'} />
+            <View className="flex-row gap-4">
+              <TouchableOpacity 
+                onPress={() => setEditModal({ visible: true, item: item as any })} 
+                className="px-6 py-3 rounded-2xl bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 flex-row items-center justify-center shadow-sm"
+              >
+                 <MaterialCommunityIcons name="pencil" size={18} color={theme === 'dark' ? '#9CA3AF' : '#4B5563'} />
+                 <Text className={`ml-2 font-black text-[10px] uppercase tracking-widest ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Edit</Text>
               </TouchableOpacity>
               
               {(item.status?.toLowerCase() === 'paid') && (
-                <>
-                  <TouchableOpacity 
-                    onPress={() => handleInvoiceAction(item as any, 'view')} 
-                    className="w-12 h-12 rounded-2xl bg-indigo-500 items-center justify-center shadow-lg shadow-indigo-500/30"
-                  >
-                     <MaterialCommunityIcons name="printer-outline" size={22} color="white" />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    onPress={() => handleInvoiceAction(item as any, 'download')} 
-                    className="w-12 h-12 rounded-2xl bg-brand-pink items-center justify-center shadow-lg shadow-brand-pink/30"
-                  >
-                     <MaterialCommunityIcons name="share-variant-outline" size={22} color="white" />
-                  </TouchableOpacity>
-                </>
+                <TouchableOpacity 
+                  onPress={() => handleInvoiceAction(item as any, 'download')} 
+                  className="w-14 h-14 rounded-2xl bg-indigo-500 items-center justify-center shadow-lg shadow-indigo-500/30"
+                >
+                   <MaterialCommunityIcons name="file-download-outline" size={26} color="white" />
+                </TouchableOpacity>
               )}
             </View>
          </LinearGradient>
@@ -796,6 +860,17 @@ export default function FeesManagementScreen({ navigation }: any) {
   const ListHeader = useMemo(() => (
     <View className={`${theme === 'dark' ? 'bg-[#1c1c14]' : 'bg-white'}`}>
       {/* ── Background Header Illustration ── */}
+      <View className="absolute top-0 left-0 right-0 h-[450px] overflow-hidden">
+          <LinearGradient
+              colors={[theme === 'dark' ? '#1e1b4b' : '#FDF2F8', theme === 'dark' ? '#1c1c14' : '#FFFFFF']}
+              className="absolute inset-0"
+          />
+          <Image 
+              source={require('../../assets/images/playschool_3d.png')} 
+              style={{ width: '100%', height: '100%', opacity: theme === 'dark' ? 0.1 : 0.2, transform: [{ scale: 1.5 }, { translateY: -40 }] }}
+              resizeMode="cover"
+          />
+      </View>
 
       {/* Header */}
       <View className="px-6 pt-12 pb-4">
@@ -805,14 +880,11 @@ export default function FeesManagementScreen({ navigation }: any) {
               className={`${theme === 'dark' ? 'bg-[#25251d] border-gray-800' : 'bg-white border-brand-pink/20'} w-14 h-14 rounded-2xl items-center justify-center shadow-xl border mb-6`}>
               <MaterialCommunityIcons name="arrow-left" size={28} color={theme === 'dark' ? '#FFF' : '#F472B6'} />
             </TouchableOpacity>
-            <Text className={`text-4xl font-black ${colors.text} tracking-tighter`}>School</Text>
+            <Text className={`text-5xl font-black ${colors.text} tracking-tighter`}>School</Text>
             <Text className="text-2xl font-black text-brand-pink mt-[-4px]">Treasury ✓</Text>
           </View>
           <View className="bg-brand-pink w-24 h-24 rounded-[36px] items-center justify-center shadow-2xl border-4 border-white rotate-3 relative overflow-hidden">
             <MaterialCommunityIcons name="cash-multiple" size={48} color="white" />
-            <View className="absolute -bottom-2 -right-2 opacity-20">
-                <MaterialCommunityIcons name="finance" size={60} color="white" />
-            </View>
           </View>
         </View>
       </View>
@@ -884,6 +956,15 @@ export default function FeesManagementScreen({ navigation }: any) {
         keyExtractor={(item) => item.id}
         renderItem={renderFeeItem}
         ListHeaderComponent={ListHeader}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#F472B6"
+            colors={["#F472B6"]}
+            progressBackgroundColor={theme === 'dark' ? '#1c1c14' : '#FFFFFF'}
+          />
+        }
         ListEmptyComponent={activeTab === 'list' ? (
             <View className="px-6">
                 {feeStructures.map(f => (

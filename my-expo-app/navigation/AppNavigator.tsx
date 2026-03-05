@@ -321,7 +321,7 @@ export default function AppNavigator() {
   if (!user) {
     return (
         <>
-            <StatusBar style="light" translucent={true} backgroundColor="transparent" />
+            <StatusBar style={theme === 'dark' ? 'light' : 'dark'} translucent={true} backgroundColor="transparent" />
             <LoginScreen onLogin={() => navigate('home', true)} />
         </>
     );
@@ -330,7 +330,7 @@ export default function AppNavigator() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}>
-      <StatusBar style="light" backgroundColor="#F472B6" translucent={false} />
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} backgroundColor={theme === 'dark' ? '#1c1c14' : '#FFFFFF'} translucent={false} />
       
       {isTabScreen ? (
         <View 
@@ -398,7 +398,7 @@ export default function AppNavigator() {
                         key={tab}
                         activeOpacity={0.9}
                         onPress={() => navigate(tab as ScreenType, true)}
-                        className="items-center justify-center -mt-16"
+                        className="items-center justify-center"
                         style={{ zIndex: 1001 }}
                       >
                         <Animated.View style={{ transform: [{ scale: quickScale }, { rotate: thunderRotation }] }}>
@@ -431,7 +431,7 @@ export default function AppNavigator() {
                     <TouchableOpacity
                       key={tab}
                       activeOpacity={0.8}
-                      className="items-center justify-center -mt-6"
+                      className="items-center justify-center"
                       onPress={() => navigate(tab as ScreenType, true)}
                     >
                       <Animated.View 

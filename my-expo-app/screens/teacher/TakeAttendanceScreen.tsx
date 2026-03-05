@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity, Alert, Image, Dimensions, Modal, ActivityIndicator, FlatList, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Image, Dimensions, Modal, ActivityIndicator, FlatList, ScrollView, RefreshControl } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -346,13 +346,33 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
   const [statusModal, setStatusModal] = useState({ visible: false, title: '', message: '', type: 'error' as any });
   const [choiceModal, setChoiceModal] = useState({ visible: false, title: '', message: '', options: [] as any[], iconName: '', accentColor: '' });
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (activeTab === 'day') {
+         await fetchData();
+      } else if (activeTab === 'month' && typeof (selectedDate as any).fetchMonthlyRecords === 'function') {
+         // This is complex due to internal scoping, focus on primary data for now
+         await fetchData();
+      } else {
+         await fetchData();
+      }
+    } catch (error) {
+      console.error('Refresh Error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchData, activeTab]);
+
   // Synchronous ref for all state-dependent callbacks to keep them stable
   const stateRef = useRef({ attendanceRecords, users, colors });
   stateRef.current = { attendanceRecords, users, colors };
 
   // Stabilize students list
   const students = useMemo(() => {
-    return users.filter(u => u.role === 'student');
+    return users.filter(u => u.role === 'student' && u.status === 'active');
   }, [users]);
 
   const markingStudent = useMemo(() => {
@@ -861,6 +881,15 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
                     renderItem={renderItem}
                     extraData={attendanceRecords}
                     ListFooterComponent={<View className="mb-10" />}
+                    refreshControl={
+                      <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor="#F472B6"
+                        colors={["#F472B6"]}
+                        progressBackgroundColor={appTheme === 'dark' ? '#1c1c14' : '#FFFFFF'}
+                      />
+                    }
                 />
                 </View>
           ) : (

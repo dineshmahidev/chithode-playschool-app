@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Chithode Happy Kids",
-    "slug": "chithode-happy-kids",
+    "slug": "playschool-chithode",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -36,6 +36,7 @@
         "backgroundColor": "#F472B6"
       },
       "package": "com.dineshwebdev.play1app",
+      "googleServicesFile": "./google-services.json",
       "splash": {
         "image": "./assets/splash.png",
         "resizeMode": "cover",
@@ -48,6 +49,15 @@
     },
     "plugins": [
       "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#F472B6",
+          "sounds": [],
+          "mode": "production"
+        }
+      ],
       [
         "expo-splash-screen",
         {

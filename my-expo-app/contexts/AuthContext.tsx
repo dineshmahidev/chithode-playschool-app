@@ -48,6 +48,7 @@ export interface FeeRecord {
     status: 'paid' | 'unpaid';
     date: string;
     due_date?: string;
+    paid_at?: string;
 }
 
 export interface FeeStructure {
@@ -126,6 +127,7 @@ interface AuthContextType {
   deleteTransaction: (id: string) => Promise<void>;
   updateAvatar: () => Promise<void>;
   refreshFees: () => Promise<void>;
+  fetchData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -357,6 +359,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const response = await api.post('/login', { username, password });
       const { access_token, user: rawUser } = response.data;
       const userData = mapUser(rawUser);
+
+      if (userData.status === 'inactive') {
+         throw new Error('INACTIVE_USER_ALERT');
+      }
       
       await AsyncStorage.setItem('auth_token', access_token);
       await AsyncStorage.setItem('user_data', JSON.stringify(userData));
@@ -367,7 +373,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await fetchData();
       await setupPushNotifications();
       return true;
-    } catch (error) {
+    } catch (error: any) {
+      if (error.message === 'INACTIVE_USER_ALERT') {
+         throw error;
+      }
       console.error('Login Error:', error);
       return false;
     }
@@ -667,7 +676,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     updateTransaction,
     deleteTransaction,
     updateAvatar,
-    refreshFees
+    refreshFees,
+    fetchData
   }), [
     user, users, announcements, activities, transactions, fees, feeStructures,
     isLoading, login, testLogin, logout, addUser, updateUser, updateProfile,

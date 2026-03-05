@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, Dimensions, RefreshControl } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth, User } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import api from '../../services/api';
 
 interface NavigationProps {
   navigate: (screen: string, params?: any) => void;
@@ -16,32 +17,46 @@ interface StudentListScreenProps {
 }
 
 export default function StudentListScreen({ navigation }: StudentListScreenProps) {
-  const { users, fees: allFees } = useAuth();
+  const { users, fees: allFees, fetchData } = useAuth();
   const { colors, theme } = useTheme();
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const fetchTodayAttendance = React.useCallback(async () => {
+    try {
+      setLoadingAttendance(true);
+      const today = new Date().toISOString().split('T')[0];
+      const response = await api.get(`/attendance?date=${today}`);
+      const data = response.data;
+      const map: Record<string, any> = {};
+      data.forEach((r: any) => {
+        map[r.student_id] = r;
+      });
+      setAttendanceToday(map);
+    } catch (error) {
+      console.error('Error fetching today attendance for roster:', error);
+    } finally {
+      setLoadingAttendance(false);
+    }
+  }, []);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchData();
+      await fetchTodayAttendance();
+    } catch (error) {
+      console.error('Refresh Error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchData, fetchTodayAttendance]);
   const [searchQuery, setSearchQuery] = useState('');
   const [attendanceToday, setAttendanceToday] = useState<Record<string, any>>({});
   const [loadingAttendance, setLoadingAttendance] = useState(false);
 
   React.useEffect(() => {
-    const fetchTodayAttendance = async () => {
-      try {
-        setLoadingAttendance(true);
-        const today = new Date().toISOString().split('T')[0];
-        const response = await api.get(`/attendance?date=${today}`);
-        const data = response.data;
-        const map: Record<string, any> = {};
-        data.forEach((r: any) => {
-          map[r.student_id] = r;
-        });
-        setAttendanceToday(map);
-      } catch (error) {
-        console.error('Error fetching today attendance for roster:', error);
-      } finally {
-        setLoadingAttendance(false);
-      }
-    };
     fetchTodayAttendance();
-  }, []);
+  }, [fetchTodayAttendance]);
 
   // ── Unified Financial Status Memo ──
   const studentFinancials = React.useMemo(() => {
@@ -75,7 +90,7 @@ export default function StudentListScreen({ navigation }: StudentListScreenProps
     return map;
   }, [users, allFees]);
 
-  const students = users.filter(u => u.role === 'student');
+  const students = users.filter(u => u.role === 'student' && u.status === 'active');
   
   const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -203,7 +218,7 @@ export default function StudentListScreen({ navigation }: StudentListScreenProps
              <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textTertiary} opacity-60`}>Database Stream</Text>
           </View>
           <View className="bg-brand-pink/10 px-4 py-1.5 rounded-full border border-brand-pink/10">
-            <Text className="text-brand-pink font-black text-[9px] uppercase tracking-widest">{filteredStudents.length} Active Records</Text>
+            <Text className="text-brand-pink font-black text-[9px] uppercase tracking-widest">{filteredStudents.length} Records</Text>
           </View>
         </View>
 
@@ -211,6 +226,15 @@ export default function StudentListScreen({ navigation }: StudentListScreenProps
           className="flex-1" 
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 150 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#F472B6"
+              colors={["#F472B6"]}
+              progressBackgroundColor={theme === 'dark' ? '#1c1c14' : '#FFFFFF'}
+            />
+          }
         >
           <View className="px-6">
             {filteredStudents.length > 0 ? (

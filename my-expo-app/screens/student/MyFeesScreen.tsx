@@ -55,19 +55,42 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
       (f.type || '').split(',').some(t => t.trim().toLowerCase().includes('monthly'))
     );
 
-    const isPaid = currentMonthFee?.status === 'paid';
-    const dueDay = parseInt(user.fee_due_day || '5');
-    const today = new Date().getDate();
-    const isOverdue = !isPaid && today > dueDay;
+    const currentMonthPaid = allFees.find(f => 
+      (f.student_id?.toString() === dbId || f.student_id?.toString() === directoryId) && 
+      f.date?.includes(currentMonthYearCode) &&
+      (f.type || '').split(',').some(t => t.trim().toLowerCase().includes('monthly')) &&
+      f.status === 'paid'
+    );
+
+    const unpaidFees = allFees.filter(f => 
+      (f.student_id?.toString() === dbId || f.student_id?.toString() === directoryId) && 
+      f.status?.toLowerCase() === 'unpaid'
+    );
+
+    const hasAnyOverdue = unpaidFees.some(f => {
+      if (!f.due_date) return false;
+      const today = new Date();
+      const dueDate = new Date(f.due_date);
+      return today > dueDate;
+    });
+
+    const isPending = !currentMonthPaid && currentMonthFee;
+    const isPaid = !isPending && currentMonthPaid;
+    
+    // Sort unpaid by date for naming context
+    const sortedUnpaid = [...unpaidFees].sort((a,b) => (a.due_date || a.date).localeCompare(b.due_date || b.date));
+    const oldestFee = sortedUnpaid[0];
 
     return {
-      fee: currentMonthFee,
       isPaid,
-      isOverdue,
-      amount: parseInt(user.fees || '0'),
-      dueDay
+      paidAt: currentMonthPaid?.paid_at,
+      isOverdue: hasAnyOverdue,
+      isPending,
+      dueDay: oldestFee?.due_date ? parseInt(oldestFee.due_date.split('-')[2]) : parseInt(user.fee_due_day || '5'),
+      exists: isPending || isPaid,
+      title: hasAnyOverdue ? 'Overdue Balance' : (isPending ? 'Monthly Fee' : 'Current Month')
     };
-  }, [allFees, user, currentMonthStr]);
+  }, [allFees, user, currentMonthYearCode]);
 
   const feeDetails = useMemo(() => {
     const details = feeStructures.map(fs => {
@@ -128,7 +151,8 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
       status: (f.status || 'paid').toLowerCase(),
       paymentType: 'Offline/Admin',
       transactionId: `TXN${f.id}${Date.now().toString().slice(-6)}`,
-      feeCategories: [`${f.type}: ₹${f.amount.toLocaleString()}`]
+      feeCategories: [`${f.type}: ₹${f.amount.toLocaleString()}`],
+      paid_at: f.paid_at
     }));
   }, [myFees]);
 
@@ -276,7 +300,7 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
             <div class="school-name">🏫 Chithode HappyKids</div>
             <div style="font-size: 11px; margin-top: 3px;">Fee Invoice</div>
             <div class="school-info">
-              Chithode, Coimbatore | Phone: +91 98765 43210
+              Chithode, Erode | Phone: +91 97877 51430
             </div>
           </div>
 
@@ -343,7 +367,7 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
                 </div>
                 <div class="info-row">
                   <span class="label">Phone:</span>
-                  <span class="value">+91 98765 43210</span>
+                  <span class="value">${user?.phone || user?.fatherPhone || '+91 97877 51430'}</span>
                 </div>
               </div>
             </div>
@@ -472,6 +496,14 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
                       ₹{totalPendingBalance.toLocaleString()}
                     </Text>
                   </View>
+                  {overdueMonthInfo?.isPaid && overdueMonthInfo.paidAt && (
+                    <View className="flex-row items-center justify-end mt-1">
+                       <MaterialCommunityIcons name="clock-check-outline" size={10} color="#10B981" />
+                       <Text className="text-green-600 text-[9px] font-black uppercase tracking-widest ml-1">
+                          Finalized on: {new Date(overdueMonthInfo.paidAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                       </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             </View>
@@ -542,7 +574,14 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
                     <>
                       <View className="flex-row items-center mb-3">
                         <MaterialCommunityIcons name="receipt" size={16} color="#10B981" />
-                        <Text className={`text-sm ${colors.textSecondary} ml-2`}>Invoice: {payment.invoiceNo}</Text>
+                        <View className="ml-2">
+                           <Text className={`text-sm ${colors.textSecondary}`}>Invoice: {payment.invoiceNo}</Text>
+                           {payment.paid_at && (
+                             <Text className="text-[10px] font-black text-green-600 uppercase tracking-widest mt-0.5">
+                               Paid: {new Date(payment.paid_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                             </Text>
+                           )}
+                        </View>
                       </View>
 
                       <View className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'} rounded-xl p-3 mb-3`}>
@@ -624,8 +663,8 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
                 </TouchableOpacity>
               </View>
               <View className="bg-white/20 rounded-xl p-3">
-                <Text className="text-white/90 text-xs">Chithode, Coimbatore</Text>
-                <Text className="text-white/90 text-xs">Phone: +91 98765 43210</Text>
+                  <Text className="text-white/90 text-xs">Chithode, Erode</Text>
+                  <Text className="text-white/90 text-xs">Phone: +91 97877 51430</Text>
               </View>
             </View>
 
@@ -696,7 +735,7 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
                   </View>
                   <View className="flex-row items-center">
                     <MaterialCommunityIcons name="phone" size={18} color="#10B981" />
-                    <Text className={`${colors.textSecondary} ml-2`}>+91 98765 43210</Text>
+                    <Text className={`${colors.textSecondary} ml-2`}>{user?.phone || user?.fatherPhone || '+91 97877 51430'}</Text>
                   </View>
                 </View>
               </View>

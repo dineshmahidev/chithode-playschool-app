@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Linking, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Linking, Alert, RefreshControl } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -16,9 +16,21 @@ interface StudentDetailScreenProps {
 }
 
 export default function StudentDetailScreen({ navigation, route }: StudentDetailScreenProps) {
-  const { users, user, fees: allFees } = useAuth();
+  const { users, user, fees: allFees, fetchData } = useAuth();
   const { colors, theme } = useTheme();
   const { studentId } = route.params;
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchData();
+    } catch (error) {
+      console.error('Refresh Error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchData]);
 
   const student = users.find(u => u.id === studentId);
 
@@ -125,7 +137,19 @@ export default function StudentDetailScreen({ navigation, route }: StudentDetail
 
   return (
     <SafeAreaView className={`flex-1 ${colors.background}`}>
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        className="flex-1" 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#F472B6"
+            colors={["#F472B6"]}
+            progressBackgroundColor={theme === 'dark' ? '#1c1c14' : '#FFFFFF'}
+          />
+        }
+      >
         {/* Profile Header */}
         <View className="px-6 pt-4 pb-12 w-full">
           {/* Navigation Bar */}

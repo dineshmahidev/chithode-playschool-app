@@ -104,7 +104,7 @@ const SplashScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" translucent backgroundColor="transparent" />
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} translucent backgroundColor="transparent" />
       <LinearGradient
         colors={theme === 'dark' ? ['#1e1b4b', '#1c1c14'] : ['#F472B6', '#BE185D']}
         style={StyleSheet.absoluteFill}

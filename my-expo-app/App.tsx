@@ -4,8 +4,24 @@ import { BackHandler } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './contexts/AuthContext';
-import { ThemeProvider } from './contexts/ThemeContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import AppNavigator from './navigation/AppNavigator';
+
+const AppContent = () => {
+  const { theme, colors } = useTheme();
+  
+  return (
+    <>
+      <StatusBar 
+        style={theme === 'light' ? 'dark' : 'light'} 
+        backgroundColor={theme === 'light' ? '#FFFFFF' : colors.backgroundHex} 
+      />
+      <AuthProvider>
+        <AppNavigator />
+      </AuthProvider>
+    </>
+  );
+};
 
 export default function App() {
   // Handle hardware back button to prevent app from closing
@@ -26,11 +42,8 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" backgroundColor="#F472B6" />
       <ThemeProvider>
-        <AuthProvider>
-          <AppNavigator />
-        </AuthProvider>
+        <AppContent />
       </ThemeProvider>
     </SafeAreaProvider>
   );

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Dimensions, RefreshControl } from 'react-native';
+import PremiumPopup from '../../components/PremiumPopup';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -17,19 +18,62 @@ interface AdminHomeScreenProps {
 }
 
 export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
-  const { user, users, fees, updateAvatar, announcements } = useAuth();
+  const { user, users, fees, updateAvatar, announcements, fetchData } = useAuth();
   const { colors, theme } = useTheme();
+  const [refreshing, setRefreshing] = useState(false);
 
-  const studentCount = useMemo(() => users.filter(u => u.role === 'student').length, [users]);
-  const teacherCount = useMemo(() => users.filter(u => u.role === 'teacher').length, [users]);
+  const getTodayDateString = useCallback(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }, []);
 
-  // Use actual fee records for the status card
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchData();
+      await Promise.all([fetchTodayAttendance(), fetchTimetable()]);
+    } catch (error) {
+      console.error('Refresh Error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchData, fetchTodayAttendance, fetchTimetable]);
+
+  const studentCount = useMemo(() => users.filter(u => u.role === 'student' && u.status === 'active').length, [users]);
+  const teacherCount = useMemo(() => users.filter(u => u.role === 'teacher' && u.status === 'active').length, [users]);
+
+  // Use actual fee records for the status card (matches Fees Management "Monthly" view)
   const feeStats = useMemo(() => {
+    const todayStr = getTodayDateString();
+    const currentMonthPrefix = todayStr.substring(0, 8); // "YYYY-MM-"
+    const activeStudents = users.filter(u => u.role === 'student' && u.status === 'active');
+
+    // 1. Existing monthly/overdue records for active students
+    const existingRelevantFees = fees.filter(f => {
+      const student = activeStudents.find(u => u.id?.toString() === f.student_id?.toString() || u.studentId === f.student_id);
+      if (!student) return false;
+
+      const types = (f.type || '').toLowerCase();
+      const isAdmission = types.includes('admission');
+      const isCurrentMonth = f.date.includes(currentMonthPrefix);
+      const isOverdue = f.status === 'unpaid' && f.due_date && f.due_date < todayStr;
+
+      return !isAdmission && (isCurrentMonth || isOverdue);
+    });
+
+    // 2. Count active students who have NO record yet for this month (Implicit Fees)
+    const studentsWithoutRecordsCount = activeStudents.filter(student => {
+      return !existingRelevantFees.some(f => 
+        f.student_id?.toString() === student.id?.toString() || 
+        f.student_id?.toString() === student.studentId?.toString()
+      );
+    }).length;
+
     return {
-       total: fees.length,
-       paid: fees.filter(f => f.status === 'paid').length
+       total: existingRelevantFees.length + studentsWithoutRecordsCount,
+       paid: existingRelevantFees.filter(f => f.status === 'paid').length
     };
-  }, [fees]);
+  }, [fees, users, getTodayDateString]);
 
   const totalFeeCount = feeStats.total;
   const paidFeeCount  = feeStats.paid;
@@ -37,17 +81,15 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
   const [presentToday, setPresentToday] = useState<number>(0);
   const [attendanceLoaded, setAttendanceLoaded] = useState(false);
   const [todaySchedule, setTodaySchedule] = useState<any>(null);
+  const [selectedNotice, setSelectedNotice] = useState<any>(null);
 
-  const getTodayDateString = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
+
 
   const todayStr = getTodayDateString();
 
   const fetchTodayAttendance = useCallback(async () => {
     try {
-      const studentIds = users.filter(u => u.role === 'student').map(u => u.id.toString());
+      const studentIds = users.filter(u => u.role === 'student' && u.status === 'active').map(u => u.id.toString());
       const res = await api.get('/attendance');
       const data = res.data?.data || (Array.isArray(res.data) ? res.data : []);
       const todayPresent = data.filter(
@@ -134,7 +176,7 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
                 activeOpacity={0.9}
                 style={{ width: cardWidth, aspectRatio: 16 / 9 }}
                 className="mr-3 bg-brand-pink relative overflow-hidden rounded-[40px] border-2 border-white shadow-2xl"
-                onPress={() => Alert.alert(item.title, item.content)}
+                onPress={() => setSelectedNotice(item)}
               >
                 {item.image ? (
                   <Image 
@@ -197,6 +239,15 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
         className="flex-1"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 60 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#F472B6"
+            colors={["#F472B6"]}
+            progressBackgroundColor={theme === 'dark' ? '#1c1c14' : '#FFFFFF'}
+          />
+        }
         >
         {/* ── Background Gradient & 3D Illustration ── */}
         <View className="absolute top-0 left-0 right-0 h-[500px] overflow-hidden">
@@ -301,7 +352,7 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
                     </View>
                     <View>
                         <Text className="text-white text-5xl font-black font-mono tracking-tighter">{teacherCount}</Text>
-                        <Text className="text-white/80 text-[11px] font-black uppercase mt-1 tracking-widest">Active Staff</Text>
+                        <Text className="text-white/80 text-[11px] font-black uppercase mt-1 tracking-widest">Staff Members</Text>
                     </View>
                     {/* Pattern */}
                     <View className="absolute -bottom-6 -right-6 opacity-10">
@@ -569,6 +620,29 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
 
         <View className="h-10" />
         </ScrollView>
+
+        <PremiumPopup
+          visible={!!selectedNotice}
+          onClose={() => setSelectedNotice(null)}
+          title={selectedNotice?.title || ''}
+          message={selectedNotice?.content}
+          type="info"
+          icon="bullhorn"
+        >
+          {selectedNotice?.date && (
+            <View className="bg-blue-50/50 dark:bg-blue-500/10 self-center px-4 py-1.5 rounded-full border border-blue-100 dark:border-blue-500/20 mb-4 flex-row items-center">
+              <MaterialCommunityIcons name="calendar-clock" size={12} color="#3B82F6" />
+              <Text className="text-blue-500 text-[10px] font-black uppercase tracking-widest ml-2">{selectedNotice.date}</Text>
+            </View>
+          )}
+          {selectedNotice?.image && (
+            <Image 
+              source={{ uri: selectedNotice.image }} 
+              style={{ width: '100%', height: 200, borderRadius: 24 }}
+              resizeMode="cover"
+            />
+          )}
+        </PremiumPopup>
     </View>
   );
 }

@@ -33,6 +33,7 @@ class FeeController extends Controller
             'status' => 'required|string',
             'date' => 'required|string',
             'due_date' => 'nullable|string',
+            'paid_at' => 'nullable|string',
             'notes' => 'nullable|string',
         ]);
 
@@ -56,7 +57,13 @@ class FeeController extends Controller
     public function toggleStatus($id)
     {
         $fee = Fee::findOrFail($id);
-        $fee->status = $fee->status === 'paid' ? 'unpaid' : 'paid';
+        if ($fee->status === 'paid') {
+            $fee->status = 'unpaid';
+            $fee->paid_at = null;
+        } else {
+            $fee->status = 'paid';
+            $fee->paid_at = now()->format('Y-m-d H:i:s');
+        }
         $fee->save();
         return response()->json($fee);
     }

@@ -2,13 +2,15 @@ import React, { useState, memo, useCallback, useMemo, useRef, useEffect } from '
 import {
   View, Text, TouchableOpacity, Alert, TextInput, Modal,
   ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard,
-  FlatList, ListRenderItem, ScrollView, Image, Animated, Easing
+  FlatList, ListRenderItem, ScrollView, Image, Animated, Easing, RefreshControl
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth, User } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import StatusModal from '../../components/StatusModal';
+import ChoiceModal from '../../components/ChoiceModal';
 
 interface NavigationProps { navigate: (screen: string) => void; goBack: () => void; }
 interface UserManagementScreenProps { navigation: NavigationProps; }
@@ -505,8 +507,21 @@ const UserItem = memo(({ user, colors, theme, isMenuOpen, onMenuToggle, getRoleI
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function UserManagementScreen({ navigation }: UserManagementScreenProps) {
-  const { users, addUser, updateUser, deleteUser, toggleUserStatus } = useAuth();
+  const { users, addUser, updateUser, deleteUser, toggleUserStatus, fetchData } = useAuth();
   const { theme, colors } = useTheme();
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchData();
+    } catch (error) {
+      console.error('Refresh Error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchData]);
 
   const [showAddForm,   setShowAddForm]   = useState(false);
   const [editingUser,   setEditingUser]   = useState<User | null>(null);
@@ -514,6 +529,8 @@ export default function UserManagementScreen({ navigation }: UserManagementScree
   const [activeMenuId,  setActiveMenuId]  = useState<string | null>(null);
   const [filter,        setFilter]        = useState<'all' | 'student' | 'teacher'>('all');
   const [search,        setSearch]        = useState('');
+  const [statusModal, setStatusModal] = useState({ visible: false, title: '', message: '', type: 'error' as any });
+  const [choiceModal, setChoiceModal] = useState({ visible: false, title: '', message: '', options: [] as any[], iconName: '', accentColor: '' });
 
   // ── Shake Animation Logic ──
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -580,9 +597,19 @@ export default function UserManagementScreen({ navigation }: UserManagementScree
         teacher_id:    formData.role === 'teacher' ? `chkt${teacherCount.toString().padStart(3,'0')}`  : undefined,
       } as any);
       setShowAddForm(false);
-      Alert.alert('Added! 🎉', 'User registered successfully.');
+      setStatusModal({
+        visible: true,
+        title: 'User Added! 🎉',
+        message: `${formData.name} has been successfully registered in the system.`,
+        type: 'success'
+      });
     } catch {
-      Alert.alert('Error', 'Failed to add user.');
+      setStatusModal({
+        visible: true,
+        title: 'System Error ⚠️',
+        message: 'Something went wrong while adding the user. Please try again.',
+        type: 'error'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -611,9 +638,19 @@ export default function UserManagementScreen({ navigation }: UserManagementScree
       if (formData.password) payload.password = formData.password;
       await updateUser(editingUser.id, payload);
       setEditingUser(null);
-      Alert.alert('Saved! ✅', 'User updated successfully.');
+      setStatusModal({
+        visible: true,
+        title: 'Changes Saved! ✅',
+        message: 'The user profile has been updated successfully.',
+        type: 'success'
+      });
     } catch {
-      Alert.alert('Error', 'Failed to update user.');
+      setStatusModal({
+        visible: true,
+        title: 'Update Failed ⚠️',
+        message: 'Could not update user details. Please check your connection.',
+        type: 'error'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -622,18 +659,51 @@ export default function UserManagementScreen({ navigation }: UserManagementScree
   const handleDeleteUserPress = useCallback((userId: string, userName: string) => {
     const target = users.find(u => u.id === userId);
     if (target?.role === 'admin') {
-        Alert.alert('Protected Account', 'The Master Administrator account cannot be deleted for security reasons.');
+        setStatusModal({
+            visible: true,
+            title: 'Protected Account 🛡️',
+            message: 'The Master Administrator account is protected and cannot be deleted for security reasons.',
+            type: 'info'
+        });
         return;
     }
-    Alert.alert('Delete User', `Remove ${userName}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteUser(userId) },
-    ]);
+
+    setChoiceModal({
+        visible: true,
+        title: 'Delete User? 🔒',
+        message: `Are you sure you want to permanently remove ${userName}? All associated data will be lost.`,
+        iconName: 'account-remove',
+        accentColor: '#EF4444',
+        options: [
+            { 
+              label: 'Yes, Delete User', 
+              type: 'destructive', 
+              onPress: async () => {
+                try {
+                  await deleteUser(userId);
+                  setStatusModal({
+                    visible: true,
+                    title: 'Deleted! ✅',
+                    message: `User ${userName} has been successfully removed.`,
+                    type: 'success'
+                  });
+                } catch (e) {
+                  setStatusModal({
+                    visible: true,
+                    title: 'Error ⚠️',
+                    message: 'Failed to delete user. Please try again.',
+                    type: 'error'
+                  });
+                }
+              }
+            }
+        ]
+    });
   }, [deleteUser, users]);
 
   const stats = useMemo(() => ({
-    students: users.filter(u => u.role === 'student').length,
-    teachers: users.filter(u => u.role === 'teacher').length,
+    students: users.filter(u => u.role === 'student' && u.status === 'active').length,
+    teachers: users.filter(u => u.role === 'teacher' && u.status === 'active').length,
   }), [users]);
 
   // ── Search + Filter ──
@@ -648,7 +718,11 @@ export default function UserManagementScreen({ navigation }: UserManagementScree
         (u.email && u.email.toLowerCase().includes(q))
       );
     }
-    return list;
+    return list.sort((a, b) => {
+      if (a.status === 'active' && b.status !== 'active') return -1;
+      if (a.status !== 'active' && b.status === 'active') return 1;
+      return 0;
+    });
   }, [users, filter, search]);
 
   const ListHeader = useMemo(() => (
@@ -796,6 +870,15 @@ export default function UserManagementScreen({ navigation }: UserManagementScree
           ListHeaderComponent={ListHeader}
           contentContainerStyle={{ paddingBottom: 130 }}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#F472B6"
+                colors={["#F472B6"]}
+                progressBackgroundColor={theme === 'dark' ? '#1c1c14' : '#FFFFFF'}
+            />
+          }
           keyboardShouldPersistTaps="handled"
           initialNumToRender={10}
           maxToRenderPerBatch={5}
@@ -860,6 +943,24 @@ export default function UserManagementScreen({ navigation }: UserManagementScree
         theme={theme}
         initialData={editingUser}
         isEdit={true}
+      />
+
+      <ChoiceModal
+        visible={choiceModal.visible}
+        title={choiceModal.title}
+        message={choiceModal.message}
+        options={choiceModal.options}
+        onClose={() => setChoiceModal(prev => ({ ...prev, visible: false }))}
+        iconName={choiceModal.iconName}
+        accentColor={choiceModal.accentColor}
+      />
+
+      <StatusModal
+        visible={statusModal.visible}
+        title={statusModal.title}
+        message={statusModal.message}
+        type={statusModal.type}
+        onClose={() => setStatusModal(prev => ({ ...prev, visible: false }))}
       />
     </View>
   );

@@ -88,6 +88,7 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
 
     return {
       isPaid,
+      paidAt: currentMonthPaid?.paid_at,
       isOverdue: hasAnyOverdue,
       isPending,
       dueDay: oldestFee?.due_date ? parseInt(oldestFee.due_date.split('-')[2]) : parseInt(user.fee_due_day || '5'),
@@ -667,6 +668,15 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
                     ? `₹${feeBreakdown.total.toLocaleString()} Total Due` 
                     : (financialStatus?.isPaid ? "Paid for this Month" : "No Pending Dues")}
                 </Text>
+                
+                {financialStatus?.isPaid && financialStatus.paidAt && (
+                   <View className="flex-row items-center mt-1">
+                      <MaterialCommunityIcons name="clock-check-outline" size={10} color="#34D399" />
+                      <Text className="text-white/60 text-[9px] font-black uppercase tracking-widest ml-1">
+                         On: {new Date(financialStatus.paidAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </Text>
+                   </View>
+                )}
                 
                 {financialStatus?.isOverdue && feeBreakdown.overdue > 0 && feeBreakdown.current > 0 && (
                   <Text className="text-white/80 text-[9px] font-black mt-1 uppercase tracking-wider">

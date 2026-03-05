@@ -93,13 +93,22 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           type: 'error'
         });
       }
-    } catch (error) {
-      setStatusModal({
-        visible: true,
-        title: 'System Error ⚠️',
-        message: 'Something went wrong on our end. Please try again or contact the school office.',
-        type: 'error'
-      });
+    } catch (error: any) {
+      if (error.message === 'INACTIVE_USER_ALERT') {
+         setStatusModal({
+           visible: true,
+           title: 'Account Inactive 🛑',
+           message: 'This account is currently inactive. Please contact the school office to reactivate your access.',
+           type: 'info'
+         });
+      } else {
+        setStatusModal({
+          visible: true,
+          title: 'System Error ⚠️',
+          message: 'Something went wrong on our end. Please try again or contact the school office.',
+          type: 'error'
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -115,7 +124,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
 
   return (
     <View style={{ flex: 1, backgroundColor: isDark ? '#121212' : '#FDF2F8' }}>
-      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
+      <StatusBar style={isDark ? 'light' : 'dark'} translucent={true} backgroundColor="transparent" />
       
       {/* Immersive Background */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: height * 0.65 }}>

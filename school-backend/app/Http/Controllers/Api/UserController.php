@@ -43,6 +43,7 @@ class UserController extends Controller
             'guardian_photo' => 'nullable|string',
             'fees' => 'nullable|string',
             'admission_date' => 'nullable|string',
+            'fee_due_day' => 'nullable|string',
         ]);
 
         $validated['password'] = Hash::make($request->password);
@@ -83,6 +84,7 @@ class UserController extends Controller
             'admission_date' => 'nullable|string',
             'student_id' => 'nullable|string',
             'teacher_id' => 'nullable|string',
+            'fee_due_day' => 'nullable|string',
         ]);
 
         if ($request->has('password')) {

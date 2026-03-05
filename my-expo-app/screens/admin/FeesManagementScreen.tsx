@@ -15,6 +15,28 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import api from '../../services/api';
 
+const formatDate = (dateString: string | undefined) => {
+  if (!dateString) return 'N/A';
+  try {
+    // Check if it's YYYY-MM-DD format
+    if (dateString.includes('-') && dateString.length <= 10) {
+        const [year, month, day] = dateString.split('-');
+        if (year && month && day) {
+            return `${day}/${month}/${year}`;
+        }
+    }
+    
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    const d = date.getDate().toString().padStart(2, '0');
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const y = date.getFullYear();
+    return `${d}/${m}/${y}`;
+  } catch (e) {
+    return dateString;
+  }
+};
+
 // ─── CONSTANTS ───
 const FEES_TABS = [
   { id: 'manage', label: 'Monthly' },
@@ -305,10 +327,10 @@ const FeeEditorModal = memo(({ visible, onClose, item, onSave, colors, theme, st
                 </View>
                 <View className="flex-1">
                    <Text className={`text-[10px] font-black mb-4 uppercase tracking-[3px] ${colors.textTertiary} opacity-60`}>Due Date</Text>
-                   <TouchableOpacity onPress={() => setShowPicker(true)} className={`p-6 rounded-[32px] border-2 bg-gray-50 dark:bg-black/20 border-gray-100 dark:border-gray-800 flex-row justify-between items-center`}>
-                      <Text className={`font-black text-[10px] tracking-widest ${colors.text}`}>{dueDate}</Text>
-                      <MaterialCommunityIcons name="calendar-clock" size={22} color="#F472B6" />
-                   </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setShowPicker(true)} className={`p-6 rounded-[32px] border-2 bg-gray-50 dark:bg-black/20 border-gray-100 dark:border-gray-800 flex-row justify-between items-center`}>
+                       <Text className={`font-black text-[10px] tracking-widest ${colors.text}`}>{formatDate(dueDate)}</Text>
+                       <MaterialCommunityIcons name="calendar-clock" size={22} color="#F472B6" />
+                    </TouchableOpacity>
                    {showPicker && <DateTimePicker value={new Date(dueDate)} mode="date" display="default" onChange={(_: DateTimePickerEvent, d?: Date) => { setShowPicker(false); if(d) setDueDate(d.toISOString().split('T')[0]); }} />}
                 </View>
               </View>
@@ -469,7 +491,7 @@ export default function FeesManagementScreen({ navigation }: any) {
           </div>
           <div class="row">
             <span class="label">Payment Date</span>
-            <span class="value">${item.paid_at ? new Date(item.paid_at.toString().replace(/-/g, '/')).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : item.date}</span>
+            <span class="value">${item.paid_at ? formatDate(item.paid_at) : formatDate(item.date)}</span>
           </div>
           <div class="row" style="margin-top: 20px;">
             <span class="label">Student Name</span>
@@ -613,17 +635,17 @@ export default function FeesManagementScreen({ navigation }: any) {
                 );
 
                 if (!hasRecordThisMonth) {
-                    const dueDay = student.fee_due_day || '5';
+                    const dueDay = student.fee_due_day?.toString() || '5';
                     const dueDate = `${yCode}-${mCode}-${dueDay.padStart(2, '0')}`;
                     
                     implicitFees.push({
                         id: `VIRTUAL_${student.id}_${mCode}_${yCode}`,
-                        student_id: student.studentId || student.id, // Prefer directory ID
+                        student_id: student.studentId || student.id,
                         student_name: student.name,
                         type: 'Monthly Fee',
                         amount: studentFeeAmount,
-                        status: 'unpaid', // Default to unpaid for the ledger
-                        date: `${yCode}-${mCode}-01`,
+                        status: 'unpaid',
+                        date: todayStr, // Use today for transaction date if marked today
                         due_date: dueDate,
                         isVirtual: true
                     });
@@ -740,7 +762,7 @@ export default function FeesManagementScreen({ navigation }: any) {
           type: item.type,
           amount: item.amount,
           status: targetStatus,
-          date: item.date, // Preserve the month/year of the virtual item
+          date: new Date().toISOString().split('T')[0], // Use today's date for new record
           due_date: item.due_date,
           paid_at: targetStatus === 'paid' ? new Date().toISOString().replace('T', ' ').substring(0, 19) : null
         };
@@ -794,12 +816,19 @@ export default function FeesManagementScreen({ navigation }: any) {
                </View>
                <View className="flex-1">
                   <Text className={`font-black text-xl tracking-tighter ${colors.text}`} numberOfLines={1}>{item.student_name}</Text>
-                   <View className="flex-row items-center mt-0.5">
-                    <Text className={`text-[10px] font-black uppercase tracking-widest ${isOverdue ? "text-red-500" : colors.textTertiary}`}>
-                         ID: {displayId} • {item.due_date || 'N/A'}
-                         {item.status === 'paid' && item.paid_at && ` • PAID: ${new Date(item.paid_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}`}
-                    </Text>
-                  </View>
+                   <View className="flex-row flex-wrap items-center mt-1 gap-x-3 gap-y-1">
+                      <Text className={`text-[9px] font-black uppercase tracking-widest ${colors.textTertiary} opacity-60`}>
+                           ID: {displayId}
+                      </Text>
+                      <Text className={`text-[9px] font-black uppercase tracking-widest ${isOverdue ? "text-red-500" : colors.textTertiary}`}>
+                           DUE: {formatDate(item.due_date)}
+                      </Text>
+                      {item.status === 'paid' && (
+                        <Text className={`text-[9px] font-black uppercase tracking-widest text-green-500`}>
+                             PAID: {formatDate(item.paid_at || item.date)}
+                        </Text>
+                      )}
+                   </View>
                </View>
             </View>
             
@@ -883,9 +912,21 @@ export default function FeesManagementScreen({ navigation }: any) {
         </View>
       </View>
 
-      {/* Summary Area */}
+      {/* Search & Summary Area */}
       <View className="px-6 mb-8 mt-2">
-        <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textTertiary} mb-5 opacity-70`}>Financial Health</Text>
+        <View className="flex-row items-center justify-between mb-5 px-1">
+            <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textTertiary} opacity-70`}>Financial Health</Text>
+            <View className={`${theme === 'dark' ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-200'} flex-row items-center border rounded-full px-4 py-1.5 flex-1 ml-10`}>
+              <MaterialCommunityIcons name="magnify" size={16} color={colors.textTertiary} />
+              <TextInput 
+                placeholder="Search..." 
+                placeholderTextColor={colors.textTertiary}
+                className={`ml-2 flex-1 text-xs font-bold ${colors.text}`}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
+        </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="overflow-visible">
           <SummaryCard label="COLLECTED" value={`₹${stats.paid.toLocaleString()}`} icon="check-decagram-outline" color="#10B981" colors={colors} theme={theme} />
           <SummaryCard label="OVERDUE" value={`₹${stats.overdue.toLocaleString()}`} icon="clock-alert-outline" color="#EF4444" colors={colors} theme={theme} />

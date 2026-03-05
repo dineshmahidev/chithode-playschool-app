@@ -328,7 +328,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'studentId', 'teacherId', 'fatherName', 'fatherPhone', 
       'motherName', 'motherPhone', 'parentName', 'guardianPhone', 
       'bloodGroup', 'studentPhoto', 'fatherPhoto', 'motherPhoto', 
-      'guardianPhoto', 'admissionDate', 'fee_due_day'
+      'guardianPhoto', 'admissionDate'
     ];
     camelKeys.forEach(key => delete mapped[key]);
 

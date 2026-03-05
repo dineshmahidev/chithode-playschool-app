@@ -574,8 +574,13 @@ export default function UserManagementScreen({ navigation }: UserManagementScree
   const handleAddSubmit = useCallback(async (formData: any) => {
     setIsSubmitting(true);
     try {
-      const studentCount = users.filter(u => u.role === 'student').length + 1;
-      const teacherCount = users.filter(u => u.role === 'teacher').length + 1;
+      const maxId = users
+        .filter(u => u.role === 'student' && u.studentId?.startsWith('chk'))
+        .map(u => parseInt(u.studentId?.replace('chk', '') || '0'))
+        .reduce((max, id) => Math.max(max, id), 0);
+        
+      const nextId = (maxId + 1).toString().padStart(3, '0');
+
       await addUser({
         name:          formData.name,
         username:      formData.username   || undefined,
@@ -593,8 +598,8 @@ export default function UserManagementScreen({ navigation }: UserManagementScree
         category:      formData.role === 'student' ? formData.category   : undefined,
         fees:          formData.role === 'student' ? formData.fees       : undefined,
         fee_due_day:   formData.role === 'student' ? formData.fee_due_day : undefined,
-        student_id:    formData.role === 'student' ? `chk${studentCount.toString().padStart(3,'0')}` : undefined,
-        teacher_id:    formData.role === 'teacher' ? `chkt${teacherCount.toString().padStart(3,'0')}`  : undefined,
+        student_id:    formData.role === 'student' ? `chk${nextId}` : undefined,
+        teacher_id:    formData.role === 'teacher' ? `chkt${(users.filter(u => u.role === 'teacher').length + 1).toString().padStart(3,'0')}`  : undefined,
       } as any);
       setShowAddForm(false);
       setStatusModal({

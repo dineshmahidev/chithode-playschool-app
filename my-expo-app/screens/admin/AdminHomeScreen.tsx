@@ -46,32 +46,25 @@ export default function AdminHomeScreen({ navigation }: AdminHomeScreenProps) {
   const feeStats = useMemo(() => {
     const todayStr = getTodayDateString();
     const currentMonthPrefix = todayStr.substring(0, 8); // "YYYY-MM-"
-    const activeStudents = users.filter(u => u.role === 'student' && u.status === 'active');
+    // Only count active students who have a monthly fee assigned
+    const activeStudents = users.filter(u => u.role === 'student' && u.status === 'active' && parseInt(u.fees || '0') > 0);
 
-    // 1. Existing monthly/overdue records for active students
-    const existingRelevantFees = fees.filter(f => {
-      const student = activeStudents.find(u => u.id?.toString() === f.student_id?.toString() || u.studentId === f.student_id);
-      if (!student) return false;
-
-      const types = (f.type || '').toLowerCase();
-      const isAdmission = types.includes('admission');
-      const isCurrentMonth = f.date.includes(currentMonthPrefix);
-      const isOverdue = f.status === 'unpaid' && f.due_date && f.due_date < todayStr;
-
-      return !isAdmission && (isCurrentMonth || isOverdue);
-    });
-
-    // 2. Count active students who have NO record yet for this month (Implicit Fees)
-    const studentsWithoutRecordsCount = activeStudents.filter(student => {
-      return !existingRelevantFees.some(f => 
-        f.student_id?.toString() === student.id?.toString() || 
-        f.student_id?.toString() === student.studentId?.toString()
+    // Count unique students who have a paid record for the current month
+    const paidStudentsCount = activeStudents.filter(student => {
+      const dbId = student.id?.toString();
+      const schoolId = student.studentId?.toString();
+      
+      return fees.some(f => 
+        (dbId && f.student_id?.toString() === dbId || (schoolId && f.student_id?.toString() === schoolId)) &&
+        f.status === 'paid' &&
+        f.date.includes(currentMonthPrefix) &&
+        !(f.type || '').toLowerCase().includes('admission')
       );
     }).length;
 
     return {
-       total: existingRelevantFees.length + studentsWithoutRecordsCount,
-       paid: existingRelevantFees.filter(f => f.status === 'paid').length
+       total: activeStudents.length,
+       paid: paidStudentsCount
     };
   }, [fees, users, getTodayDateString]);
 

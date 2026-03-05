@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Image, Dimensions, ActivityIndicator } from 'react-native';
+import PremiumPopup from '../../components/PremiumPopup';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -30,6 +31,7 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
   const [isLoading, setIsLoading] = useState(true);
   const [studentStats, setStudentStats] = useState({ total: 0, present: 0 });
   const [todaySchedule, setTodaySchedule] = useState<any>(null);
+  const [selectedNotice, setSelectedNotice] = useState<any>(null);
 
   const fetchStudentStats = useCallback(async () => {
     try {
@@ -180,7 +182,7 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
             key={item.id} activeOpacity={0.9}
             style={{ width: Dimensions.get('window').width - 48, aspectRatio: 16 / 9 }}
             className="mr-3 bg-brand-pink relative overflow-hidden rounded-[32px] border-2 border-white shadow-xl"
-            onPress={() => Alert.alert(item.title, item.content)}
+            onPress={() => setSelectedNotice(item)}
           >
             {item.image ? <Image source={{ uri: item.image }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : (
               <View className="flex-1 items-center justify-center bg-brand-pink/20">
@@ -495,6 +497,29 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
 
           </View>
         </ScrollView>
+
+        <PremiumPopup
+          visible={!!selectedNotice}
+          onClose={() => setSelectedNotice(null)}
+          title={selectedNotice?.title || ''}
+          message={selectedNotice?.content}
+          type="info"
+          icon="bullhorn"
+        >
+          {selectedNotice?.date && (
+            <View className="bg-blue-50/50 dark:bg-blue-500/10 self-center px-4 py-1.5 rounded-full border border-blue-100 dark:border-blue-500/20 mb-4 flex-row items-center">
+              <MaterialCommunityIcons name="calendar-clock" size={12} color="#3B82F6" />
+              <Text className="text-blue-500 text-[10px] font-black uppercase tracking-widest ml-2">{selectedNotice.date}</Text>
+            </View>
+          )}
+          {selectedNotice?.image && (
+            <Image 
+              source={{ uri: selectedNotice.image }} 
+              style={{ width: '100%', height: 200, borderRadius: 24, marginBottom: 16 }}
+              resizeMode="cover"
+            />
+          )}
+        </PremiumPopup>
     </View>
   );
 }

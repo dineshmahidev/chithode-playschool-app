@@ -4,6 +4,7 @@ import {
   TextInput, Image, Modal, ActivityIndicator,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
+import PremiumPopup from '../../components/PremiumPopup';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth, Announcement } from '../../contexts/AuthContext';
@@ -268,6 +269,7 @@ export default function AnnouncementsScreen({ navigation }: AnnouncementsScreenP
 
   const [showForm, setShowForm]         = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedNotice, setSelectedNotice] = useState<any>(null);
 
   const openForm  = useCallback(() => setShowForm(true),  []);
   const closeForm = useCallback(() => setShowForm(false), []);
@@ -335,7 +337,7 @@ export default function AnnouncementsScreen({ navigation }: AnnouncementsScreenP
             activeOpacity={0.9}
             style={{ width: '100%', aspectRatio: 16 / 9 }}
             className="mb-6 bg-brand-pink relative overflow-hidden rounded-[32px] border-4 border-white shadow-xl"
-            onPress={() => Alert.alert(item.title, item.content)}
+            onPress={() => setSelectedNotice(item)}
           >
             {item.image ? (
               <Image
@@ -407,6 +409,29 @@ export default function AnnouncementsScreen({ navigation }: AnnouncementsScreenP
           isSubmitting={isSubmitting}
         />
       </Modal>
+
+      <PremiumPopup
+        visible={!!selectedNotice}
+        onClose={() => setSelectedNotice(null)}
+        title={selectedNotice?.title || ''}
+        message={selectedNotice?.content}
+        type="info"
+        icon="bullhorn"
+      >
+        {selectedNotice?.date && (
+          <View className="bg-pink-50/50 dark:bg-pink-500/10 self-center px-4 py-1.5 rounded-full border border-pink-100 dark:border-pink-500/20 mb-4 flex-row items-center">
+            <MaterialCommunityIcons name="calendar-clock" size={12} color="#F472B6" />
+            <Text className="text-brand-pink text-[10px] font-black uppercase tracking-widest ml-2">{selectedNotice.date}</Text>
+          </View>
+        )}
+        {selectedNotice?.image && (
+          <Image 
+            source={{ uri: selectedNotice.image }} 
+            style={{ width: '100%', height: 200, borderRadius: 24, marginBottom: 16 }}
+            resizeMode="cover"
+          />
+        )}
+      </PremiumPopup>
     </SafeAreaView>
   );
 }

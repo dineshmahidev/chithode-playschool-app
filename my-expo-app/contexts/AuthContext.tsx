@@ -216,7 +216,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           amount: parseFloat(f.amount) || 0,
           status: f.status || 'unpaid',
           date: f.date || f.created_at,
-          due_date: f.due_date
+          due_date: f.due_date,
+          paid_at: f.paid_at
         })));
 
       setFeeStructures(resolveArray(feeStructuresRes.data).map((fs: any) => ({
@@ -259,7 +260,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         amount: parseFloat(f.amount) || 0,
         status: f.status,
         date: f.date,
-        due_date: f.due_date
+        due_date: f.due_date,
+        paid_at: f.paid_at
       })));
     } catch (e) {}
   }, []);

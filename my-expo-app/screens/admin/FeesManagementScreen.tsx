@@ -465,11 +465,11 @@ export default function FeesManagementScreen({ navigation }: any) {
         <div class="receipt-box">
           <div class="row">
             <span class="label">Receipt Number</span>
-            <span class="value">HK-${new Date(item.date).getFullYear()}${item.id.padStart(4, '0')}</span>
+            <span class="value">HK-${new Date(item.paid_at || item.date).getFullYear()}${item.id.toString().replace(/[^0-9]/g, '').slice(-4).padStart(4, '0')}</span>
           </div>
           <div class="row">
             <span class="label">Payment Date</span>
-            <span class="value">${item.date}</span>
+            <span class="value">${item.paid_at ? new Date(item.paid_at.toString().replace(/-/g, '/')).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : item.date}</span>
           </div>
           <div class="row" style="margin-top: 20px;">
             <span class="label">Student Name</span>
@@ -503,7 +503,7 @@ export default function FeesManagementScreen({ navigation }: any) {
         </div>
 
         <div class="footer">
-          Computer Generated Receipt • Valid Without Signature • Issued on ${new Date().toLocaleDateString()}
+          Computer Generated Receipt • Valid Without Signature • Issued on ${new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
         </div>
       </body>
     </html>
@@ -741,7 +741,8 @@ export default function FeesManagementScreen({ navigation }: any) {
           amount: item.amount,
           status: targetStatus,
           date: item.date, // Preserve the month/year of the virtual item
-          due_date: item.due_date
+          due_date: item.due_date,
+          paid_at: targetStatus === 'paid' ? new Date().toISOString().replace('T', ' ').substring(0, 19) : null
         };
         await api.post('/fees', payload);
       } else {
@@ -793,19 +794,12 @@ export default function FeesManagementScreen({ navigation }: any) {
                </View>
                <View className="flex-1">
                   <Text className={`font-black text-xl tracking-tighter ${colors.text}`} numberOfLines={1}>{item.student_name}</Text>
-                  <View className="flex-row items-center mt-0.5">
+                   <View className="flex-row items-center mt-0.5">
                     <Text className={`text-[10px] font-black uppercase tracking-widest ${isOverdue ? "text-red-500" : colors.textTertiary}`}>
                          ID: {displayId} • {item.due_date || 'N/A'}
+                         {item.status === 'paid' && item.paid_at && ` • PAID: ${new Date(item.paid_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}`}
                     </Text>
                   </View>
-                  {item.status === 'paid' && item.paid_at && (
-                    <View className="flex-row items-center mt-1">
-                       <MaterialCommunityIcons name="clock-check-outline" size={12} color="#10B981" />
-                       <Text className="text-[9px] font-bold text-green-600 uppercase tracking-widest ml-1">
-                         Paid: {new Date(item.paid_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-                       </Text>
-                    </View>
-                  )}
                </View>
             </View>
             

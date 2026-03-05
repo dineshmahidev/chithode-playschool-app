@@ -164,9 +164,9 @@ export default function PremiumPopup({
 
           {/* Content */}
           <View style={styles.content}>
-            <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+            <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#111827' }]}>{title}</Text>
             {message && (
-              <Text style={[styles.message, { color: colors.textSecondary }]}>
+              <Text style={[styles.message, { color: isDark ? '#D1D5DB' : '#374151' }]}>
                 {message}
               </Text>
             )}
@@ -199,9 +199,9 @@ export default function PremiumPopup({
             {showCloseButton && !buttonText && (
               <TouchableOpacity
                 onPress={onClose}
-                style={[styles.closeLabel, { backgroundColor: isDark ? '#25251d' : '#f3f4f6' }]}
+                style={[styles.closeLabel, { backgroundColor: isDark ? '#262626' : '#f3f4f6' }]}
               >
-                <Text style={[styles.closeText, { color: colors.textTertiary }]}>DISMISS</Text>
+                <Text style={[styles.closeText, { color: isDark ? '#A1A1AA' : '#6B7280' }]}>DISMISS</Text>
               </TouchableOpacity>
             )}
           </View>

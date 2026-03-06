@@ -20,9 +20,10 @@ workflows:
         script: |
           export NODE_OPTIONS="--max-old-space-size=8192"
           cd android
-          ./gradlew assembleRelease --no-daemon --stacktrace --info
+          chmod +x gradlew
+          ./gradlew clean assembleDebug --no-daemon --stacktrace
     artifacts:
-      - "**/build/outputs/apk/release/*.apk"
+      - "**/build/outputs/apk/debug/*.apk"
     publishing:
       email:
         recipients:

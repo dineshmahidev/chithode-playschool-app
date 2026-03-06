@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Switch } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Switch, Linking } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -21,7 +21,6 @@ export default function TeacherAccountScreen({ navigation }: TeacherAccountScree
   const { user, logout, updateAvatar } = useAuth();
   const { theme, colors, toggleTheme } = useTheme();
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
-  const [isNotificationsEnabled, setIsNotificationsEnabled] = React.useState(true);
 
   const menuItems = [
     {
@@ -146,7 +145,7 @@ export default function TeacherAccountScreen({ navigation }: TeacherAccountScree
                     </View>
                     <View className="flex-1">
                         <Text className={`text-2xl font-black ${colors.text} tracking-tight`}>{user?.name}</Text>
-                        <Text className={`text-sm ${colors.textSecondary} font-bold opacity-70`}>{user?.email || 'teacher@school.com'}</Text>
+                        <Text className={`text-sm ${colors.textSecondary} font-bold opacity-70`}>{user?.email || 'teacher@chithodehappykids.com'}</Text>
                         <View className="bg-brand-yellow/20 px-4 py-1.5 rounded-full self-start mt-3 border border-brand-yellow/10">
                             <Text className="text-amber-900 text-[10px] font-black uppercase tracking-widest">Employee ID: {user?.teacherId || '#T-001'}</Text>
                         </View>
@@ -182,8 +181,17 @@ export default function TeacherAccountScreen({ navigation }: TeacherAccountScree
               onPress={() => {
                 if (item.id === 'theme') {
                   toggleTheme();
+                } else if (item.id === 'profile') {
+                  navigation.navigate('profile');
+                } else if (item.id === 'notifications') {
+                  navigation.navigate('notificationSettings');
+                } else if (item.id === 'about') {
+                  Linking.openURL('https://chithodehappykids.com').catch(err => 
+                    Alert.alert('Error', 'Could not open website')
+                  );
                 } else {
                   console.log(`Navigate to ${item.id}`);
+                  Alert.alert('Coming Soon', `${item.title} screen is coming soon! ✨`);
                 }
               }}
             >
@@ -233,35 +241,6 @@ export default function TeacherAccountScreen({ navigation }: TeacherAccountScree
                         trackColor={{ false: '#D1D5DB', true: '#F472B6' }}
                         thumbColor="#FFFFFF"
                         style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
-                    />
-                </View>
-              ) : item.id === 'notifications' ? (
-                <View 
-                  className="flex-row items-center px-4 py-1.5 rounded-full border"
-                  style={{ 
-                    backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
-                    borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
-                  }}
-                >
-                    <View className="flex-row items-center mr-3">
-                      <MaterialCommunityIcons 
-                        name={isNotificationsEnabled ? "bell-ring-outline" : "bell-off-outline"} 
-                        size={12} 
-                        color={isNotificationsEnabled ? '#10B981' : '#6B7280'} 
-                      />
-                      <Text 
-                        style={{ color: isNotificationsEnabled ? '#10B981' : '#6B7280' }}
-                        className="text-[10px] font-black ml-1.5 uppercase tracking-tighter"
-                      >
-                        {isNotificationsEnabled ? 'On' : 'Off'}
-                      </Text>
-                    </View>
-                    <Switch
-                      value={isNotificationsEnabled}
-                      onValueChange={setIsNotificationsEnabled}
-                      trackColor={{ false: '#D1D5DB', true: '#10B981' }}
-                      thumbColor="#FFFFFF"
-                      style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
                     />
                 </View>
               ) : (

@@ -38,13 +38,33 @@ class FeeController extends Controller
         ]);
 
         $fee = Fee::create($validated);
+
+        if ($fee->status === 'paid') {
+            $service = app(\App\Services\ExpoNotificationService::class);
+            $service->notifyUser($fee->student_id, "Fee Payment Successful! ✅", "Payment of ₹" . number_format($fee->amount) . " for " . $fee->type . " received. You can now view and download your digital receipt.", [
+                'screen' => 'myFees',
+                'id' => $fee->id
+            ]);
+        }
+
         return response()->json($fee, 201);
     }
 
     public function update(Request $request, $id)
     {
         $fee = Fee::findOrFail($id);
+        $oldStatus = $fee->status;
         $fee->update($request->all());
+
+        // Send push notification if status changed to paid
+        if ($fee->status === 'paid' && $oldStatus !== 'paid') {
+            $service = app(\App\Services\ExpoNotificationService::class);
+            $service->notifyUser($fee->student_id, "Fee Payment Successful! ✅", "Payment of ₹" . number_format($fee->amount) . " for " . $fee->type . " received. You can now view and download your digital receipt.", [
+                'screen' => 'myFees',
+                'id' => $fee->id
+            ]);
+        }
+
         return response()->json($fee);
     }
 
@@ -65,6 +85,16 @@ class FeeController extends Controller
             $fee->paid_at = now()->format('Y-m-d H:i:s');
         }
         $fee->save();
+
+        // Send push notification for payment confirmation
+        if ($fee->status === 'paid') {
+            $service = app(\App\Services\ExpoNotificationService::class);
+            $service->notifyUser($fee->student_id, "Fee Payment Successful! ✅", "Payment of ₹" . number_format($fee->amount) . " for " . $fee->type . " received. You can now view and download your digital receipt.", [
+                'screen' => 'myFees',
+                'id' => $fee->id
+            ]);
+        }
+
         return response()->json($fee);
     }
 }

@@ -258,7 +258,7 @@ const FeeEditorModal = memo(({ visible, onClose, item, onSave, colors, theme, st
             <View className="px-6 pb-20">
               {/* Student Selection */}
               <View className="mb-8">
-                <Text className={`text-[10px] font-black mb-4 uppercase tracking-[3px] ${colors.textTertiary} opacity-60`}>Recipient Info</Text>
+                <Text className={`text-[10px] font-black mb-4 uppercase tracking-[3px] ${colors.textTertiary} opacity-60`}>Student Detail</Text>
                 <TouchableOpacity 
                   onPress={() => item?.id === 'NEW' && setShowStudentPicker(!showStudentPicker)} 
                   className={`p-6 rounded-[32px] border-2 flex-row justify-between items-center ${theme === 'dark' ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-100'} ${item?.id !== 'NEW' ? 'opacity-60' : ''}`}
@@ -337,7 +337,7 @@ const FeeEditorModal = memo(({ visible, onClose, item, onSave, colors, theme, st
 
               {/* Amount Entry */}
               <View className="mb-12">
-                <Text className={`text-[10px] font-black mb-4 uppercase tracking-[3px] ${colors.textTertiary} opacity-60`}>Transaction Value</Text>
+                <Text className={`text-[10px] font-black mb-4 uppercase tracking-[3px] ${colors.textTertiary} opacity-60`}>Fee Amount</Text>
                 <View className={`flex-row items-center p-4 rounded-[40px] border-2 shadow-sm ${theme === 'dark' ? 'bg-black/20 border-gray-800' : 'bg-white border-brand-pink/10'}`}>
                    <View className="bg-brand-pink w-20 h-20 rounded-[30px] items-center justify-center shadow-lg shadow-brand-pink/30">
                      <Text className="text-4xl font-black text-white">₹</Text>
@@ -428,9 +428,122 @@ const StatusToggleModal = memo(({ visible, onClose, item, onConfirm, colors, the
   );
 });
 
+const InvoicePopupModal = memo(({ visible, onClose, payment, colors, theme, student, onDownload }: any) => {
+  if (!payment) return null;
+  const invoiceNo = `HK-${new Date(payment.paid_at || payment.date).getFullYear()}${payment.id.toString().replace(/[^0-9]/g, '').slice(-4).padStart(4, '0')}`;
+
+  const formatDateLocal = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      if (dateString.includes('-') && dateString.length <= 10) {
+          const [year, month, day] = dateString.split('-');
+          return `${day}/${month}/${year}`;
+      }
+      const date = new Date(dateString);
+      return isNaN(date.getTime()) ? dateString : `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+    } catch (e) { return dateString; }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity activeOpacity={1} onPress={onClose} className="flex-1 bg-black/70 justify-center items-center px-4">
+        <TouchableOpacity activeOpacity={1} className={`${theme === 'dark' ? 'bg-[#1c1c14]' : 'bg-white'} rounded-[32px] w-full max-w-md border-4 border-brand-pink shadow-2xl overflow-hidden`}>
+          {/* Header */}
+          <View className="bg-brand-pink p-6">
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-1 flex-row items-center">
+                <View className="bg-white w-12 h-12 rounded-full items-center justify-center mr-3">
+                  <MaterialCommunityIcons name="school" size={24} color="#EC4899" />
+                </View>
+                <View>
+                  <Text className="text-white text-xl font-black">HappyKids</Text>
+                  <Text className="text-white/80 text-xs font-bold uppercase tracking-widest">Official Invoice</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={onClose} className="bg-white/20 w-10 h-10 rounded-full items-center justify-center">
+                <MaterialCommunityIcons name="close" size={24} color="white" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <ScrollView className="max-h-[500px] p-6" showsVerticalScrollIndicator={false}>
+             <View className="mb-6">
+                <View className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'} rounded-2xl p-5 border border-gray-100 dark:border-white/5`}>
+                  <View className="flex-row justify-between mb-3">
+                    <Text className={`${colors.textSecondary} text-xs font-black uppercase opacity-60`}>Invoice No</Text>
+                    <Text className={`${colors.text} font-black`}>{invoiceNo}</Text>
+                  </View>
+                  <View className="flex-row justify-between">
+                    <Text className={`${colors.textSecondary} text-xs font-black uppercase opacity-60`}>Paid Date</Text>
+                    <Text className={`${colors.text} font-black`}>{payment.paid_at ? formatDateLocal(payment.paid_at) : formatDateLocal(payment.date)}</Text>
+                  </View>
+                </View>
+             </View>
+
+             <View className="mb-6">
+                <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textTertiary} mb-3 ml-1 opacity-60`}>Student Details</Text>
+                <View className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'} rounded-2xl p-5 border border-gray-100 dark:border-white/5`}>
+                   <View className="flex-row items-center">
+                      <View className="bg-brand-yellow w-14 h-14 rounded-2xl items-center justify-center mr-4 border-2 border-white shadow-sm">
+                         <MaterialCommunityIcons name="account-school" size={30} color="#92400E" />
+                      </View>
+                      <View className="flex-1">
+                         <Text className={`font-black ${colors.text} text-lg tracking-tighter`} numberOfLines={1}>{payment.student_name}</Text>
+                         <Text className={`text-xs ${colors.textSecondary} font-bold`}>ID: {student?.studentId || payment.student_id}</Text>
+                      </View>
+                   </View>
+                </View>
+             </View>
+
+             <View className="mb-4">
+                <Text className={`text-sm ${colors.textSecondary} uppercase font-bold tracking-wider mb-2`}>Payer Information</Text>
+                <View className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'} rounded-2xl p-4 border border-gray-100 dark:border-white/5`}>
+                  <View className="flex-row items-center mb-2">
+                    <MaterialCommunityIcons name="account-tie" size={18} color="#3B82F6" />
+                    <Text className={`${colors.textSecondary} text-xs font-bold ml-2`}>Payer Name:</Text>
+                    <Text className={`${colors.text} font-bold ml-2`}>{(payment as any).parent_name || (payment as any).father_name || '---'}</Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    <MaterialCommunityIcons name="phone" size={18} color="#10B981" />
+                    <Text className={`${colors.textSecondary} text-xs font-bold ml-2`}>Contact Phone:</Text>
+                    <Text className={`${colors.textSecondary} ml-2 font-bold`}>{(payment as any).phone || '---'}</Text>
+                  </View>
+                </View>
+             </View>
+
+             <View className="mb-8">
+                <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textTertiary} mb-3 ml-1 opacity-60`}>Fee Information</Text>
+                <View className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'} rounded-2xl p-5 border border-gray-100 dark:border-white/5 flex-row items-center justify-between`}>
+                  <View>
+                    <Text className={`font-black uppercase text-[11px] tracking-widest ${colors.textTertiary}`}>{payment.type}</Text>
+                    <Text className={`font-black text-2xl ${colors.text} tracking-tighter mt-1`}>₹{payment.amount?.toLocaleString()}</Text>
+                    <Text className={`text-[10px] font-bold text-brand-pink mt-1 uppercase tracking-widest`}>
+                       Due: {formatDateLocal(payment.due_date)}
+                    </Text>
+                  </View>
+                  <View className="bg-green-500/20 px-4 py-2 rounded-xl">
+                    <Text className="text-green-600 font-extrabold text-[10px] uppercase tracking-widest">Cleared</Text>
+                  </View>
+                </View>
+             </View>
+
+             <TouchableOpacity 
+                onPress={() => onDownload(payment, 'download')}
+                className="bg-brand-pink py-5 rounded-[22px] items-center justify-center flex-row shadow-xl shadow-brand-pink/30 mb-2"
+             >
+                <MaterialCommunityIcons name="file-pdf-box" size={24} color="white" />
+                <Text className="text-white font-black uppercase tracking-[2px] ml-3">Generate Receipt</Text>
+             </TouchableOpacity>
+          </ScrollView>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+});
+
 export default function FeesManagementScreen({ navigation }: any) {
   const { colors, theme } = useTheme();
-  const { users, fees, refreshFees, addTransaction, fetchData } = useAuth();
+  const { users, fees, refreshFees, addTransaction, fetchData, updateUser } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -452,6 +565,8 @@ export default function FeesManagementScreen({ navigation }: any) {
   const [isLocalLoading, setIsLocalLoading] = useState(false);
   const [feeStructures, setFeeStructures] = useState<any[]>([]);
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  const [invoiceModalVisible, setInvoiceModalVisible] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
   const generateInvoiceHtml = (item: FeeRecord) => `
     <html>
@@ -486,11 +601,11 @@ export default function FeesManagementScreen({ navigation }: any) {
         
         <div class="receipt-box">
           <div class="row">
-            <span class="label">Receipt Number</span>
+            <span class="label">Invoice No</span>
             <span class="value">HK-${new Date(item.paid_at || item.date).getFullYear()}${item.id.toString().replace(/[^0-9]/g, '').slice(-4).padStart(4, '0')}</span>
           </div>
           <div class="row">
-            <span class="label">Payment Date</span>
+            <span class="label">Paid Date</span>
             <span class="value">${item.paid_at ? formatDate(item.paid_at) : formatDate(item.date)}</span>
           </div>
           <div class="row" style="margin-top: 20px;">
@@ -502,19 +617,15 @@ export default function FeesManagementScreen({ navigation }: any) {
             <span class="value">${item.student_id}</span>
           </div>
           <div class="row">
-            <span class="label">Fee Category</span>
-            <span class="value">${item.type}</span>
+            <span class="label">Due Date</span>
+            <span class="value">${item.due_date ? formatDate(item.due_date) : (item.date ? formatDate(item.date) : 'N/A')}</span>
           </div>
           <div class="row" style="margin-top: 20px;">
-            <span class="label">Name of Payer</span>
+            <span class="label">Payer Name</span>
             <span class="value">${(item as any).parent_name || (item as any).father_name || '---'}</span>
           </div>
           <div class="row">
-            <span class="label">Monthly Due Day</span>
-            <span class="value">Day ${(item as any).due_day || '05'} of month</span>
-          </div>
-          <div class="row">
-            <span class="label">Contact Number</span>
+            <span class="label">Contact Phone</span>
             <span class="value">${(item as any).phone || '---'}</span>
           </div>
         </div>
@@ -614,7 +725,7 @@ export default function FeesManagementScreen({ navigation }: any) {
         // Find existing monthly fees
         const existingMonthly = list.filter(f => {
             const types = (f.type || '').toLowerCase();
-            const isSelectedMonth = f.date.includes(monthPrefix);
+            const isSelectedMonth = f.due_date ? f.due_date.includes(monthPrefix) : f.date.includes(monthPrefix);
             const isOverdue = f.status === 'unpaid' && f.due_date && f.due_date < todayStr;
             return !types.includes('admission') && (isSelectedMonth || isOverdue);
         });
@@ -630,7 +741,7 @@ export default function FeesManagementScreen({ navigation }: any) {
                 
                 const hasRecordThisMonth = list.some(f => 
                     (f.student_id?.toString() === dbId || f.student_id?.toString() === schoolId) && 
-                    f.date.includes(monthPrefix) &&
+                    (f.due_date ? f.due_date.includes(monthPrefix) : f.date.includes(monthPrefix)) &&
                     !(f.type || '').toLowerCase().includes('admission')
                 );
 
@@ -712,7 +823,25 @@ export default function FeesManagementScreen({ navigation }: any) {
         await api.put(`/fees/${updatedItem.id}`, payload);
       }
       
+      const student = users.find(u => u.id?.toString() === updatedItem.student_id?.toString() || u.studentId === updatedItem.student_id);
+      
       await refreshFees();
+      
+      // SYNC: Update the student's profile fee_due_day if the due date was changed in this record
+      if (updatedItem.due_date && student) {
+        const newDueDay = updatedItem.due_date.split('-')[2];
+        const currentDueDay = student.fee_due_day?.toString().padStart(2, '0');
+        
+        if (newDueDay !== currentDueDay && (updatedItem.type || '').toLowerCase().includes('monthly')) {
+          try {
+            await updateUser(student.id, { 
+              fee_due_day: parseInt(newDueDay).toString() 
+            });
+          } catch (syncErr) {
+            console.error('Failed to sync due day to user profile:', syncErr);
+          }
+        }
+      }
       
       // Automatically post to income ledger if marked as paid
       if (updatedItem.status === 'paid') {
@@ -821,7 +950,7 @@ export default function FeesManagementScreen({ navigation }: any) {
                            ID: {displayId}
                       </Text>
                       <Text className={`text-[9px] font-black uppercase tracking-widest ${isOverdue ? "text-red-500" : colors.textTertiary}`}>
-                           DUE: {formatDate(item.due_date)}
+                           DUE: {formatDate(item.due_date)} {student?.fee_due_day && `(Day ${student.fee_due_day})`}
                       </Text>
                       {item.status === 'paid' && (
                         <Text className={`text-[9px] font-black uppercase tracking-widest text-green-500`}>
@@ -850,25 +979,25 @@ export default function FeesManagementScreen({ navigation }: any) {
                <Text className={`text-[9px] font-black uppercase tracking-[3px] ${colors.textTertiary} mb-1 opacity-60`}>{item.type}</Text>
                <Text className={`font-black text-3xl tracking-tighter ${colors.text}`}>₹{item.amount.toLocaleString()}</Text>
             </View>
-            
-            <View className="flex-row gap-4">
-              <TouchableOpacity 
-                onPress={() => setEditModal({ visible: true, item: item as any })} 
-                className="px-6 py-3 rounded-2xl bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 flex-row items-center justify-center shadow-sm"
-              >
-                 <MaterialCommunityIcons name="pencil" size={18} color={theme === 'dark' ? '#9CA3AF' : '#4B5563'} />
-                 <Text className={`ml-2 font-black text-[10px] uppercase tracking-widest ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>Edit</Text>
-              </TouchableOpacity>
-              
-              {(item.status?.toLowerCase() === 'paid') && (
-                <TouchableOpacity 
-                  onPress={() => handleInvoiceAction(item as any, 'download')} 
-                  className="w-14 h-14 rounded-2xl bg-indigo-500 items-center justify-center shadow-lg shadow-indigo-500/30"
-                >
-                   <MaterialCommunityIcons name="file-download-outline" size={26} color="white" />
-                </TouchableOpacity>
-              )}
-            </View>
+                        <View className="flex-row gap-4">
+               {(item.status?.toLowerCase() === 'paid') && (
+                 <>
+                  <TouchableOpacity 
+                    onPress={() => { setSelectedInvoice(item); setInvoiceModalVisible(true); }} 
+                    className="w-14 h-14 rounded-2xl bg-white dark:bg-white/10 border border-gray-100 dark:border-white/10 items-center justify-center shadow-sm"
+                  >
+                    <MaterialCommunityIcons name="eye-outline" size={26} color={theme === 'dark' ? '#F472B6' : '#F472B6'} />
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    onPress={() => handleInvoiceAction(item as any, 'download')} 
+                    className="w-14 h-14 rounded-2xl bg-indigo-500 items-center justify-center shadow-lg shadow-indigo-500/30"
+                  >
+                    <MaterialCommunityIcons name="file-download-outline" size={26} color="white" />
+                  </TouchableOpacity>
+                 </>
+               )}
+             </View>
          </LinearGradient>
          
          {isOverdue && (
@@ -1037,6 +1166,16 @@ export default function FeesManagementScreen({ navigation }: any) {
         colors={colors}
         theme={theme}
         onConfirm={handleConfirmStatus}
+      />
+
+      <InvoicePopupModal 
+        visible={invoiceModalVisible}
+        onClose={() => setInvoiceModalVisible(false)}
+        payment={selectedInvoice}
+        colors={colors}
+        theme={theme}
+        student={users.find(u => u.id?.toString() === selectedInvoice?.student_id?.toString() || u.studentId === selectedInvoice?.student_id)}
+        onDownload={handleInvoiceAction}
       />
       
       {isTypeDropdownOpen && (

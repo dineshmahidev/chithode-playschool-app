@@ -673,9 +673,9 @@ export default function StudentHomeScreen({ navigation }: StudentHomeScreenProps
                 
                 {financialStatus?.isPaid && financialStatus.paidAt && (
                    <View className="flex-row items-center mt-1">
-                      <MaterialCommunityIcons name="clock-check-outline" size={10} color="#34D399" />
+                      <MaterialCommunityIcons name="calendar-check" size={10} color="#34D399" />
                       <Text className="text-white/60 text-[9px] font-black uppercase tracking-widest ml-1">
-                         On: {new Date(financialStatus.paidAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                         Paid: {new Date(financialStatus.paidAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
                       </Text>
                    </View>
                 )}

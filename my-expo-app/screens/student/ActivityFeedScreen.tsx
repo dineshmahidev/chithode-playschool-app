@@ -41,6 +41,12 @@ interface ActivityFeedScreenProps {
     navigate: (screen: string) => void;
     goBack: () => void;
   };
+  route?: {
+    params?: {
+      id?: string | number;
+      [key: string]: any;
+    };
+  };
 }
 
 // Separate component to handle per-item video references and local state if needed
@@ -423,7 +429,7 @@ const CommentModal = ({
   );
 };
 
-export default function ActivityFeedScreen({ navigation }: ActivityFeedScreenProps) {
+export default function ActivityFeedScreen({ navigation, route }: ActivityFeedScreenProps) {
   const { colors, theme } = useTheme();
   const { activities, users, user, deleteActivity } = useAuth();
   
@@ -516,6 +522,21 @@ export default function ActivityFeedScreen({ navigation }: ActivityFeedScreenPro
       };
     });
   }, [activities, users, isMyKidOnly, user, savedIds, activeTab]);
+
+  // Handle deep linking from notifications
+  useEffect(() => {
+    if (route?.params?.id && gridActivities.length > 0) {
+      const targetId = route.params.id.toString();
+      const index = gridActivities.findIndex(a => a.id.toString() === targetId);
+      if (index !== -1) {
+        // Small delay to ensure layout is ready
+        const timer = setTimeout(() => {
+          openReel(index);
+        }, 300);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [route?.params?.id, gridActivities.length]);
 
   // Balancing columns logic
   useEffect(() => {

@@ -6,9 +6,17 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
 use App\Models\Homework;
+use App\Services\ExpoNotificationService;
 
 class HomeworkController extends Controller
 {
+    protected $notificationService;
+
+    public function __construct(ExpoNotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     public function index()
     {
         return response()->json(Homework::latest()->get());
@@ -26,6 +34,13 @@ class HomeworkController extends Controller
         ]);
 
         $homework = Homework::create($validated);
+
+        // Notify students about new homework
+        $this->notificationService->notifyRole('student', "New Homework: " . $homework->title, "Subject: " . ($homework->subject ?: 'General') . ". Due: " . $homework->due_date, [
+            'screen' => 'homework',
+            'id' => $homework->id
+        ]);
+
         return response()->json($homework, 201);
     }
 }

@@ -164,7 +164,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
             </View>
             <View className="flex-row items-center justify-between mb-3">
               <Text className={`${colors.textSecondary} font-bold`}>School Name</Text>
-              <Text className={`${colors.text} font-black`}>ABC School</Text>
+              <Text className={`${colors.text} font-black`}>Chithode Happy Kids</Text>
             </View>
             <View className="flex-row items-center justify-between">
               <Text className={`${colors.textSecondary} font-bold`}>License</Text>
@@ -174,7 +174,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
         </View>
 
         <TouchableOpacity
-          onPress={() => Alert.alert('Help', 'Contact support at support@school.com')}
+          onPress={() => Alert.alert('Help', 'Contact support at support@chithodehappykids.com')}
           className={`${colors.surface} rounded-2xl p-4 mb-8 border ${colors.border} flex-row items-center justify-between`}
           activeOpacity={0.7}
         >

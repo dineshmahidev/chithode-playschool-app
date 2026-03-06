@@ -6,6 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Notifications from 'expo-notifications';
 
 // Import screens
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -46,8 +47,9 @@ import MyAttendanceScreen from '../screens/teacher/MyAttendanceScreen';
 import StudentAttendanceReportScreen from '../screens/teacher/StudentAttendanceReportScreen';
 import TeacherAttendanceReportScreen from '../screens/admin/TeacherAttendanceReportScreen';
 import SplashScreen from '../screens/auth/SplashScreen';
+import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
 
-type ScreenType = 'login' | 'home' | 'quickAction' | 'account' | 'userManagement' | 'feesManagement' | 'announcements' | 'reports' | 'backup' | 'settings' | 'attendance' | 'activityFeed' | 'liveCamera' | 'homework' | 'emergencyContact' | 'myFees' | 'rewards' | 'profile' | 'timetable' | 'postHomework' | 'takeAttendance' | 'postActivity' | 'viewSubmissions' | 'classSchedule' | 'parentMessages' | 'studentList' | 'studentDetail' | 'incomeExpense' | 'myAttendance' | 'studentAttendanceReport' | 'teacherAttendanceReport';
+type ScreenType = 'login' | 'home' | 'quickAction' | 'account' | 'userManagement' | 'feesManagement' | 'announcements' | 'reports' | 'backup' | 'settings' | 'attendance' | 'activityFeed' | 'liveCamera' | 'homework' | 'emergencyContact' | 'myFees' | 'rewards' | 'profile' | 'timetable' | 'postHomework' | 'takeAttendance' | 'postActivity' | 'viewSubmissions' | 'classSchedule' | 'parentMessages' | 'studentList' | 'studentDetail' | 'incomeExpense' | 'myAttendance' | 'studentAttendanceReport' | 'teacherAttendanceReport' | 'notificationSettings';
 
 export default function AppNavigator() {
   const { user, announcements, isLoading } = useAuth();
@@ -88,6 +90,31 @@ export default function AppNavigator() {
   }, []);
 
   const navigation = useMemo(() => ({ navigate, goBack }), [navigate, goBack]);
+
+  // Handle Push Notification Navigation
+  useEffect(() => {
+    // Handling when notification is tapped
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      if (data?.screen) {
+        // Short delay to ensure navigation state is ready
+        setTimeout(() => {
+          navigate(data.screen as ScreenType, data.params || null);
+        }, 500);
+      }
+    });
+
+    // Handling when notification is received while app is foreground
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      // You can show a custom alert or just let the system handle it
+      console.log('Notification received in foreground:', notification.request.content.title);
+    });
+
+    return () => {
+      responseListener.remove();
+      notificationListener.remove();
+    };
+  }, [navigate]);
 
 
   const insets = useSafeAreaInsets();
@@ -292,7 +319,7 @@ export default function AppNavigator() {
       case 'studentList': return <StudentListScreen navigation={navigation} />;
       case 'studentDetail': return <StudentDetailScreen navigation={navigation} route={{ params }} />;
       case 'attendance': return <AttendanceScreen navigation={navigation} />;
-      case 'activityFeed': return <ActivityFeedScreen navigation={navigation} />;
+      case 'activityFeed': return <ActivityFeedScreen navigation={navigation} route={{ params }} />;
       case 'liveCamera': return <LiveCameraScreen navigation={navigation} />;
       case 'timetable': return <TimetableScreen navigation={navigation} />;
       case 'homework': return <HomeworkScreen navigation={navigation} />;
@@ -310,6 +337,7 @@ export default function AppNavigator() {
       case 'classSchedule': return <ClassScheduleScreen navigation={navigation} />;
       case 'parentMessages': return <ParentMessagesScreen navigation={navigation} />;
       case 'incomeExpense': return <IncomeExpenseScreen navigation={navigation} />;
+      case 'notificationSettings': return <NotificationSettingsScreen navigation={navigation} />;
       default: return <AdminHomeScreen navigation={{ navigate, goBack }} />;
     }
   };

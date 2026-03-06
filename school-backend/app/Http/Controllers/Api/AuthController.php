@@ -55,4 +55,20 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Push token updated successfully']);
     }
+
+    public function updateNotificationSettings(Request $request)
+    {
+        $request->validate([
+            'settings' => 'required|array',
+        ]);
+
+        $user = $request->user();
+        $user->notification_settings = $request->settings;
+        $user->save();
+
+        return response()->json([
+            'message' => 'Notification settings updated successfully',
+            'settings' => $user->notification_settings
+        ]);
+    }
 }

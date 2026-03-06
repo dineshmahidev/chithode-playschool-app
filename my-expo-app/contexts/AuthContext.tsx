@@ -37,6 +37,12 @@ export interface User {
   fees?:          string;
   admissionDate?: string;
   fee_due_day?:   string;
+  notification_settings?: {
+    enabled?: boolean;
+    payment?: boolean;
+    attendance?: boolean;
+    activity?: boolean;
+  };
 }
 
 export interface FeeRecord {
@@ -127,6 +133,7 @@ interface AuthContextType {
   deleteTransaction: (id: string) => Promise<void>;
   updateAvatar: () => Promise<void>;
   refreshFees: () => Promise<void>;
+  updateNotificationSettings: (settings: any) => Promise<boolean>;
   fetchData: () => Promise<void>;
 }
 
@@ -295,6 +302,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fees:          u.fees,
     admissionDate: u.admission_date,
     fee_due_day:   u.fee_due_day,
+    notification_settings: u.notification_settings,
   });
 
   const mapToBackend = (data: any) => {
@@ -386,7 +394,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const testLogin = useCallback(async (role: UserRole) => {
     const emailMap = {
-      admin: 'admin@school.com',
+      admin: 'admin@chithodehappykids.com',
       teacher: 'sarah@teacher.com',
       student: 'arjun@student.com'
     };
@@ -650,6 +658,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [fetchData]);
 
+  const updateNotificationSettings = useCallback(async (settings: any) => {
+    try {
+      const response = await api.post('/update-notification-settings', { settings });
+      const updatedUser = { ...user!, notification_settings: response.data.settings };
+      setUser(updatedUser);
+      await AsyncStorage.setItem('user_data', JSON.stringify(updatedUser));
+      return true;
+    } catch (error) {
+      console.error('Update Notification Settings Error:', error);
+      return false;
+    }
+  }, [user]);
+
   const value = useMemo(() => ({
     user,
     users,
@@ -679,13 +700,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     deleteTransaction,
     updateAvatar,
     refreshFees,
+    updateNotificationSettings,
     fetchData
   }), [
     user, users, announcements, activities, transactions, fees, feeStructures,
     isLoading, login, testLogin, logout, addUser, updateUser, updateProfile,
     deleteUser, toggleUserStatus, addAnnouncement, deleteAnnouncement,
     addActivity, deleteActivity, likeActivity, addComment, addTransaction, deleteTransaction, updateTransaction,
-    updateAvatar, refreshFees
+    updateAvatar, refreshFees, updateNotificationSettings, fetchData
   ]);
 
   return (

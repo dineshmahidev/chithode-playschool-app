@@ -328,7 +328,7 @@ const ViewDropdown = React.memo(({
 
 export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScreenProps) {
   const { colors, theme: appTheme } = useTheme();
-  const { users } = useAuth();
+  const { users, fetchData: refreshUsers } = useAuth();
   const [activeTab, setActiveTab] = useState<'day' | 'month'>('day');
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [selectedStudentForMonthly, setSelectedStudentForMonthly] = useState<any | null>(null);
@@ -347,24 +347,92 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
   const [choiceModal, setChoiceModal] = useState({ visible: false, title: '', message: '', options: [] as any[], iconName: '', accentColor: '' });
 
   const [refreshing, setRefreshing] = useState(false);
+  
+  const fetchData = useCallback(async () => {
+    try {
+      setInitialLoading(true);
+      await refreshUsers();
+      const response = await api.get(`/attendance?date=${selectedDate}`);
+      
+      const data = response.data;
+      const records: Record<string, StudentAttendance> = {};
+      data.forEach((item: any) => {
+        records[item.student_id] = {
+          id: item.student_id.toString(),
+          status: item.status,
+          inTime: item.in_time,
+          outTime: item.out_time,
+          droppedBy: item.dropped_by_name,
+          droppedByType: item.dropped_by_type,
+          pickedBy: item.picked_by_name,
+          pickedByType: item.picked_by_type
+        };
+      });
+      setAttendanceRecords(records);
+    } catch (error) {
+      console.error('Error fetching attendance:', error);
+    } finally {
+      setInitialLoading(false);
+    }
+  }, [selectedDate, refreshUsers]);
+
+  const fetchMonthlyData = useCallback(async () => {
+    if (!selectedStudentForMonthly) return;
+    try {
+      setIsMonthlyLoading(true);
+      const response = await api.get(`/attendance?student_id=${selectedStudentForMonthly.id}`);
+      
+      const data = response.data;
+      const attendanceMap: Record<string, any> = {};
+      data.forEach((r: any) => {
+        attendanceMap[r.date] = r;
+      });
+
+      const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+      const records = [];
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayStr = day.toString().padStart(2, '0');
+        const monthStr = (selectedMonth + 1).toString().padStart(2, '0');
+        const dateStr = `${selectedYear}-${monthStr}-${dayStr}`;
+        const dayRecord = attendanceMap[dateStr];
+        const dateObj = new Date(selectedYear, selectedMonth, day);
+
+        records.push({
+          day,
+          dayName: dateObj.toLocaleDateString('en-US', { weekday: 'short' }),
+          date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          status: dayRecord?.status || 'not_marked',
+          clockIn: dayRecord?.in_time,
+          clockOut: dayRecord?.out_time,
+          clockInBy: dayRecord?.dropped_by_type,
+          clockOutBy: dayRecord?.picked_by_type,
+          isWeekend: dateObj.getDay() === 0 || dateObj.getDay() === 6
+        });
+      }
+      setMonthlyRecords(records);
+    } catch (error) {
+      console.error('Error fetching monthly records:', error);
+    } finally {
+      setIsMonthlyLoading(false);
+    }
+  }, [selectedStudentForMonthly?.id, selectedMonth, selectedYear]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       if (activeTab === 'day') {
-         await fetchData();
-      } else if (activeTab === 'month' && typeof (selectedDate as any).fetchMonthlyRecords === 'function') {
-         // This is complex due to internal scoping, focus on primary data for now
-         await fetchData();
+        await fetchData();
       } else {
-         await fetchData();
+        await refreshUsers();
+        await fetchMonthlyData();
       }
     } catch (error) {
       console.error('Refresh Error:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [fetchData, activeTab]);
+  }, [fetchData, fetchMonthlyData, activeTab, refreshUsers]);
 
   // Synchronous ref for all state-dependent callbacks to keep them stable
   const stateRef = useRef({ attendanceRecords, users, colors });
@@ -398,40 +466,9 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
     };
   }, [attendanceRecords, students]);
 
-  // Fetch attendance records for the selected day
   useEffect(() => {
-    let isMounted = true;
-    const fetchDayAttendance = async () => {
-      try {
-        setInitialLoading(true);
-        const response = await api.get(`/attendance?date=${selectedDate}`);
-        if (!isMounted) return;
-        
-        const data = response.data;
-        const records: Record<string, StudentAttendance> = {};
-        data.forEach((item: any) => {
-          records[item.student_id] = {
-            id: item.student_id.toString(),
-            status: item.status,
-            inTime: item.in_time,
-            outTime: item.out_time,
-            droppedBy: item.dropped_by_name,
-            droppedByType: item.dropped_by_type,
-            pickedBy: item.picked_by_name,
-            pickedByType: item.picked_by_type
-          };
-        });
-        setAttendanceRecords(records);
-      } catch (error) {
-        console.error('Error fetching attendance:', error);
-      } finally {
-        if (isMounted) setInitialLoading(false);
-      }
-    };
-
-    if (activeTab === 'day') fetchDayAttendance();
-    return () => { isMounted = false; };
-  }, [selectedDate, activeTab]);
+    if (activeTab === 'day') fetchData();
+  }, [fetchData, activeTab]);
 
   const markPresent = useCallback(async (studentId: string, guardianType: 'Mother' | 'Father' | 'Guardian') => {
     const time = getCurrentTime();
@@ -533,57 +570,11 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
     }
   }, [attendanceRecords, navigation]);
 
-  // Fetch monthly records for the selected student
   useEffect(() => {
-    let isMounted = true;
-    const fetchMonthlyRecords = async () => {
-      if (!selectedStudentForMonthly) return;
-      try {
-        setIsMonthlyLoading(true);
-        const response = await api.get(`/attendance?student_id=${selectedStudentForMonthly.id}`);
-        if (!isMounted) return;
-        
-        const data = response.data;
-        const attendanceMap: Record<string, any> = {};
-        data.forEach((r: any) => {
-          attendanceMap[r.date] = r;
-        });
-
-        const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-        const records = [];
-
-        for (let day = 1; day <= daysInMonth; day++) {
-          const dayStr = day.toString().padStart(2, '0');
-          const monthStr = (selectedMonth + 1).toString().padStart(2, '0');
-          const dateStr = `${selectedYear}-${monthStr}-${dayStr}`;
-          const dayRecord = attendanceMap[dateStr];
-          const dateObj = new Date(selectedYear, selectedMonth, day);
-
-          records.push({
-            day,
-            dayName: dateObj.toLocaleDateString('en-US', { weekday: 'short' }),
-            date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            status: dayRecord?.status || 'not_marked',
-            clockIn: dayRecord?.in_time,
-            clockOut: dayRecord?.out_time,
-            clockInBy: dayRecord?.dropped_by_type,
-            clockOutBy: dayRecord?.picked_by_type,
-            isWeekend: dateObj.getDay() === 0 || dateObj.getDay() === 6
-          });
-        }
-        setMonthlyRecords(records);
-      } catch (error) {
-        console.error('Error fetching monthly records:', error);
-      } finally {
-        if (isMounted) setIsMonthlyLoading(false);
-      }
-    };
-
     if (activeTab === 'month' && selectedStudentForMonthly) {
-      fetchMonthlyRecords();
+      fetchMonthlyData();
     }
-    return () => { isMounted = false; };
-  }, [selectedStudentForMonthly?.id, selectedMonth, selectedYear, activeTab]);
+  }, [fetchMonthlyData, activeTab]);
 
   const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
 

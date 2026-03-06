@@ -51,13 +51,13 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
     
     const currentMonthFee = allFees.find(f => 
       (f.student_id?.toString() === dbId || f.student_id?.toString() === directoryId) && 
-      f.date?.includes(currentMonthYearCode) &&
+      (f.due_date ? f.due_date.includes(currentMonthYearCode) : f.date?.includes(currentMonthYearCode)) &&
       (f.type || '').split(',').some(t => t.trim().toLowerCase().includes('monthly'))
     );
 
     const currentMonthPaid = allFees.find(f => 
       (f.student_id?.toString() === dbId || f.student_id?.toString() === directoryId) && 
-      f.date?.includes(currentMonthYearCode) &&
+      (f.due_date ? f.due_date.includes(currentMonthYearCode) : f.date?.includes(currentMonthYearCode)) &&
       (f.type || '').split(',').some(t => t.trim().toLowerCase().includes('monthly')) &&
       f.status === 'paid'
     );
@@ -144,15 +144,16 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
   const paymentHistory = useMemo(() => {
     return [...myFees].sort((a,b) => b.date.localeCompare(a.date)).map(f => ({
       id: f.id,
-      month: f.date,
+      month: f.due_date ? new Date(f.due_date).toLocaleDateString('en-IN', { dateStyle: 'medium' }) : f.date,
       amount: f.amount,
-      date: f.date,
-      invoiceNo: `INV-2026-${f.id.toString().padStart(3, '0')}`,
+      date: f.paid_at ? new Date(f.paid_at).toLocaleDateString('en-IN', { dateStyle: 'medium' }) : (f.date || 'N/A'),
+      invoiceNo: `HK-${new Date(f.paid_at || f.date).getFullYear()}${f.id.toString().replace(/[^0-9]/g, '').slice(-4).padStart(4, '0')}`,
       status: (f.status || 'paid').toLowerCase(),
       paymentType: 'Offline/Admin',
-      transactionId: `TXN${f.id}${Date.now().toString().slice(-6)}`,
       feeCategories: [`${f.type}: ₹${f.amount.toLocaleString()}`],
-      paid_at: f.paid_at
+      paid_at: f.paid_at,
+      due_date: f.due_date,
+      due_day: f.due_date ? parseInt(f.due_date.split('-')[2]).toString() : undefined
     }));
   }, [myFees]);
 
@@ -308,11 +309,11 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
             <div class="col">
               <div class="section">
                 <div class="info-row">
-                  <span class="label">Invoice No:</span>
+                  <span class="label">Invoice No</span>
                   <span class="value">${payment.invoiceNo}</span>
                 </div>
                 <div class="info-row">
-                  <span class="label">Date:</span>
+                  <span class="label">Paid Date</span>
                   <span class="value">${payment.date}</span>
                 </div>
               </div>
@@ -320,22 +321,16 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
             <div class="col">
               <div class="section">
                 <div class="info-row">
-                  <span class="label">Payment Type:</span>
+                   <span class="label">Payment Type</span>
                   <span class="value">${payment.paymentType || 'N/A'}</span>
                 </div>
-                ${payment.paymentType !== 'Cash' && payment.transactionId ? `
-                <div class="info-row">
-                  <span class="label">Transaction ID:</span>
-                  <span class="value" style="font-size: 9px;">${payment.transactionId}</span>
-                </div>
-                ` : ''}
               </div>
             </div>
           </div>
 
           <div class="section">
             <div class="info-row">
-              <span class="label">Payment Period:</span>
+               <span class="label">Due Date</span>
               <span class="value">${payment.month}</span>
             </div>
           </div>
@@ -362,11 +357,11 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
               <div class="section">
                 <div class="section-title">Payer Information</div>
                 <div class="info-row">
-                  <span class="label">Name:</span>
+                  <span class="label">Payer Name:</span>
                   <span class="value">${user?.parentName || 'Parent Name'}</span>
                 </div>
                 <div class="info-row">
-                  <span class="label">Phone:</span>
+                  <span class="label">Contact Phone:</span>
                   <span class="value">${user?.phone || user?.fatherPhone || '+91 97877 51430'}</span>
                 </div>
               </div>
@@ -500,7 +495,7 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
                     <View className="flex-row items-center justify-end mt-1">
                        <MaterialCommunityIcons name="clock-check-outline" size={10} color="#10B981" />
                        <Text className="text-green-600 text-[9px] font-black uppercase tracking-widest ml-1">
-                          Finalized on: {new Date(overdueMonthInfo.paidAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                          Finalized on: {new Date(overdueMonthInfo.paidAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
                        </Text>
                     </View>
                   )}
@@ -562,8 +557,17 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
                 >
                   <View className="flex-row items-center justify-between mb-3">
                     <View className="flex-1">
-                      <Text className={`font-black ${colors.text} text-lg mb-1`}>{payment.month}</Text>
-                      <Text className={`text-sm ${colors.textSecondary}`}>{payment.date}</Text>
+                      <Text className={`font-black ${colors.text} text-lg mb-1`}>
+                        Due: {payment.month}
+                      </Text>
+                      {payment.status === 'paid' ? (
+                        <Text className={`text-sm ${colors.textSecondary}`}>Paid: {payment.date}</Text>
+                      ) : (
+                        <View className="flex-row items-center">
+                          <MaterialCommunityIcons name="clock-alert-outline" size={14} color="#F97316" />
+                          <Text className="text-sm text-orange-500 font-bold ml-1">Payment Pending</Text>
+                        </View>
+                      )}
                     </View>
                     <View className={`${payment.status === 'paid' ? 'bg-green-500' : 'bg-orange-500'} px-3 py-1 rounded-full`}>
                       <Text className="text-white text-xs font-black uppercase">{payment.status}</Text>
@@ -578,7 +582,7 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
                            <Text className={`text-sm ${colors.textSecondary}`}>Invoice: {payment.invoiceNo}</Text>
                            {payment.paid_at && (
                              <Text className="text-[10px] font-black text-green-600 uppercase tracking-widest mt-0.5">
-                               Paid: {new Date(payment.paid_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                               Paid: {new Date(payment.paid_at).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
                              </Text>
                            )}
                         </View>
@@ -673,11 +677,11 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
               <View className="mb-4">
                 <View className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'} rounded-2xl p-4`}>
                   <View className="flex-row justify-between mb-2">
-                    <Text className={`${colors.textSecondary} text-sm font-bold`}>Invoice No:</Text>
+                    <Text className={`${colors.textSecondary} text-sm font-bold`}>Invoice No</Text>
                     <Text className={`${colors.text} font-black`}>{selectedInvoice?.invoiceNo}</Text>
                   </View>
                   <View className="flex-row justify-between">
-                    <Text className={`${colors.textSecondary} text-sm font-bold`}>Date:</Text>
+                    <Text className={`${colors.textSecondary} text-sm font-bold`}>Paid Date</Text>
                     <Text className={`${colors.text} font-black`}>{selectedInvoice?.date}</Text>
                   </View>
                 </View>
@@ -690,17 +694,11 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
                 </Text>
                 <View className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'} rounded-2xl p-4`}>
                   <View className="flex-row justify-between items-center mb-2">
-                    <Text className={`${colors.textSecondary} text-sm font-bold`}>Payment Type:</Text>
+                    <Text className={`${colors.textSecondary} text-sm font-bold`}>Payment Type</Text>
                     <View className="bg-blue-500 px-3 py-1 rounded-full">
                       <Text className="text-white text-[10px] font-black">{selectedInvoice?.paymentType || 'N/A'}</Text>
                     </View>
                   </View>
-                  {selectedInvoice?.paymentType !== 'Cash' && selectedInvoice?.transactionId && (
-                    <View className="flex-row justify-between items-center">
-                      <Text className={`${colors.textSecondary} text-sm font-bold`}>Transaction ID:</Text>
-                      <Text className={`${colors.text} font-bold text-[10px]`}>{selectedInvoice?.transactionId}</Text>
-                    </View>
-                  )}
                 </View>
               </View>
 
@@ -731,23 +729,25 @@ export default function MyFeesScreen({ navigation }: MyFeesScreenProps) {
                 <View className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'} rounded-2xl p-4`}>
                   <View className="flex-row items-center mb-2">
                     <MaterialCommunityIcons name="account-tie" size={18} color="#3B82F6" />
+                    <Text className={`${colors.textSecondary} text-xs font-bold ml-2`}>Payer Name:</Text>
                     <Text className={`${colors.text} font-bold ml-2`}>{user?.parentName || 'Parent Name'}</Text>
                   </View>
                   <View className="flex-row items-center">
                     <MaterialCommunityIcons name="phone" size={18} color="#10B981" />
-                    <Text className={`${colors.textSecondary} ml-2`}>{user?.phone || user?.fatherPhone || '+91 97877 51430'}</Text>
+                    <Text className={`${colors.textSecondary} text-xs font-bold ml-2`}>Contact Phone:</Text>
+                    <Text className={`${colors.textSecondary} ml-2 font-bold`}>{user?.phone || user?.fatherPhone || '+91 97877 51430'}</Text>
                   </View>
                 </View>
               </View>
 
-              {/* Payment Period */}
+              {/* Due Date */}
               <View className="mb-4">
                 <Text className={`text-sm ${colors.textSecondary} uppercase font-bold tracking-wider mb-2`}>
-                  Payment Period
+                  Due Date
                 </Text>
                 <View className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'} rounded-2xl p-4`}>
                   <View className="flex-row items-center">
-                    <MaterialCommunityIcons name="calendar-month" size={18} color="#EC4899" />
+                    <MaterialCommunityIcons name="calendar-clock" size={18} color="#EC4899" />
                     <Text className={`${colors.text} font-bold ml-2`}>{selectedInvoice?.month}</Text>
                   </View>
                 </View>

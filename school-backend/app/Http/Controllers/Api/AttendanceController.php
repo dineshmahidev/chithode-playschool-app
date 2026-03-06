@@ -58,7 +58,16 @@ class AttendanceController extends Controller
         $title = "Attendance Marked: " . $statusLabel;
         $body = "Attendance for " . $attendance->date . " has been marked as " . $statusLabel . ".";
 
-        $this->notificationService->notifyUser($attendance->student_id, $title, $body);
+        if ($attendance->in_time && !$attendance->out_time) {
+            $body = "Student marked IN at " . $attendance->in_time . " by " . $attendance->dropped_by_type . " (" . $attendance->dropped_by_name . ")";
+        } elseif ($attendance->out_time) {
+            $body = "Student marked OUT at " . $attendance->out_time . " by " . $attendance->picked_by_type . " (" . $attendance->picked_by_name . ")";
+        }
+
+        $this->notificationService->notifyUser($attendance->student_id, $title, $body, [
+            'screen' => 'attendance',
+            'student_id' => $attendance->student_id,
+        ], 'attendance');
 
         return response()->json($attendance, 201);
     }

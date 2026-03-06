@@ -185,7 +185,7 @@ const UserForm = memo(({ theme, onSubmit, isSubmitting, initialData, isEdit }: {
         </View>
       </FieldRow>
 
-      <FieldRow icon="account" label="Full Name" required theme={theme}>
+      <FieldRow icon="account" label="Name" required theme={theme}>
         <TextInput style={inp} placeholder="e.g. Rahul Sharma" placeholderTextColor="#9CA3AF"
           value={formData.name} onChangeText={v => set('name', v)} />
       </FieldRow>
@@ -239,7 +239,7 @@ const UserForm = memo(({ theme, onSubmit, isSubmitting, initialData, isEdit }: {
             </View>
           </FieldRow>
 
-          <FieldRow icon="currency-inr" label="Monthly Fee Settings" theme={theme}>
+          <FieldRow icon="currency-inr" label="Fee Details" theme={theme}>
             <View style={{ flexDirection: 'row', gap: 12 }}>
                {/* Amount */}
                <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center' }}>
@@ -248,7 +248,7 @@ const UserForm = memo(({ theme, onSubmit, isSubmitting, initialData, isEdit }: {
                   </View>
                   <TextInput 
                      style={{ ...inp, flex: 1, borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }} 
-                     placeholder="Fee" 
+                     placeholder="Amount" 
                      placeholderTextColor="#9CA3AF"
                      keyboardType="numeric"
                      value={formData.fees ? formData.fees.toString() : ''} 
@@ -263,7 +263,7 @@ const UserForm = memo(({ theme, onSubmit, isSubmitting, initialData, isEdit }: {
                   </View>
                   <TextInput 
                      style={{ ...inp, flex: 1, borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }} 
-                     placeholder="Day" 
+                     placeholder="Due Date" 
                      placeholderTextColor="#9CA3AF"
                      keyboardType="numeric"
                      maxLength={2}
@@ -277,7 +277,7 @@ const UserForm = memo(({ theme, onSubmit, isSubmitting, initialData, isEdit }: {
                  * Monthly Amount
                </Text>
                <Text style={{ fontSize: 9, color: '#FBBF24', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 }}>
-                 Due Day of Month (1-31)
+                 Due Date (1-31)
                </Text>
             </View>
           </FieldRow>
@@ -448,6 +448,11 @@ const UserItem = memo(({ user, colors, theme, isMenuOpen, onMenuToggle, getRoleI
                 {user.role === 'student' && user.category && (
                      <View className="bg-amber-100 dark:bg-amber-500/20 px-3 py-1 rounded-lg border border-amber-200 dark:border-amber-500/30">
                         <Text className="text-amber-800 dark:text-amber-400 text-[9px] font-black uppercase">{user.category}</Text>
+                     </View>
+                )}
+                {user.role === 'student' && user.fees && (
+                     <View className="bg-indigo-100 dark:bg-indigo-500/20 px-3 py-1 rounded-lg border border-indigo-200 dark:border-indigo-500/30">
+                        <Text className="text-indigo-800 dark:text-indigo-400 text-[9px] font-black uppercase">₹{user.fees} (Day {user.fee_due_day || '5'})</Text>
                      </View>
                 )}
                 <View className="bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-lg">

@@ -48,6 +48,8 @@ class User extends Authenticatable
         'admission_date',
         'status',
         'push_token',
+        'fee_due_day',
+        'notification_settings',
     ];
 
     public function activities()
@@ -75,6 +77,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'notification_settings' => 'array',
         ];
     }
 }

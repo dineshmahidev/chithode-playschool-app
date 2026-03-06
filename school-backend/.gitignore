@@ -22,3 +22,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Firebase/Google Credentials
+chithode-playschool-app-firebase-adminsdk-fbsvc-1b598cf6af.json
+google-services.json

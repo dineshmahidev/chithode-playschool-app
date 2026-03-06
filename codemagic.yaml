@@ -30,9 +30,9 @@ workflows:
           export NODE_OPTIONS="--max-old-space-size=8192"
           cd android
           chmod +x gradlew
-          ./gradlew clean assembleDebug --no-daemon --stacktrace
+          ./gradlew clean assembleRelease --no-daemon --stacktrace
     artifacts:
-      - "**/build/outputs/apk/debug/*.apk"
+      - "**/build/outputs/apk/release/*.apk"
     publishing:
       email:
         recipients:

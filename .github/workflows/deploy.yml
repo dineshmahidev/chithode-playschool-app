@@ -41,11 +41,17 @@ jobs:
               --exclude='google-services.json' \
               --exclude='storage/' \
               --exclude='node_modules/' \
+              --exclude='vendor/' \
               school-backend/ $TARGET_DIR/
             
             # 5. Fix permissions and run Laravel commands
             cd $TARGET_DIR
-            # composer install --no-dev # Uncomment if needed and composer is available
+            
+            # Try to install composer dependencies if vendor is missing or needs update
+            if command -v composer >/dev/null 2>&1; then
+              composer install --no-dev --optimize-autoloader --no-interaction
+            fi
+            
             php artisan migrate --force
             php artisan config:cache
             php artisan route:cache

@@ -12,6 +12,8 @@ workflows:
       - name: Cleanup
         script: |
           rm -rf android
+      - name: Create google-services.json
+        script: echo $GOOGLE_SERVICES_JSON | base64 --decode > google-services.json
       - name: Expo Prebuild
         script: npx expo prebuild --platform android
       - name: Build Android APK

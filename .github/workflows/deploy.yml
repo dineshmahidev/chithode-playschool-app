@@ -33,8 +33,9 @@ jobs:
             TARGET_DIR=~/domains/chithodehappykids.com/public_html/app
             mkdir -p $TARGET_DIR
             
-            # 4. Sync school-backend content to target, deleting old files NOT in school-backend
-            # But EXCLUDE .env and your Firebase/Google JSON files so they aren't deleted!
+            # 4. Clean up the redundant folder if it exists, then sync
+            rm -rf $TARGET_DIR/school-backend
+            
             rsync -avz --delete \
               --exclude='.env' \
               --exclude='chithode-playschool-app-firebase-adminsdk-fbsvc-*.json' \

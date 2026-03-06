@@ -65,6 +65,15 @@ class AnnouncementController extends Controller
                 'id' => $announcement->id,
                 'image' => $previewUrl
             ]);
+
+            // If target wasn't admin, still send a copy to admins
+            if ($announcement->target !== 'admin') {
+                $this->notificationService->notifyRole('admin', "[ADMIN COPY] " . $title, $body, [
+                    'screen' => 'announcements',
+                    'id' => $announcement->id,
+                    'image' => $previewUrl
+                ]);
+            }
         }
 
         return response()->json($announcement, 201);

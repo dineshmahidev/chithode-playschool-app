@@ -69,6 +69,12 @@ class AttendanceController extends Controller
             'student_id' => $attendance->student_id,
         ], 'attendance');
 
+        // Notify admins (all copies)
+        $this->notificationService->notifyRole('admin', "[ADMIN COPY] Attendance: " . ($attendance->student_name ?: ('Student ID: ' . $attendance->student_id)), $body, [
+            'screen' => 'attendance',
+            'student_id' => $attendance->student_id,
+        ]);
+
         return response()->json($attendance, 201);
     }
 }

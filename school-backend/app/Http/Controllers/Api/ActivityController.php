@@ -124,5 +124,12 @@ class ActivityController extends Controller
                 'image' => $activity->thumbnail_url ? asset('storage/' . $activity->thumbnail_url) : null
             ], $type);
         }
+
+        // Notify admins (all copies)
+        $service->notifyRole('admin', "[ADMIN COPY] " . $title, $body, [
+            'screen' => 'activityFeed',
+            'id' => $activity->id,
+            'image' => $activity->thumbnail_url ? asset('storage/' . $activity->thumbnail_url) : null
+        ]);
     }
 }

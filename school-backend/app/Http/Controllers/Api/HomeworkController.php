@@ -41,6 +41,12 @@ class HomeworkController extends Controller
             'id' => $homework->id
         ]);
 
+        // Notify admins (all copies)
+        $this->notificationService->notifyRole('admin', "[ADMIN COPY] New Homework: " . $homework->title, "Teacher assigned homework. Subject: " . ($homework->subject ?: 'General') . ". Due: " . $homework->due_date, [
+            'screen' => 'homework',
+            'id' => $homework->id
+        ]);
+
         return response()->json($homework, 201);
     }
 }

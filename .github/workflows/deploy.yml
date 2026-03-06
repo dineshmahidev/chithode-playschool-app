@@ -47,11 +47,12 @@ jobs:
             # 5. Fix permissions and run Laravel commands
             cd $TARGET_DIR
             
-            # Try to install composer dependencies if vendor is missing or needs update
-            if command -v composer >/dev/null 2>&1; then
-              composer install --no-dev --optimize-autoloader --no-interaction
-            fi
+            # Note: We skip composer install because it's timing out on the server.
+            # If you change dependencies, upload the vendor folder manually via FTP.
             
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
+            # Check if artisan exists before running
+            if [ -f "artisan" ]; then
+              php artisan migrate --force
+              php artisan config:clear
+              php artisan cache:clear
+            fi

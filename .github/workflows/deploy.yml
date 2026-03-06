@@ -17,5 +17,35 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            cd domains/chithodehappykids.com/public_html/app
-            git pull origin main
+            # 1. Create a separate repo folder if it doesn't exist
+            mkdir -p ~/repo
+            cd ~/repo
+            
+            # 2. Update the repo
+            if [ ! -d ".git" ]; then
+              git clone https://github.com/dineshmahidev/chithode-playschool-app.git .
+            else
+              git fetch origin
+              git reset --hard origin/main
+            fi
+            
+            # 3. Define target directory
+            TARGET_DIR=~/domains/chithodehappykids.com/public_html/app
+            mkdir -p $TARGET_DIR
+            
+            # 4. Sync school-backend content to target, deleting old files NOT in school-backend
+            # But EXCLUDE .env and your Firebase/Google JSON files so they aren't deleted!
+            rsync -avz --delete \
+              --exclude='.env' \
+              --exclude='chithode-playschool-app-firebase-adminsdk-fbsvc-*.json' \
+              --exclude='google-services.json' \
+              --exclude='storage/' \
+              --exclude='node_modules/' \
+              school-backend/ $TARGET_DIR/
+            
+            # 5. Fix permissions and run Laravel commands
+            cd $TARGET_DIR
+            # composer install --no-dev # Uncomment if needed and composer is available
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache

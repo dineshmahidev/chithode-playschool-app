@@ -51,9 +51,11 @@ jobs:
             # Note: We skip composer install because it's timing out on the server.
             # If you change dependencies, upload the vendor folder manually via FTP.
             
-            # Check if artisan exists before running
-            if [ -f "artisan" ]; then
+            # Check if artisan and vendor exist before running
+            if [ -f "artisan" ] && [ -d "vendor" ]; then
               php artisan migrate --force
               php artisan config:clear
               php artisan cache:clear
+            else
+              echo "Skipping artisan commands: vendor folder not found. Please upload it manually via FTP."
             fi

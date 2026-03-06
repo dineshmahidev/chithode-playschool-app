@@ -53,9 +53,10 @@ jobs:
             
             # Check if artisan and vendor exist before running
             if [ -f "artisan" ] && [ -d "vendor" ]; then
-              php artisan migrate --force
               php artisan config:clear
               php artisan cache:clear
+              php artisan route:clear
+              echo "Deployment successful: code updated and cache cleared."
             else
-              echo "Skipping artisan commands: vendor folder not found. Please upload it manually via FTP."
+              echo "Code updated. Skipping artisan cache clear as vendor/artisan not ready."
             fi

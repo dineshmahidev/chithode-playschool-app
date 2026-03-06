@@ -41,8 +41,18 @@ class FeeController extends Controller
 
         if ($fee->status === 'paid') {
             $service = app(\App\Services\ExpoNotificationService::class);
-            $service->notifyUser($fee->student_id, "Fee Payment Successful! ✅", "Payment of ₹" . number_format($fee->amount) . " for " . $fee->type . " received. You can now view and download your digital receipt.", [
+            $title = "Fee Payment Successful! ✅";
+            $body = "Payment of ₹" . number_format($fee->amount) . " for " . $fee->type . " received. You can now view and download your digital receipt.";
+
+            // Notify student
+            $service->notifyUser($fee->student_id, $title, $body, [
                 'screen' => 'myFees',
+                'id' => $fee->id
+            ]);
+
+            // Notify admins (all copies)
+            $service->notifyRole('admin', "[ADMIN COPY] Fee Paid: " . $fee->student_name, $body, [
+                'screen' => 'FeeManagement',
                 'id' => $fee->id
             ]);
         }
@@ -59,8 +69,18 @@ class FeeController extends Controller
         // Send push notification if status changed to paid
         if ($fee->status === 'paid' && $oldStatus !== 'paid') {
             $service = app(\App\Services\ExpoNotificationService::class);
-            $service->notifyUser($fee->student_id, "Fee Payment Successful! ✅", "Payment of ₹" . number_format($fee->amount) . " for " . $fee->type . " received. You can now view and download your digital receipt.", [
+            $title = "Fee Payment Successful! ✅";
+            $body = "Payment of ₹" . number_format($fee->amount) . " for " . $fee->type . " received. You can now view and download your digital receipt.";
+
+            // Notify student
+            $service->notifyUser($fee->student_id, $title, $body, [
                 'screen' => 'myFees',
+                'id' => $fee->id
+            ]);
+
+            // Notify admins (all copies)
+            $service->notifyRole('admin', "[ADMIN COPY] Fee Paid: " . $fee->student_name, $body, [
+                'screen' => 'FeeManagement',
                 'id' => $fee->id
             ]);
         }
@@ -89,8 +109,18 @@ class FeeController extends Controller
         // Send push notification for payment confirmation
         if ($fee->status === 'paid') {
             $service = app(\App\Services\ExpoNotificationService::class);
-            $service->notifyUser($fee->student_id, "Fee Payment Successful! ✅", "Payment of ₹" . number_format($fee->amount) . " for " . $fee->type . " received. You can now view and download your digital receipt.", [
+            $title = "Fee Payment Successful! ✅";
+            $body = "Payment of ₹" . number_format($fee->amount) . " for " . $fee->type . " received. You can now view and download your digital receipt.";
+
+            // Notify student
+            $service->notifyUser($fee->student_id, $title, $body, [
                 'screen' => 'myFees',
+                'id' => $fee->id
+            ]);
+
+            // Notify admins (all copies)
+            $service->notifyRole('admin', "[ADMIN COPY] Fee Paid: " . $fee->student_name, $body, [
+                'screen' => 'FeeManagement',
                 'id' => $fee->id
             ]);
         }

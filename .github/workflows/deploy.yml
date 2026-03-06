@@ -43,6 +43,7 @@ jobs:
               --exclude='storage/' \
               --exclude='node_modules/' \
               --exclude='vendor/' \
+              --exclude='database/*.sqlite' \
               school-backend/ $TARGET_DIR/
             
             # 5. Fix permissions and run Laravel commands

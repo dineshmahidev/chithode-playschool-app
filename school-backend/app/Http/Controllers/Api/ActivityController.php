@@ -20,7 +20,7 @@ class ActivityController extends Controller
             'title' => 'required|string',
             'description' => 'required|string',
             'media_type' => 'required|in:image,video',
-            'media_url' => 'required|string',
+            'media_url' => 'nullable|string',
             'thumbnail_url' => 'nullable|string',
             'date' => 'required|string',
             'author' => 'required|string',

@@ -47,11 +47,15 @@ class ActivityController extends Controller
 
         // 1. Handle Media URL (Base64 Fallback or Physical Upload)
         if ($request->hasFile('media_file')) {
-            Log::info('Processing physical media file upload...');
-            $path = $request->file('media_file')->store('activities', 'public');
+            $file = $request->file('media_file');
+            $ext = $file->getClientOriginalExtension() ?: ($request->media_type === 'video' ? 'mp4' : 'jpg');
+            $filename = 'activity_' . time() . '_' . rand(100, 999) . '.' . $ext;
+            
+            Log::info('Saving physical media file:', ['filename' => $filename, 'type' => $file->getMimeType()]);
+            $path = $file->storeAs('activities', $filename, 'public');
             $validated['media_url'] = $path;
         } elseif (isset($request->all()['media_url']) && str_starts_with($request->media_url, 'data:')) {
-            Log::info('Processing base64 media data...');
+            Log::info('Saving base64 media data...');
             $data = explode(',', $request->media_url)[1];
             $ext = str_contains($request->media_url, 'video') ? 'mp4' : 'jpg';
             $filename = 'activity_' . time() . '.' . $ext;
@@ -61,8 +65,12 @@ class ActivityController extends Controller
 
         // 2. Handle Thumbnail URL (Physical or Base64)
         if ($request->hasFile('thumbnail_file')) {
-            Log::info('Processing physical thumbnail upload...');
-            $path = $request->file('thumbnail_file')->store('activities/thumbs', 'public');
+            $file = $request->file('thumbnail_file');
+            $ext = $file->getClientOriginalExtension() ?: 'jpg';
+            $filename = 'thumb_' . time() . '_' . rand(100, 999) . '.' . $ext;
+            
+            Log::info('Saving physical thumbnail:', ['filename' => $filename]);
+            $path = $file->storeAs('activities/thumbs', $filename, 'public');
             $validated['thumbnail_url'] = $path;
         } elseif (isset($request->all()['thumbnail_url']) && str_starts_with($request->thumbnail_url, 'data:')) {
             $data = explode(',', $request->thumbnail_url)[1];
@@ -70,6 +78,11 @@ class ActivityController extends Controller
             \Illuminate\Support\Facades\Storage::disk('public')->put('activities/' . $filename, base64_decode($data));
             $validated['thumbnail_url'] = 'activities/' . $filename;
         }
+
+        Log::info('Final Save Paths:', [
+            'media' => $validated['media_url'] ?? 'none',
+            'thumb' => $validated['thumbnail_url'] ?? 'none'
+        ]);
 
         $activity = Activity::create($validated);
         $activity->students()->sync($request->student_ids);

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Activity;
 use App\Models\Comment;
+use Illuminate\Support\Facades\Log;
 
 class ActivityController extends Controller
 {
@@ -16,6 +17,8 @@ class ActivityController extends Controller
 
     public function store(Request $request)
     {
+        Log::info('Activity Store Request:', $request->all());
+
         $validated = $request->validate([
             'title' => 'required|string',
             'description' => 'required|string',
@@ -25,6 +28,8 @@ class ActivityController extends Controller
             'date' => 'required|string',
             'author' => 'required|string',
             'student_ids' => 'required|array',
+            'media_file' => 'nullable|file|max:102400', // 100MB
+            'thumbnail_file' => 'nullable|file|max:10240', // 10MB
         ]);
 
         // 1. Handle Media URL (Base64 Fallback or Physical Upload)

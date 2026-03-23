@@ -575,8 +575,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         formData.append('student_ids[]', id);
       });
 
-      // 1. Handle Media File
-      if (activity.mediaUrl && activity.mediaUrl.startsWith('file://')) {
+      // 1. Handle Media File (Handles file:// and content:// URIs from mobile devices)
+      if (activity.mediaUrl && (activity.mediaUrl.startsWith('file://') || activity.mediaUrl.startsWith('content://'))) {
         const filename = activity.mediaUrl.split('/').pop() || 'upload.mp4';
         const ext = filename.split('.').pop();
         // @ts-ignore
@@ -589,8 +589,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         formData.append('media_url', activity.mediaUrl);
       }
 
-      // 2. Handle Thumbnail File
-      if (activity.thumbnailUrl && activity.thumbnailUrl.startsWith('file://')) {
+      // 2. Handle Thumbnail File (Handles file:// and content:// URIs)
+      if (activity.thumbnailUrl && (activity.thumbnailUrl.startsWith('file://') || activity.thumbnailUrl.startsWith('content://'))) {
         const thumbName = activity.thumbnailUrl.split('/').pop() || 'thumb.jpg';
         // @ts-ignore
         formData.append('thumbnail_file', {

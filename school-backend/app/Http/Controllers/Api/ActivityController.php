@@ -23,8 +23,6 @@ class ActivityController extends Controller
             'title' => 'required|string',
             'description' => 'required|string',
             'media_type' => 'required|in:image,video',
-            'media_url' => 'sometimes|nullable|string',
-            'thumbnail_url' => 'sometimes|nullable|string',
             'date' => 'required|string',
             'author' => 'required|string',
             'student_ids' => 'required|array',
@@ -33,17 +31,19 @@ class ActivityController extends Controller
         ]);
 
         if ($validator->fails()) {
-            Log::error('Activity Validation Failed:', [
+            Log::error('ACTIVITY_VALIDATION_ERROR_LOG:', [
                 'errors' => $validator->errors()->toArray(),
                 'request' => $request->all()
             ]);
             return response()->json([
-                'message' => 'Validation error',
+                'message' => 'ACTIVITY_VALIDATION_ERROR',
                 'errors' => $validator->errors()
             ], 422);
         }
 
         $validated = $validator->validated();
+        $validated['media_url'] = $request->input('media_url');
+        $validated['thumbnail_url'] = $request->input('thumbnail_url');
 
         // 1. Handle Media URL (Base64 Fallback or Physical Upload)
         if ($request->hasFile('media_file')) {

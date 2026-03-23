@@ -118,15 +118,18 @@ const SplashScreen = () => {
         <Animated.View style={[styles.logoContainer, logoStyle]}>
           <View style={styles.logoGlow} />
           <Image 
-            source={require('../../assets/images/chk_logo_3.png')} 
+            source={require('../../assets/images/splash-logo.png')} 
             style={styles.logo}
             resizeMode="contain"
           />
         </Animated.View>
 
         <Animated.View style={[styles.textContainer, textStyle]}>
-          <Text style={styles.title}>CHITHODE</Text>
-          <Text style={styles.subtitle}>HAPPYKIDS</Text>
+          <Image 
+            source={require('../../assets/images/splash-text.png')} 
+            style={styles.splashTextImage}
+            resizeMode="contain"
+          />
           <View style={styles.loaderLineContainer}>
              <View style={styles.loaderLineBackground} />
              <Animated.View style={[styles.loaderLine, { 
@@ -158,11 +161,11 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   logoContainer: {
-    width: 220,
-    height: 220,
+    width: 280,
+    height: 280,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 40,
+    marginBottom: 20,
   },
   logo: {
     width: '100%',
@@ -170,28 +173,17 @@ const styles = StyleSheet.create({
   },
   logoGlow: {
     position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
     backgroundColor: 'rgba(244, 114, 182, 0.05)',
   },
   textContainer: {
     alignItems: 'center',
   },
-  title: {
-    fontSize: 42,
-    fontWeight: '900',
-    color: '#F472B6',
-    letterSpacing: -2,
-    lineHeight: 42,
-  },
-  subtitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#374151',
-    letterSpacing: 8,
-    marginTop: 4,
-    textTransform: 'uppercase',
+  splashTextImage: {
+    width: width * 0.7,
+    height: 100,
   },
   ring: {
     position: 'absolute',
@@ -204,7 +196,7 @@ const styles = StyleSheet.create({
   loaderLineContainer: {
     width: 200,
     height: 4,
-    marginTop: 40,
+    marginTop: 20,
     borderRadius: 2,
     overflow: 'hidden',
   },

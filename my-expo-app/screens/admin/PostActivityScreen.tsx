@@ -90,10 +90,18 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
         setIsUploading(false);
         setShowSuccessModal(true);
       }, 500);
-    } catch (error) {
+    } catch (error: any) {
       setIsUploading(false);
       clearInterval(progressInterval);
-      Alert.alert('Error', 'Failed to post activity. Please try again.');
+      
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Failed to post activity. Please try again.';
+      console.error('Add Activity Full Debug Info:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      Alert.alert('Upload Error', errorMsg);
     }
   };
 

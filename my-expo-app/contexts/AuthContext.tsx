@@ -608,9 +608,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
       });
       await fetchData();
-    } catch (error) {
-      console.error('Add Activity Error:', error);
-      Alert.alert('Error', 'Failed to post activity');
+    } catch (error: any) {
+      console.error('Detailed Add Activity Error:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      // Rethrow to allow screen to handle it specifically if needed, 
+      // but original code had a generic Alert here.
+      throw error; 
     }
   }, [fetchData]);
 

@@ -178,7 +178,9 @@ export default function TimetableScreen({ navigation }: any) {
   }, [timetable, selectedDayIdx, timeToMinutes]);
 
   const handleApply = async () => {
-    if (!activity.trim()) return Alert.alert('Error', 'Activity is required');
+    if (!activity.trim() || !room.trim()) {
+      return Alert.alert('Attention', 'Fill all fields');
+    }
     setIsSubmitting(true);
     try {
       const data = {

@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, Modal, Dimensions, FlatList, Animated, StyleSheet, StatusBar, Alert, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { 
+  View, Text, TouchableOpacity, ScrollView, Image, Modal, 
+  Dimensions, FlatList, Animated, StyleSheet, StatusBar, 
+  Alert, Pressable, ActivityIndicator, TextInput, 
+  KeyboardAvoidingView, Platform, RefreshControl 
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
@@ -471,7 +476,14 @@ const CommentModal = ({
 
 export default function ActivityFeedScreen({ navigation, route }: ActivityFeedScreenProps) {
   const { colors, theme } = useTheme();
-  const { activities, users, user, deleteActivity } = useAuth();
+  const { activities, users, user, deleteActivity, fetchData } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await fetchData();
+    setIsRefreshing(false);
+  }, [fetchData]);
   
   const [selectedInitialIndex, setSelectedInitialIndex] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -746,7 +758,18 @@ export default function ActivityFeedScreen({ navigation, route }: ActivityFeedSc
       </View>
 
       {/* Balanced Masonry Grid */}
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        className="flex-1" 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            colors={['#F472B6']} // Brand Pink
+            tintColor={theme === 'dark' ? '#FFF' : '#F472B6'}
+          />
+        }
+      >
         <View className="flex-row px-0.5">
           {columns.map((col, colIdx) => (
             <View key={colIdx} style={{ flex: 1 }}>

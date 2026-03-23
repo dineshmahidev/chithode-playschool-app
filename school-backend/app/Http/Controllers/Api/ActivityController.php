@@ -17,9 +17,9 @@ class ActivityController extends Controller
 
     public function store(Request $request)
     {
-        Log::info('Activity Store Request:', $request->all());
+        Log::info('Activity Store Request Payload:', $request->all());
 
-        $validated = $request->validate([
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'title' => 'required|string',
             'description' => 'required|string',
             'media_type' => 'required|in:image,video',
@@ -32,11 +32,26 @@ class ActivityController extends Controller
             'thumbnail_file' => 'nullable|file|max:10240', // 10MB
         ]);
 
+        if ($validator->fails()) {
+            Log::error('Activity Validation Failed:', [
+                'errors' => $validator->errors()->toArray(),
+                'request' => $request->all()
+            ]);
+            return response()->json([
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $validated = $validator->validated();
+
         // 1. Handle Media URL (Base64 Fallback or Physical Upload)
         if ($request->hasFile('media_file')) {
+            Log::info('Processing physical media file upload...');
             $path = $request->file('media_file')->store('activities', 'public');
             $validated['media_url'] = $path;
         } elseif (isset($request->all()['media_url']) && str_starts_with($request->media_url, 'data:')) {
+            Log::info('Processing base64 media data...');
             $data = explode(',', $request->media_url)[1];
             $ext = str_contains($request->media_url, 'video') ? 'mp4' : 'jpg';
             $filename = 'activity_' . time() . '.' . $ext;
@@ -44,8 +59,9 @@ class ActivityController extends Controller
             $validated['media_url'] = 'activities/' . $filename;
         }
 
-        // 2. Handle Thumbnail URL (Base64 Fallback or Physical Upload)
+        // 2. Handle Thumbnail URL (Physical or Base64)
         if ($request->hasFile('thumbnail_file')) {
+            Log::info('Processing physical thumbnail upload...');
             $path = $request->file('thumbnail_file')->store('activities/thumbs', 'public');
             $validated['thumbnail_url'] = $path;
         } elseif (isset($request->all()['thumbnail_url']) && str_starts_with($request->thumbnail_url, 'data:')) {
@@ -59,7 +75,7 @@ class ActivityController extends Controller
         $activity->students()->sync($request->student_ids);
 
         // Send push notification to tagged students
-        $this->notifyTaggedUsers($activity, "New Activity: " . $activity->title, "You were mentioned in a new activity post by " . ($activity->author ?: 'Teacher'), 'activity');
+        $this->notifyTaggedUsers($activity, "New Activity: " . $activity->title, "Tagged Mention: " . ($activity->author ?: 'Teacher'), 'activity');
 
         return response()->json($activity->load(['students', 'comments.user']), 201);
     }

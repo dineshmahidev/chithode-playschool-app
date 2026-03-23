@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, Text, TouchableOpacity, BackHandler, Alert, ActivityIndicator, Animated, Easing } from 'react-native';
+import { View, Text, TouchableOpacity, BackHandler, Alert, ActivityIndicator, Animated, Easing, Dimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -316,29 +316,29 @@ export default function AppNavigator() {
           <View 
             style={{ 
               position: 'absolute',
-              bottom: Math.max(insets.bottom, 25), 
-              left: 30,
-              right: 30,
-              height: 70,
+              bottom: Math.max(insets.bottom, 20), 
+              left: 20,
+              right: 20,
+              height: 80,
               zIndex: 1000,
             }}
           >
-            {/* Minimalist Pill Container */}
+            {/* New Premium Sliding Pill Dock */}
             <View 
               style={{
-                backgroundColor: theme === 'dark' ? '#1c1c1c' : '#FFFFFF',
-                borderRadius: 35,
+                backgroundColor: theme === 'dark' ? '#111827' : '#FFFFFF',
+                borderRadius: 30,
                 height: '100%',
                 flexDirection: 'row',
                 alignItems: 'center',
-                paddingHorizontal: 15,
+                paddingHorizontal: 8,
                 shadowColor: '#000',
-                shadowOffset: { width: 0, height: 10 },
+                shadowOffset: { width: 0, height: 15 },
                 shadowOpacity: 0.1,
-                shadowRadius: 15,
-                elevation: 10,
+                shadowRadius: 20,
+                elevation: 20,
                 borderWidth: 1,
-                borderColor: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
               }}
             >
                 <View className="flex-1 flex-row items-center justify-around h-full">
@@ -347,55 +347,50 @@ export default function AppNavigator() {
                     
                     const getTabIcon = () => {
                       if (tab === 'home') return isActive ? 'home-variant' : 'home-variant-outline';
-                      if (tab === 'quickAction') return 'view-grid'; 
+                      if (tab === 'quickAction') return 'plus-circle'; 
                       if (tab === 'account') return isActive ? 'account-circle' : 'account-circle-outline';
                       return 'help';
                     };
 
                     const getTabColor = () => {
-                      // For the icon, use the accent color if active, otherwise a neutral color
                       if (!isActive) return theme === 'dark' ? '#525252' : '#9ca3af';
-                      if (tab === 'home') return '#6366F1'; // Indigo
-                      if (tab === 'quickAction') return '#8B5CF6'; // Violet
-                      if (tab === 'account') return '#EC4899'; // Pink
-                      return '#8B5CF6';
+                      if (tab === 'home') return '#6366F1';
+                      if (tab === 'quickAction') return '#8B5CF6';
+                      if (tab === 'account') return '#F472B6';
+                      return '#6366F1';
                     };
 
-                    const activeAnim = tab === 'home' ? homeActive : (tab === 'quickAction' ? quickActive : accountActive);
+                    const getTabLabel = () => {
+                      if (tab === 'home') return 'HOME';
+                      if (tab === 'quickAction') return 'ACTIONS';
+                      if (tab === 'account') return 'PROFILE';
+                      return '';
+                    };
 
                     return (
                       <TouchableOpacity
                         key={tab}
-                        activeOpacity={1}
+                        activeOpacity={0.7}
                         onPress={() => navigate(tab as ScreenType, true)}
-                        className="items-center justify-center flex-1 h-full"
+                        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', height: '100%' }}
                       >
-                         <View className="items-center justify-center">
+                         <View style={{ alignItems: 'center', justifyContent: 'center' }}>
                             <MaterialCommunityIcons 
                               name={getTabIcon() as any} 
-                              size={32} 
+                              size={26} 
                               color={getTabColor()} 
+                              style={{ opacity: isActive ? 1 : 0.6 }}
                             />
-                            
-                            {/* Individual Centered Indicator Line */}
-                            <Animated.View 
-                              style={{
-                                height: 4,
-                                width: 36, // Increased width
-                                borderRadius: 2,
-                                backgroundColor: getTabColor(),
-                                marginTop: 6,
-                                opacity: activeAnim,
-                                transform: [
-                                  { scaleX: activeAnim.interpolate({
-                                      inputRange: [0, 1],
-                                      outputRange: [0.3, 1]
-                                    })
-                                  },
-                                  { translateX: -1 } // Nudge 1px left
-                                ]
-                              }}
-                            />
+                            <Text style={{ 
+                              color: getTabColor(), 
+                              fontSize: 8, 
+                              fontWeight: isActive ? '900' : '700', 
+                              marginTop: 4,
+                              letterSpacing: 2,
+                              opacity: isActive ? 1 : 0.6
+                            }}>
+                              {getTabLabel()}
+                            </Text>
                          </View>
                       </TouchableOpacity>
                     );

@@ -1,0 +1,63 @@
+name: Auto Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            # 1. Create a separate repo folder if it doesn't exist
+            mkdir -p ~/repo
+            cd ~/repo
+            
+            # 2. Update the repo
+            if [ ! -d ".git" ]; then
+              git clone https://github.com/dineshmahidev/chithode-playschool-app.git .
+            else
+              git fetch origin
+              git reset --hard origin/main
+            fi
+            
+            # 3. Define target directory
+            TARGET_DIR=~/domains/chithodehappykids.com/public_html/app
+            mkdir -p $TARGET_DIR
+            
+            # 4. Clean up the redundant folder if it exists, then sync
+            rm -rf $TARGET_DIR/school-backend
+            
+            rsync -avz --delete \
+              --exclude='.env' \
+              --exclude='chithode-playschool-app-firebase-adminsdk-fbsvc-*.json' \
+              --exclude='google-services.json' \
+              --exclude='storage/' \
+              --exclude='node_modules/' \
+              --exclude='vendor/' \
+              --exclude='database/*.sqlite' \
+              school-backend/ $TARGET_DIR/
+            
+            # 5. Fix permissions and run Laravel commands
+            cd $TARGET_DIR
+            
+            # Note: We skip composer install because it's timing out on the server.
+            # If you change dependencies, upload the vendor folder manually via FTP.
+            
+            # Check if artisan and vendor exist before running
+            if [ -f "artisan" ] && [ -d "vendor" ]; then
+              php artisan config:clear
+              php artisan cache:clear
+              php artisan route:clear
+              echo "Deployment successful: code updated and cache cleared."
+            else
+              echo "Code updated. Skipping artisan cache clear as vendor/artisan not ready."
+            fi

@@ -1,0 +1,431 @@
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { View, Text, TouchableOpacity, BackHandler, Alert, ActivityIndicator, Animated, Easing } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Notifications from 'expo-notifications';
+
+// Import screens
+import LoginScreen from '../screens/auth/LoginScreen';
+import AdminHomeScreen from '../screens/admin/AdminHomeScreen';
+import AdminQuickActionScreen from '../screens/admin/AdminQuickActionScreen';
+import AdminAccountScreen from '../screens/admin/AdminAccountScreen';
+import UserManagementScreen from '../screens/admin/UserManagementScreen';
+import FeesManagementScreen from '../screens/admin/FeesManagementScreen';
+import AnnouncementsScreen from '../screens/admin/AnnouncementsScreen';
+import ReportsScreen from '../screens/admin/ReportsScreen';
+import BackupScreen from '../screens/admin/BackupScreen';
+import SettingsScreen from '../screens/admin/SettingsScreen';
+import StudentListScreen from '../screens/admin/StudentListScreen';
+import StudentDetailScreen from '../screens/admin/StudentDetailScreen';
+import IncomeExpenseScreen from '../screens/admin/IncomeExpenseScreen';
+import StudentHomeScreen from '../screens/student/StudentHomeScreen';
+import StudentQuickActionScreen from '../screens/student/StudentQuickActionScreen';
+import StudentAccountScreen from '../screens/student/StudentAccountScreen';
+import AttendanceScreen from '../screens/student/AttendanceScreen';
+import ActivityFeedScreen from '../screens/student/ActivityFeedScreen';
+import LiveCameraScreen from '../screens/student/LiveCameraScreen';
+import HomeworkScreen from '../screens/student/HomeworkScreen';
+import TimetableScreen from '../screens/student/TimetableScreen';
+import EmergencyContactScreen from '../screens/student/EmergencyContactScreen';
+import MyFeesScreen from '../screens/student/MyFeesScreen';
+import RewardsScreen from '../screens/student/RewardsScreen';
+import ProfileScreen from '../screens/student/ProfileScreen';
+import TeacherHomeScreen from '../screens/teacher/TeacherHomeScreen';
+import TeacherQuickActionScreen from '../screens/teacher/TeacherQuickActionScreen';
+import TeacherAccountScreen from '../screens/teacher/TeacherAccountScreen';
+import PostHomeworkScreen from '../screens/teacher/PostHomeworkScreen';
+import TakeAttendanceScreen from '../screens/teacher/TakeAttendanceScreen';
+import PostActivityScreen from '../screens/admin/PostActivityScreen';
+import ViewSubmissionsScreen from '../screens/teacher/ViewSubmissionsScreen';
+import ClassScheduleScreen from '../screens/teacher/ClassScheduleScreen';
+import ParentMessagesScreen from '../screens/teacher/ParentMessagesScreen';
+import MyAttendanceScreen from '../screens/teacher/MyAttendanceScreen';
+import StudentAttendanceReportScreen from '../screens/teacher/StudentAttendanceReportScreen';
+import TeacherAttendanceReportScreen from '../screens/admin/TeacherAttendanceReportScreen';
+import SplashScreen from '../screens/auth/SplashScreen';
+import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
+import ChoiceModal from '../components/ChoiceModal';
+
+type ScreenType = 'login' | 'home' | 'quickAction' | 'account' | 'userManagement' | 'feesManagement' | 'announcements' | 'reports' | 'backup' | 'settings' | 'attendance' | 'activityFeed' | 'liveCamera' | 'homework' | 'emergencyContact' | 'myFees' | 'rewards' | 'profile' | 'timetable' | 'postHomework' | 'takeAttendance' | 'postActivity' | 'viewSubmissions' | 'classSchedule' | 'parentMessages' | 'studentList' | 'studentDetail' | 'incomeExpense' | 'myAttendance' | 'studentAttendanceReport' | 'teacherAttendanceReport' | 'notificationSettings';
+
+export default function AppNavigator() {
+  const { user, announcements, isLoading } = useAuth();
+  const { theme, colors } = useTheme();
+  
+  const [currentScreen, setCurrentScreen] = useState<ScreenType>('login');
+  const [navigationStack, setNavigationStack] = useState<ScreenType[]>(['login']);
+  const [params, setParams] = useState<any>(null);
+  const [isHomeBlinking, setIsHomeBlinking] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
+
+  const navigate = useCallback((screen: ScreenType, resetOrParams: boolean | any = false, screenParams: any = null) => {
+    setCurrentScreen(screen);
+    const finalParams = typeof resetOrParams === 'object' ? resetOrParams : screenParams;
+    setParams(finalParams);
+    
+    if (resetOrParams === true) {
+      setNavigationStack([screen]);
+    } else {
+      setNavigationStack(prev => [...prev, screen]);
+    }
+  }, []);
+
+  const goBack = useCallback(() => {
+    let handled = false;
+    setNavigationStack(prev => {
+      if (prev.length > 1) {
+        const newStack = [...prev];
+        newStack.pop();
+        const previousScreen = newStack[newStack.length - 1];
+        setCurrentScreen(previousScreen);
+        handled = true;
+        return newStack;
+      }
+      return prev;
+    });
+    return handled;
+  }, []);
+
+  const navigation = useMemo(() => ({ navigate, goBack }), [navigate, goBack]);
+
+  // Handle Push Notification Navigation
+  useEffect(() => {
+    // Handling when notification is tapped
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      if (data?.screen) {
+        // Short delay to ensure navigation state is ready
+        setTimeout(() => {
+          navigate(data.screen as ScreenType, data.params || null);
+        }, 500);
+      }
+    });
+
+    // Handling when notification is received while app is foreground
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      // You can show a custom alert or just let the system handle it
+      console.log('Notification received in foreground:', notification.request.content.title);
+    });
+
+    return () => {
+      responseListener.remove();
+      notificationListener.remove();
+    };
+  }, [navigate]);
+
+
+  const insets = useSafeAreaInsets();
+  
+  // Redirect logic with splash transition
+  useEffect(() => {
+    if (!isLoading) {
+      if (!user) {
+        if (currentScreen !== 'login') {
+          // Trigger logout splash transition
+          setIsTransitioning(true);
+          setTimeout(() => {
+            setCurrentScreen('login');
+            setNavigationStack(['login']);
+            setIsTransitioning(false);
+          }, 2000); // 2 seconds splash for logout
+        }
+      } else if (currentScreen === 'login') {
+        // Trigger login splash transition
+        setIsTransitioning(true);
+        setTimeout(() => {
+            navigate('home', true);
+            setIsTransitioning(false);
+        }, 2000); // 2 seconds splash for login
+      }
+    }
+  }, [user, isLoading, currentScreen, navigate]);
+
+  // Handle hardware back button
+  useEffect(() => {
+    const backAction = () => {
+      if (user && !['home', 'quickAction', 'account', 'login'].includes(currentScreen)) {
+        return goBack();
+      }
+      if (user && ['home', 'quickAction', 'account'].includes(currentScreen)) {
+        setShowExitModal(true);
+        return true;
+      }
+      if (currentScreen === 'login') {
+        setShowExitModal(true);
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [user, currentScreen, goBack]);
+
+  // ── Tab Animation Animations ──
+  const homeScale = useRef(new Animated.Value(1)).current;
+  const homeY = useRef(new Animated.Value(0)).current;
+  const quickScale = useRef(new Animated.Value(1)).current;
+  const quickRotate = useRef(new Animated.Value(0)).current;
+  const quickY = useRef(new Animated.Value(0)).current;
+  const accountScale = useRef(new Animated.Value(1)).current;
+  const accountY = useRef(new Animated.Value(0)).current;
+  const homeActive = useRef(new Animated.Value(0)).current;
+  const quickActive = useRef(new Animated.Value(0)).current;
+  const accountActive = useRef(new Animated.Value(0)).current;
+
+  // Map screens to their parent tabs for consistent highlighting
+  const tabMapping: Record<string, string> = {
+    home: 'home',
+    activityFeed: 'home',
+    timetable: 'home',
+    attendance: 'home',
+    liveCamera: 'home',
+    homework: 'home',
+    emergencyContact: 'home',
+    myFees: 'home',
+    rewards: 'home',
+    profile: 'account',
+    quickAction: 'quickAction',
+    account: 'account',
+    // Admin screens
+    userManagement: 'quickAction',
+    feesManagement: 'quickAction',
+    announcements: 'quickAction',
+    reports: 'quickAction',
+    backup: 'quickAction',
+    postActivity: 'quickAction',
+    studentList: 'quickAction',
+    studentDetail: 'quickAction',
+    incomeExpense: 'quickAction',
+    // Teacher screens
+    postHomework: 'quickAction',
+    takeAttendance: 'quickAction',
+    viewSubmissions: 'home',
+    classSchedule: 'home', 
+    parentMessages: 'account',
+    myAttendance: 'quickAction',
+    studentAttendanceReport: 'quickAction',
+    teacherAttendanceReport: 'quickAction'
+  };
+
+  const isTabScreen = ['home', 'quickAction', 'account'].includes(currentScreen) && !!user;
+  const activeTab = tabMapping[currentScreen] || 'home';
+
+  useEffect(() => {
+    if (!isTabScreen) return;
+    
+    const animateActive = (val: Animated.Value, active: boolean) => {
+      Animated.spring(val, {
+        toValue: active ? 1 : 0,
+        useNativeDriver: true,
+        friction: 8,
+        tension: 50
+      }).start();
+    };
+
+    animateActive(homeActive, activeTab === 'home');
+    animateActive(quickActive, activeTab === 'quickAction');
+    animateActive(accountActive, activeTab === 'account');
+  }, [activeTab, isTabScreen]);
+
+
+  const renderInnerContent = () => {
+    const activeTab = currentScreen === 'login' ? 'home' : currentScreen;
+    switch (activeTab) {
+      case 'home':
+        return (
+          <>
+            {user?.role === 'admin' && <AdminHomeScreen navigation={navigation} />}
+            {user?.role === 'student' && <StudentHomeScreen navigation={navigation} />}
+            {user?.role === 'teacher' && <TeacherHomeScreen navigation={navigation} />}
+          </>
+        );
+      case 'quickAction':
+        return (
+          <>
+            {user?.role === 'admin' && <AdminQuickActionScreen navigation={navigation} />}
+            {user?.role === 'student' && <StudentQuickActionScreen navigation={navigation} />}
+            {user?.role === 'teacher' && <TeacherQuickActionScreen navigation={navigation} />}
+          </>
+        );
+      case 'account':
+        return (
+          <>
+            {user?.role === 'admin' && <AdminAccountScreen navigation={navigation} />}
+            {user?.role === 'student' && <StudentAccountScreen navigation={navigation} />}
+            {user?.role === 'teacher' && <TeacherAccountScreen navigation={navigation} />}
+          </>
+        );
+      case 'userManagement': return <UserManagementScreen navigation={navigation} />;
+      case 'feesManagement': return <FeesManagementScreen navigation={navigation} />;
+      case 'announcements': return <AnnouncementsScreen navigation={navigation} />;
+      case 'reports': return <ReportsScreen navigation={navigation} />;
+      case 'backup': return <BackupScreen navigation={navigation} />;
+      case 'settings': return <SettingsScreen navigation={navigation} />;
+      case 'studentList': return <StudentListScreen navigation={navigation} />;
+      case 'studentDetail': return <StudentDetailScreen navigation={navigation} route={{ params }} />;
+      case 'attendance': return <AttendanceScreen navigation={navigation} />;
+      case 'activityFeed': return <ActivityFeedScreen navigation={navigation} route={{ params }} />;
+      case 'liveCamera': return <LiveCameraScreen navigation={navigation} />;
+      case 'timetable': return <TimetableScreen navigation={navigation} />;
+      case 'homework': return <HomeworkScreen navigation={navigation} />;
+      case 'emergencyContact': return <EmergencyContactScreen navigation={navigation} />;
+      case 'myFees': return <MyFeesScreen navigation={navigation} />;
+      case 'myAttendance': return <MyAttendanceScreen navigation={navigation} />;
+      case 'studentAttendanceReport': return <StudentAttendanceReportScreen navigation={navigation} />;
+      case 'teacherAttendanceReport': return <TeacherAttendanceReportScreen navigation={navigation} />;
+      case 'rewards': return <RewardsScreen navigation={navigation} />;
+      case 'profile': return <ProfileScreen navigation={navigation} route={{ params }} />;
+      case 'postHomework': return <PostHomeworkScreen navigation={navigation} />;
+      case 'takeAttendance': return <TakeAttendanceScreen navigation={navigation} />;
+      case 'postActivity': return <PostActivityScreen navigation={navigation} />;
+      case 'viewSubmissions': return <ViewSubmissionsScreen navigation={navigation} />;
+      case 'classSchedule': return <ClassScheduleScreen navigation={navigation} />;
+      case 'parentMessages': return <ParentMessagesScreen navigation={navigation} />;
+      case 'incomeExpense': return <IncomeExpenseScreen navigation={navigation} />;
+      case 'notificationSettings': return <NotificationSettingsScreen navigation={navigation} />;
+      default: return <AdminHomeScreen navigation={{ navigate, goBack }} />;
+    }
+  };
+
+  if (isLoading || isTransitioning) {
+    return <SplashScreen />;
+  }
+
+  if (!user) {
+    return (
+        <>
+            <LoginScreen onLogin={() => navigate('home', true)} />
+        </>
+    );
+  }
+
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#1c1c14' : '#FFFFFF' }}>
+      
+      {isTabScreen ? (
+        <View className="flex-1">
+          {renderInnerContent()}
+          {/* ── High-Security Centered Tab Dock ── */}
+          <View 
+            style={{ 
+              position: 'absolute',
+              bottom: Math.max(insets.bottom, 25), 
+              left: 30,
+              right: 30,
+              height: 70,
+              zIndex: 1000,
+            }}
+          >
+            {/* Minimalist Pill Container */}
+            <View 
+              style={{
+                backgroundColor: theme === 'dark' ? '#1c1c1c' : '#FFFFFF',
+                borderRadius: 35,
+                height: '100%',
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 15,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.1,
+                shadowRadius: 15,
+                elevation: 10,
+                borderWidth: 1,
+                borderColor: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+              }}
+            >
+                <View className="flex-1 flex-row items-center justify-around h-full">
+                  {['home', 'quickAction', 'account'].map((tab) => {
+                    const isActive = activeTab === tab;
+                    
+                    const getTabIcon = () => {
+                      if (tab === 'home') return isActive ? 'home-variant' : 'home-variant-outline';
+                      if (tab === 'quickAction') return 'view-grid'; 
+                      if (tab === 'account') return isActive ? 'account-circle' : 'account-circle-outline';
+                      return 'help';
+                    };
+
+                    const getTabColor = () => {
+                      // For the icon, use the accent color if active, otherwise a neutral color
+                      if (!isActive) return theme === 'dark' ? '#525252' : '#9ca3af';
+                      if (tab === 'home') return '#6366F1'; // Indigo
+                      if (tab === 'quickAction') return '#8B5CF6'; // Violet
+                      if (tab === 'account') return '#EC4899'; // Pink
+                      return '#8B5CF6';
+                    };
+
+                    const activeAnim = tab === 'home' ? homeActive : (tab === 'quickAction' ? quickActive : accountActive);
+
+                    return (
+                      <TouchableOpacity
+                        key={tab}
+                        activeOpacity={1}
+                        onPress={() => navigate(tab as ScreenType, true)}
+                        className="items-center justify-center flex-1 h-full"
+                      >
+                         <View className="items-center justify-center">
+                            <MaterialCommunityIcons 
+                              name={getTabIcon() as any} 
+                              size={32} 
+                              color={getTabColor()} 
+                            />
+                            
+                            {/* Individual Centered Indicator Line */}
+                            <Animated.View 
+                              style={{
+                                height: 4,
+                                width: 36, // Increased width
+                                borderRadius: 2,
+                                backgroundColor: getTabColor(),
+                                marginTop: 6,
+                                opacity: activeAnim,
+                                transform: [
+                                  { scaleX: activeAnim.interpolate({
+                                      inputRange: [0, 1],
+                                      outputRange: [0.3, 1]
+                                    })
+                                  },
+                                  { translateX: -1 } // Nudge 1px left
+                                ]
+                              }}
+                            />
+                         </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+            </View>
+          </View>
+        </View>
+      ) : (
+        <View className="flex-1">
+          {renderInnerContent()}
+        </View>
+      )}
+
+      <ChoiceModal 
+        visible={showExitModal}
+        onClose={() => setShowExitModal(false)}
+        title="Stop for Now? 🛑"
+        message="Are you sure you want to leave the playground? We'll be here when you come back!"
+        iconName="exit-run"
+        accentColor="#EF4444"
+        options={[
+          {
+            label: "Yes, Exit App",
+            icon: "power",
+            type: "destructive",
+            onPress: () => BackHandler.exitApp()
+          }
+        ]}
+      />
+    </View>
+  );
+}

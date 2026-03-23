@@ -1,0 +1,90 @@
+{
+  "expo": {
+    "name": "chk",
+    "slug": "chk",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/chk_logo_4.png",
+    "userInterfaceStyle": "light",
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#FFFFFF",
+      "translucent": true
+    },
+    "splash": {
+      "image": "./assets/images/chk_logo_3.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dineshwebdev.play1app",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      },
+      "icon": "./assets/images/chk_logo_4.png",
+      "splash": {
+        "image": "./assets/images/chk_logo_3.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/chk_logo_4.png",
+        "monochromeImage": "./assets/images/chk_logo_4.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "package": "com.dineshwebdev.play1app",
+      "googleServicesFile": "./google-services.json",
+      "splash": {
+        "image": "./assets/images/chk_logo_3.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/chk_logo_4.png",
+          "color": "#F472B6",
+          "sounds": [],
+          "mode": "production"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/chk_logo_3.png",
+          "imageWidth": 300,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "61a28859-ebfa-4edd-9925-8a150cf26a3d"
+      }
+    }
+  }
+}

@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use App\Models\Activity;
 use App\Models\Comment;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 
 class ActivityController extends Controller
 {
@@ -19,7 +21,7 @@ class ActivityController extends Controller
     {
         Log::info('Activity Store Request Payload:', $request->all());
 
-        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+        $validator = Validator::make($request->all(), [
             'title' => 'required|string',
             'description' => 'required|string',
             'media_type' => 'required|in:image,video',
@@ -50,16 +52,17 @@ class ActivityController extends Controller
             $file = $request->file('media_file');
             $ext = $file->getClientOriginalExtension() ?: ($request->media_type === 'video' ? 'mp4' : 'jpg');
             $filename = 'activity_' . time() . '_' . rand(100, 999) . '.' . $ext;
-            
+
             Log::info('Saving physical media file:', ['filename' => $filename, 'type' => $file->getMimeType()]);
             $path = $file->storeAs('activities', $filename, 'public');
             $validated['media_url'] = $path;
-        } elseif (isset($request->all()['media_url']) && str_starts_with($request->media_url, 'data:')) {
+        }
+        elseif (isset($request->all()['media_url']) && str_starts_with($request->media_url, 'data:')) {
             Log::info('Saving base64 media data...');
             $data = explode(',', $request->media_url)[1];
             $ext = str_contains($request->media_url, 'video') ? 'mp4' : 'jpg';
             $filename = 'activity_' . time() . '.' . $ext;
-            \Illuminate\Support\Facades\Storage::disk('public')->put('activities/' . $filename, base64_decode($data));
+            Storage::disk('public')->put('activities/' . $filename, base64_decode($data));
             $validated['media_url'] = 'activities/' . $filename;
         }
 
@@ -68,14 +71,15 @@ class ActivityController extends Controller
             $file = $request->file('thumbnail_file');
             $ext = $file->getClientOriginalExtension() ?: 'jpg';
             $filename = 'thumb_' . time() . '_' . rand(100, 999) . '.' . $ext;
-            
+
             Log::info('Saving physical thumbnail:', ['filename' => $filename]);
             $path = $file->storeAs('activities/thumbs', $filename, 'public');
             $validated['thumbnail_url'] = $path;
-        } elseif (isset($request->all()['thumbnail_url']) && str_starts_with($request->thumbnail_url, 'data:')) {
+        }
+        elseif (isset($request->all()['thumbnail_url']) && str_starts_with($request->thumbnail_url, 'data:')) {
             $data = explode(',', $request->thumbnail_url)[1];
             $filename = 'activity_thumb_' . time() . '.jpg';
-            \Illuminate\Support\Facades\Storage::disk('public')->put('activities/' . $filename, base64_decode($data));
+            Storage::disk('public')->put('activities/' . $filename, base64_decode($data));
             $validated['thumbnail_url'] = 'activities/' . $filename;
         }
 
@@ -152,18 +156,11 @@ class ActivityController extends Controller
             ->whereNotNull('push_token')
             ->get();
 
-        $tokens = [];
         $service = app(\App\Services\ExpoNotificationService::class);
 
         foreach ($students as $student) {
-            // Determine the best image for the notification
             $imagePath = $activity->thumbnail_url ?: $activity->media_url;
             $fullImageUrl = $imagePath ? asset('storage/' . $imagePath) : null;
-
-            // FOR TESTING: Use the public logo if the title contains "Test"
-            if (str_contains(strtolower($activity->title), 'test')) {
-                $fullImageUrl = 'https://chithodehappykids.com/logo.png';
-            }
 
             $service->notifyUser($student->id, $title, $body, [
                 'screen' => 'activityFeed',
@@ -171,6 +168,5 @@ class ActivityController extends Controller
                 'image' => $fullImageUrl
             ], $type);
         }
-
     }
 }

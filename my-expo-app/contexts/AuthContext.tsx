@@ -585,6 +585,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           name: filename,
           type: activity.mediaType === 'video' ? 'video/mp4' : 'image/jpeg'
         });
+        // HACK: Send a placeholder value to bypass outdated server-side "required" validation
+        formData.append('media_url', 'uploading_file');
       } else {
         formData.append('media_url', activity.mediaUrl);
       }

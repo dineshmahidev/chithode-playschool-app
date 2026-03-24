@@ -479,6 +479,10 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
 
 
   const markPresent = useCallback(async (studentId: string, guardianType: 'Mother' | 'Father' | 'Guardian') => {
+    if (selectedDate !== getTodayDateString()) {
+      setStatusModal({ visible: true, title: 'Action Restricted', message: 'Attendance can only be marked for the current date!', type: 'warning' });
+      return;
+    }
     const time = getCurrentTime();
     const { users: currentUsers } = stateRef.current;
     const student = currentUsers.find(u => u.id === studentId);
@@ -517,10 +521,9 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
 
     // Auto-submit change
     try {
-      const today = getTodayDateString();
       await api.post('/attendance', {
         student_id: studentId,
-        date: today,
+        date: selectedDate,
         status: newRecord.status,
         in_time: newRecord.inTime,
         out_time: newRecord.outTime,
@@ -536,6 +539,10 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
   }, [markingType, attendanceRecords]); 
 
   const handleSubmit = useCallback(async () => {
+    if (selectedDate !== getTodayDateString()) {
+      setStatusModal({ visible: true, title: 'Action Restricted', message: 'Attendance can only be marked for the current date!', type: 'warning' });
+      return;
+    }
     const rawRecords = attendanceRecords || {};
     const records = Object.values(rawRecords);
     if (records.length === 0) {
@@ -545,11 +552,10 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
 
     setIsSubmitting(true);
     try {
-      const today = getTodayDateString();
       const promises = records.map(record => {
         const payload = {
           student_id: record.id,
-          date: today,
+          date: selectedDate,
           status: record.status,
           in_time: record.inTime,
           out_time: record.outTime,
@@ -611,6 +617,10 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
   }, []);
 
   const markAbsent = useCallback((studentId: string) => {
+    if (selectedDate !== getTodayDateString()) {
+      setStatusModal({ visible: true, title: 'Action Restricted', message: 'Attendance can only be marked for the current date!', type: 'warning' });
+      return;
+    }
     const record = stateRef.current.attendanceRecords[studentId];
     if (record?.status === 'present') {
       setStatusModal({ visible: true, title: 'Action Denied', message: 'Student is already marked Present. Please undo the Present marking first.', type: 'warning' });
@@ -642,10 +652,9 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
 
             // Auto-submit change
             try {
-              const today = getTodayDateString();
               await api.post('/attendance', {
                 student_id: studentId,
-                date: today,
+                date: selectedDate,
                 status: 'absent',
                 in_time: null,
                 out_time: null
@@ -661,6 +670,10 @@ export default function TakeAttendanceScreen({ navigation }: TakeAttendanceScree
   }, []);
 
   const onDayStudentTap = useCallback((studentId: string) => {
+    if (selectedDate !== getTodayDateString()) {
+      setStatusModal({ visible: true, title: 'Action Restricted', message: 'Attendance can only be marked for the current date!', type: 'warning' });
+      return;
+    }
     const record = stateRef.current.attendanceRecords[studentId];
     
     // Case 1: Already marked Absent

@@ -2,6 +2,7 @@ import React from 'react';
 import './global.css';
 import { BackHandler } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -27,6 +28,16 @@ const AppContent = () => {
 export default function App() {
   // Handle hardware back button to prevent app from closing
   React.useEffect(() => {
+    // Hide the native splash screen as fast as possible so your custom one shows
+    const hideNativeSplash = async () => {
+      try {
+        await SplashScreen.hideAsync();
+      } catch (e) {
+        console.warn(e);
+      }
+    };
+    hideNativeSplash();
+
     const backAction = () => {
       // Let the navigation handle the back action
       // This prevents the app from closing when back is pressed

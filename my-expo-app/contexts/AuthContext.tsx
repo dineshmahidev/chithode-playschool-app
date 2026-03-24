@@ -611,13 +611,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       await fetchData();
     } catch (error: any) {
-      console.error('Detailed Add Activity Error:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
-      });
-      // Rethrow to allow screen to handle it specifically if needed, 
-      // but original code had a generic Alert here.
+      if (error.response?.status === 422 && error.response?.data?.message === 'MEDIA_UPLOAD_FAILED') {
+        Alert.alert('Upload Failed 🚀', 'The server was unable to receive your file. This often happens for large videos. Please check your Hostinger PHP "upload_max_filesize" limit or try with a smaller clip.');
+      } else {
+        console.error('Detailed Add Activity Error:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+        Alert.alert('Error Posting', 'Failed to share this magical update. Please try again or check the file size.');
+      }
       throw error; 
     }
   }, [fetchData]);

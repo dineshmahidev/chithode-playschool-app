@@ -44,7 +44,13 @@ class ActivityController extends Controller
         }
 
         $validated = $validator->validated();
-        $validated['media_url'] = $request->input('media_url');
+        
+        // Remove placeholder if sent from mobile app
+        $inputMediaUrl = $request->input('media_url');
+        if ($inputMediaUrl === 'uploading_file') {
+            $inputMediaUrl = null;
+        }
+        $validated['media_url'] = $inputMediaUrl;
         $validated['thumbnail_url'] = $request->input('thumbnail_url');
 
         // 1. Handle Media URL (Base64 Fallback or Physical Upload)
@@ -64,6 +70,15 @@ class ActivityController extends Controller
             $filename = 'activity_' . time() . '.' . $ext;
             Storage::disk('public')->put('activities/' . $filename, base64_decode($data));
             $validated['media_url'] = 'activities/' . $filename;
+        }
+
+        // CRITICAL: If still no media_url after file check, then the upload failed (likely size limit)
+        if (empty($validated['media_url'])) {
+            Log::error('ACTIVITY_UPLOAD_FAILED: No file received and no URL provided.');
+            return response()->json([
+                'message' => 'MEDIA_UPLOAD_FAILED',
+                'errors' => ['media_file' => ['The file was not received. Checked your server\'s upload_max_filesize limit.']]
+            ], 422);
         }
 
         // 2. Handle Thumbnail URL (Physical or Base64)

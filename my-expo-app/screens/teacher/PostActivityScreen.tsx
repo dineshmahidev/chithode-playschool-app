@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Image, Acti
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useAuth, Activity } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,7 +24,9 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
-  const [image, setImage] = useState('');
+  const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
@@ -37,14 +40,40 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
     );
   };
 
-  const pickImage = async () => {
+  const pickMedia = async (type: 'image' | 'video') => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'We need camera roll permissions to upload media! 📸');
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, // Enable free crop and zoom
-      quality: 0.7,
+      mediaTypes: type === 'image' ? ImagePicker.MediaTypeOptions.Images : ImagePicker.MediaTypeOptions.Videos,
+      allowsEditing: type === 'image', 
+      quality: 0.5, 
+      base64: type === 'image',
+      videoExportPreset: ImagePicker.VideoExportPreset.MediumQuality,
     });
+
     if (!result.canceled && result.assets[0]) {
-      setImage(result.assets[0].uri);
+      setMediaType(type);
+      const asset = result.assets[0];
+      setMediaUrl(asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri);
+      
+      if (type === 'video') {
+        try {
+          const { uri } = await VideoThumbnails.getThumbnailAsync(
+            result.assets[0].uri,
+            { time: 500 }
+          );
+          setThumbnailUrl(uri);
+        } catch (e) {
+          console.warn('Failed to generate thumbnail', e);
+          setThumbnailUrl(null);
+        }
+      } else {
+        setThumbnailUrl(null);
+      }
     }
   };
 
@@ -61,8 +90,9 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
         id: Date.now().toString(),
         title,
         description,
-        mediaType: 'image',
-        mediaUrl: image || 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?q=80&w=800&auto=format&fit=crop',
+        mediaType,
+        mediaUrl: mediaUrl || 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?q=80&w=800&auto=format&fit=crop',
+        thumbnailUrl: thumbnailUrl || undefined,
         studentIds: selectedStudentIds,
         date: new Date().toISOString().split('T')[0],
         author: user?.name || 'Teacher',
@@ -75,7 +105,8 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
       setShowSuccessModal(true);
       setTitle('');
       setDescription('');
-      setImage('');
+      setMediaUrl(null);
+      setThumbnailUrl(null);
       setSelectedStudentIds([]);
     } catch (error) {
       setIsPosting(false);
@@ -232,33 +263,46 @@ export default function PostActivityScreen({ navigation }: PostActivityScreenPro
                     />
                 </View>
 
-                {/* Photo Upload */}
+                {/* Media Choice Section */}
                 <View className="mb-10">
-                    <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textSecondary} mb-4 opacity-70`}>Visual Content 🎨</Text>
-                    <TouchableOpacity
-                        onPress={pickImage}
-                        activeOpacity={0.8}
-                        className={`${theme === 'dark' ? 'bg-black/20 border-gray-800' : 'bg-gray-50 border-gray-100'} border-2 border-dashed rounded-[32px] p-8 items-center justify-center`}
-                    >
-                        {image ? (
-                            <View className="w-full">
-                                <Image source={{ uri: image }} className="w-full h-48 rounded-2xl" resizeMode="cover" />
-                                <View className="mt-4 flex-row items-center justify-center">
-                                    <View className="bg-brand-pink/10 px-4 py-2 rounded-full border border-brand-pink/20">
-                                        <Text className="text-brand-pink font-black text-[10px] uppercase tracking-widest">Change Photo</Text>
-                                    </View>
-                                </View>
-                            </View>
-                        ) : (
-                            <View className="items-center">
-                                <View className="bg-brand-pink/10 w-20 h-20 rounded-full items-center justify-center mb-4">
-                                    <MaterialCommunityIcons name="image-plus" size={36} color="#F472B6" />
-                                </View>
-                                <Text className={`text-lg font-black ${colors.text}`}>Add Activity Photo</Text>
-                                <Text className={`${colors.textTertiary} text-[10px] font-bold uppercase tracking-widest mt-2`}>Max 5MB • JPG or PNG</Text>
-                            </View>
-                        )}
-                    </TouchableOpacity>
+                    <Text className={`text-[10px] font-black uppercase tracking-[3px] ${colors.textSecondary} mb-4 opacity-70`}>Add Media Content 🎞️</Text>
+    
+                    <View className="flex-row justify-between mb-4">
+                        <TouchableOpacity 
+                            onPress={() => pickMedia('image')}
+                            activeOpacity={0.9}
+                            className={`w-[48%] rounded-2xl py-4 items-center justify-center border-2 border-dashed ${mediaType === 'image' && mediaUrl ? 'border-[#F472B6] bg-[#F472B6]/5' : 'border-gray-200 bg-gray-50'}`}
+                        >
+                            <MaterialCommunityIcons name="image-plus" size={24} color={mediaType === 'image' && mediaUrl ? '#F472B6' : '#9CA3AF'} />
+                            <Text className={`text-[10px] font-black mt-1 ${mediaType === 'image' && mediaUrl ? 'text-[#F472B6]' : 'text-[#9CA3AF]'}`}>PHOTO</Text>
+                        </TouchableOpacity>
+    
+                        <TouchableOpacity 
+                            onPress={() => pickMedia('video')}
+                            activeOpacity={0.9}
+                            className={`w-[48%] rounded-2xl py-4 items-center justify-center border-2 border-dashed ${mediaType === 'video' && mediaUrl ? 'border-[#3B82F6] bg-[#3B82F6]/5' : 'border-gray-200 bg-gray-50'}`}
+                        >
+                            <MaterialCommunityIcons name="video-plus" size={24} color={mediaType === 'video' && mediaUrl ? '#3B82F6' : '#9CA3AF'} />
+                            <Text className={`text-[10px] font-black mt-1 ${mediaType === 'video' && mediaUrl ? 'text-[#3B82F6]' : 'text-[#9CA3AF]'}`}>VIDEO</Text>
+                        </TouchableOpacity>
+                    </View>
+    
+                    {mediaUrl && (
+                        <View className="mt-2 rounded-[32px] overflow-hidden border-2 border-gray-100 relative">
+                            <Image source={{ uri: thumbnailUrl || mediaUrl }} className="w-full h-56" resizeMode="cover" />
+                            {mediaType === 'video' && (
+                              <View className="absolute inset-0 items-center justify-center">
+                                <MaterialCommunityIcons name="play-circle-outline" size={64} color="white" />
+                              </View>
+                            )}
+                            <TouchableOpacity 
+                                onPress={() => {setMediaUrl(null); setThumbnailUrl(null);}}
+                                className="absolute top-4 right-4 bg-black/60 w-10 h-10 rounded-full items-center justify-center"
+                            >
+                                <MaterialCommunityIcons name="close" size={20} color="white" />
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
 
                 {/* Submit Button */}

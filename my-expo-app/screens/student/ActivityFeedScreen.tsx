@@ -278,6 +278,7 @@ const ReelItem = React.memo(({
                 <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#EF4444" />
                 <Text className="text-white font-black text-center mt-4">Failed to load video</Text>
                 <Text className="text-gray-400 text-xs text-center mt-2">{videoError}</Text>
+                <Text className="text-gray-500 text-[10px] text-center mt-4" numberOfLines={2}>{item.media}</Text>
               </View>
             )}
           </View>

@@ -105,8 +105,9 @@ const SplashScreen = () => {
   return (
     <View style={styles.container}>
       {/* Using global StatusBar */}
+      <StatusBar style="dark" />
       <LinearGradient
-        colors={['#FFFFFF', '#FDF2F8']}
+        colors={['#FFFFFF', '#F8FAFC', '#F1F5F9']}
         style={StyleSheet.absoluteFill}
       />
 
@@ -161,8 +162,8 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   logoContainer: {
-    width: 280,
-    height: 280,
+    width: 150,
+    height: 150,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,

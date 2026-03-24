@@ -12,6 +12,8 @@
       "translucent": true
     },
     "splash": {
+      "image": "./assets/images/splash-logo.png",
+      "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
     "assetBundlePatterns": [
@@ -27,6 +29,8 @@
       },
       "icon": "./assets/images/chk_logo_4.png",
       "splash": {
+        "image": "./assets/images/splash-logo.png",
+        "resizeMode": "contain",
         "backgroundColor": "#FFFFFF"
       }
     },
@@ -39,6 +43,8 @@
       "package": "com.dineshwebdev.play1app",
       "googleServicesFile": "./google-services.json",
       "splash": {
+        "image": "./assets/images/splash-logo.png",
+        "resizeMode": "contain",
         "backgroundColor": "#FFFFFF"
       }
     },
@@ -68,6 +74,9 @@
       [
         "expo-splash-screen",
         {
+          "image": "./assets/images/splash-logo.png",
+          "imageWidth": 150,
+          "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"
         }
       ]

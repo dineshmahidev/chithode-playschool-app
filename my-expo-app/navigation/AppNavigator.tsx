@@ -47,10 +47,11 @@ import MyAttendanceScreen from '../screens/teacher/MyAttendanceScreen';
 import StudentAttendanceReportScreen from '../screens/teacher/StudentAttendanceReportScreen';
 import TeacherAttendanceReportScreen from '../screens/admin/TeacherAttendanceReportScreen';
 import SplashScreen from '../screens/auth/SplashScreen';
+import PrivacyPolicyScreen from '../screens/auth/PrivacyPolicyScreen';
 import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
 import ChoiceModal from '../components/ChoiceModal';
 
-type ScreenType = 'login' | 'home' | 'quickAction' | 'account' | 'userManagement' | 'feesManagement' | 'announcements' | 'reports' | 'backup' | 'settings' | 'attendance' | 'activityFeed' | 'liveCamera' | 'homework' | 'emergencyContact' | 'myFees' | 'rewards' | 'profile' | 'timetable' | 'postHomework' | 'takeAttendance' | 'postActivity' | 'viewSubmissions' | 'classSchedule' | 'parentMessages' | 'studentList' | 'studentDetail' | 'incomeExpense' | 'myAttendance' | 'studentAttendanceReport' | 'teacherAttendanceReport' | 'notificationSettings';
+type ScreenType = 'login' | 'privacyPolicy' | 'home' | 'quickAction' | 'account' | 'userManagement' | 'feesManagement' | 'announcements' | 'reports' | 'backup' | 'settings' | 'attendance' | 'activityFeed' | 'liveCamera' | 'homework' | 'emergencyContact' | 'myFees' | 'rewards' | 'profile' | 'timetable' | 'postHomework' | 'takeAttendance' | 'postActivity' | 'viewSubmissions' | 'classSchedule' | 'parentMessages' | 'studentList' | 'studentDetail' | 'incomeExpense' | 'myAttendance' | 'studentAttendanceReport' | 'teacherAttendanceReport' | 'notificationSettings';
 
 export default function AppNavigator() {
   const { user, announcements, isLoading } = useAuth();
@@ -125,7 +126,7 @@ export default function AppNavigator() {
   useEffect(() => {
     if (!isLoading) {
       if (!user) {
-        if (currentScreen !== 'login') {
+        if (currentScreen !== 'login' && currentScreen !== 'privacyPolicy') {
           // Trigger logout splash transition
           setIsTransitioning(true);
           setTimeout(() => {
@@ -237,6 +238,8 @@ export default function AppNavigator() {
   const renderInnerContent = () => {
     const activeTab = currentScreen === 'login' ? 'home' : currentScreen;
     switch (activeTab) {
+      case 'privacyPolicy':
+        return <PrivacyPolicyScreen navigation={navigation} />;
       case 'home':
         return (
           <>
@@ -298,10 +301,14 @@ export default function AppNavigator() {
   }
 
   if (!user) {
+    if (currentScreen === 'privacyPolicy') {
+        return <PrivacyPolicyScreen navigation={navigation} />;
+    }
     return (
-        <>
-            <LoginScreen onLogin={() => navigate('home', true)} />
-        </>
+        <LoginScreen 
+            onLogin={() => navigate('home', true)} 
+            onOpenPrivacy={() => navigate('privacyPolicy')}
+        />
     );
   }
 

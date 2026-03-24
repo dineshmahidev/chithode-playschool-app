@@ -15,9 +15,10 @@ const { width, height } = Dimensions.get('window');
 
 interface LoginScreenProps {
   onLogin: () => void;
+  onOpenPrivacy: () => void;
 }
 
-export default function LoginScreen({ onLogin }: LoginScreenProps) {
+export default function LoginScreen({ onLogin, onOpenPrivacy }: LoginScreenProps) {
   const [username, setUsername] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
@@ -120,13 +121,10 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
 
   const insets = useSafeAreaInsets();
   const brandPink = '#F472B6';
-  const isDark = false; // Forced false to keep text dark on white background as requested
+  const isDark = false; 
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-      {/* Using global StatusBar */}
-      
-      {/* Immersive Background */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: height * 0.65 }}>
         <Image 
           source={require('../../assets/images/playschool_teacher_login_bg.png')} 
@@ -144,7 +142,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
         style={{ flex: 1 }}
       >
         <View style={{ flex: 1, paddingHorizontal: 20 }}>
-          {/* Top Branding & Premium Toggle */}
           <Animated.View 
             style={[
               headerAnimatedStyle,
@@ -236,7 +233,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           </Animated.View>
 
           <View style={{ flex: 1, justifyContent: 'flex-end', paddingBottom: Math.max(insets.bottom, 20) }}>
-            {/* ── Modern Premium Login Container ── */}
             <Animated.View 
               style={[
                 formAnimatedStyle,
@@ -254,7 +250,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 }
               ]}
             >
-              {/* Header Decorative Area (Matches Modal style) */}
               <View style={{ height: 80, position: 'relative', overflow: 'hidden' }}>
                 <LinearGradient
                   colors={isDark ? ['#f472b633', 'transparent'] : ['#FDF2F8', '#FFFFFF']}
@@ -280,7 +275,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                    </View>
                 </View>
                 
-                {/* Decorative Background Icons */}
                 <View style={{ position: 'absolute', top: -20, left: -20, opacity: 0.05, transform: [{ rotate: '15deg' }] }}>
                    <MaterialCommunityIcons name="security" size={100} color={isDark ? 'white' : 'black'} />
                 </View>
@@ -295,7 +289,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               </View>
 
               <View>
-                {/* Structured Text Inputs */}
                 <View style={{ marginBottom: 12 }}>
                   <View 
                     style={{ 
@@ -377,13 +370,12 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 </View>
 
                 <TouchableOpacity 
-                  onPress={() => setShowRecoverModal(true)}
+                   onPress={() => setShowRecoverModal(true)}
                   style={{ alignSelf: 'flex-end', marginBottom: 16, marginRight: 2 }}
                 >
                   <Text style={{ color: brandPink, fontWeight: '700', fontSize: 13 }}>Recover password?</Text>
                 </TouchableOpacity>
 
-                {/* Highly Modern Button with Gradient */}
                 <TouchableOpacity
                   onPress={handleLogin}
                   disabled={isLoading}
@@ -417,6 +409,13 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                   <Text style={{ color: isDark ? '#555' : '#A0AEC0', fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>SECURE ACCESS</Text>
                   <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#CBD5E0', marginHorizontal: 8 }} />
                 </View>
+
+                <TouchableOpacity 
+                   onPress={onOpenPrivacy}
+                   style={{ marginTop: 24, paddingVertical: 8, alignItems: 'center' }}
+                >
+                  <Text style={{ color: isDark ? '#6B7281' : '#64748B', fontSize: 12, fontWeight: '700', textDecorationLine: 'underline' }}>Privacy Policy</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </Animated.View>
@@ -424,7 +423,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
         </View>
       </KeyboardAvoidingView>
 
-      {/* Attractive Recover Password Modal */}
       <PremiumPopup
         visible={showRecoverModal}
         onClose={() => setShowRecoverModal(false)}

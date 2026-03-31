@@ -20,6 +20,11 @@ paths:
     source: "http://placeholder"
     sourceOnDemand: yes
 
+  # Path for Activity Area (WebRTC Default)
+  activity_area:
+    source: publisher
+    sourceOnDemand: no
+
 # Global Settings
 rtsp: yes
 rtspAddress: :8554
@@ -29,4 +34,10 @@ hls: yes
 hlsAddress: :4567 
 hlsEncryption: no # Set to 'no' for local testing
 # hlsServerKey: "C:\\xampp\\apache\\conf\\ssl.key\\server.key"
-# hlsServerCert: "C:\\xampp\\apache\\conf\\ssl.crt\\server.crt"
+# WebRTC / WHIP / WHEP
+webrtc: yes
+webrtcAddress: :8889
+webrtcICEUDP: yes
+webrtcICEUDPAddress: :8000
+webrtcSTUNServers:
+  - stun:stun.l.google.com:19302

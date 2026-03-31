@@ -9,7 +9,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
 
-const CAMERA_ICONS = ['video', 'camera', 'security', 'shield-search', 'eye', 'home', 'school', 'baby-face-outline'];
+const CAMERA_ICONS = ['youtube', 'twitch', 'video', 'eye', 'security'];
 
 interface Camera {
   id: string;
@@ -39,28 +39,42 @@ const CameraCard = memo(({ camera, onSelect, onEdit, onDelete, isAdmin, colors, 
         <View className="h-48 w-full bg-black relative overflow-hidden">
           {camera.status === 'online' ? (
             <>
-              <Video
-                key={camera.url}
-                source={{ 
-                  uri: camera.url,
-                  overrideFileExtension: 'm3u8' // Force HLS parsing
-                }}
-                rate={1.0}
-                volume={0}
-                isMuted={true}
-                resizeMode={ResizeMode.COVER}
-                shouldPlay={true}
-                isLooping={true}
-                style={{ flex: 1, backgroundColor: 'black' }}
-                onPlaybackStatusUpdate={(status: any) => {
-                  if (status.isLoaded) setIsReady(true);
-                  if (status.error) {
-                    console.log('Video Load Error:', status.error);
-                    setLoadError(status.error);
-                  }
-                }}
-                onError={(error) => setLoadError(error)}
-              />
+              {camera.url.includes('twitch.tv') ? (
+                <View className="flex-1 items-center justify-center bg-[#9146FF]/5">
+                  <MaterialCommunityIcons name="twitch" size={64} color="#9146FF" />
+                  <Text className="text-[#9146FF] text-[10px] font-black uppercase tracking-[3px] mt-3">Ready to Watch</Text>
+                  <Text className="text-[#9146FF]/60 text-[8px] font-bold uppercase tracking-[1px] mt-1">Direct twitch stream</Text>
+                </View>
+              ) : (camera.url.includes('youtube.com') || camera.url.includes('youtu.be')) ? (
+                <View className="flex-1 items-center justify-center bg-[#FF0000]/5">
+                  <MaterialCommunityIcons name="youtube" size={64} color="#FF0000" />
+                  <Text className="text-[#FF0000] text-[10px] font-black uppercase tracking-[3px] mt-3">Watch Live</Text>
+                  <Text className="text-[#FF0000]/60 text-[8px] font-bold uppercase tracking-[1px] mt-1">Direct youtube stream</Text>
+                </View>
+              ) : (
+                <Video
+                  key={camera.url}
+                  source={{ 
+                    uri: camera.url,
+                    overrideFileExtension: 'm3u8' // Force HLS parsing
+                  }}
+                  rate={1.0}
+                  volume={0}
+                  isMuted={true}
+                  resizeMode={ResizeMode.COVER}
+                  shouldPlay={true}
+                  isLooping={true}
+                  style={{ flex: 1, backgroundColor: 'black' }}
+                  onPlaybackStatusUpdate={(status: any) => {
+                    if (status.isLoaded) setIsReady(true);
+                    if (status.error) {
+                      console.log('Video Load Error:', status.error);
+                      setLoadError(status.error);
+                    }
+                  }}
+                  onError={(error) => setLoadError(error)}
+                />
+              )}
               
               {!isReady && !loadError && (
                 <View className="absolute inset-0 items-center justify-center bg-black/60">
@@ -156,18 +170,28 @@ export default function LiveCameraScreen({ navigation, route }: any) {
   const [isMuted, setIsMuted] = useState(true);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
+  const [isTwitch, setIsTwitch] = useState(false);
+  const [isYoutube, setIsYoutube] = useState(false);
+  const [isM3U8, setIsM3U8] = useState(false);
   const controlsTimer = React.useRef<NodeJS.Timeout | null>(null);
 
   const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-  const resetTimer = useCallback(() => {
-    if (controlsTimer.current) clearTimeout(controlsTimer.current);
-    setControlsVisible(true);
-    controlsTimer.current = setTimeout(() => {
-      setControlsVisible(false);
-      setShowMenu(false);
-    }, 3000);
-  }, []);
+  const getYoutubeEmbedUrl = (urlString: string) => {
+    let videoId = '';
+    try {
+      if (urlString.includes('youtu.be/')) {
+        videoId = urlString.split('youtu.be/')[1].split(/[?#]/)[0];
+      } else if (urlString.includes('youtube.com/live/')) {
+        videoId = urlString.split('youtube.com/live/')[1].split(/[?#]/)[0];
+      } else if (urlString.includes('v=')) {
+        videoId = urlString.split('v=')[1].split(/[&?#]/)[0];
+      }
+      return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=1&showinfo=0&rel=0&modestbranding=1`;
+    } catch (e) {
+      return urlString;
+    }
+  };
 
   useEffect(() => {
     const setupAudio = async () => {
@@ -188,6 +212,21 @@ export default function LiveCameraScreen({ navigation, route }: any) {
       if (controlsTimer.current) clearTimeout(controlsTimer.current);
     };
   }, [resetTimer]);
+
+  const resetTimer = useCallback(() => {
+    if (controlsTimer.current) clearTimeout(controlsTimer.current);
+    setControlsVisible(true);
+    controlsTimer.current = setTimeout(() => {
+      setControlsVisible(false);
+      setShowMenu(false);
+    }, 3000);
+  }, []);
+
+  const getTwitchEmbedUrl = (url: string) => {
+    const match = url.match(/twitch\.tv\/([a-zA-Z0-9_]+)/i);
+    const channel = match ? match[1] : url.split('/').pop();
+    return `https://player.twitch.tv/?channel=${channel}&parent=localhost&autoplay=true&muted=false`;
+  };
 
   const checkAccess = useCallback(async () => {
     if (user?.role !== 'student') {
@@ -311,6 +350,24 @@ export default function LiveCameraScreen({ navigation, route }: any) {
       return;
     }
      setSelectedCamera(camera);
+     
+     // Detect Twitch
+     const isTwitchStream = camera.url.toLowerCase().includes('twitch.tv');
+     setIsTwitch(isTwitchStream);
+     
+     // Detect Youtube
+     const isYoutubeStream = camera.url.toLowerCase().includes('youtube.com') || camera.url.toLowerCase().includes('youtu.be');
+     setIsYoutube(isYoutubeStream);
+
+     // Detect M3U8
+     const isM3U8Stream = camera.url.toLowerCase().includes('.m3u8') || camera.url.toLowerCase().includes('/hls/') || camera.url.toLowerCase().includes(':3000');
+     setIsM3U8(isM3U8Stream);
+     
+     if (!isTwitchStream && !isYoutubeStream && !isM3U8Stream) {
+       Alert.alert('Unsupported Source', 'Only Twitch, YouTube, and HLS (.m3u8) streams are currently supported.');
+       return;
+     }
+
      setShowWebView(true);
      setRotation(0);
      setIsMuted(true);
@@ -363,27 +420,57 @@ export default function LiveCameraScreen({ navigation, route }: any) {
                 </View>
               )}
 
-              <Video
-                key={selectedCamera.url}
-                source={{ 
-                  uri: selectedCamera.url,
-                  overrideFileExtension: 'm3u8'
-                }}
-                rate={1.0}
-                volume={isMuted ? 0.0 : 1.0}
-                isMuted={isMuted}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay={true}
-                isLooping={true}
-                useNativeControls={true}
-                style={{ flex: 1 }}
-                onPlaybackStatusUpdate={(status: any) => {
-                   if (!status.isLoaded && status.error) {
-                     Alert.alert('Playback Error', status.error.toString());
-                   }
-                }}
-                onError={(err) => Alert.alert('Video Engine Error', err.toString())}
-              />
+              {isTwitch ? (
+                <WebView
+                  source={{ 
+                    uri: getTwitchEmbedUrl(selectedCamera.url),
+                    headers: { 'Referer': 'https://localhost' }
+                  }}
+                  style={{ flex: 1, backgroundColor: 'black' }}
+                  javaScriptEnabled={true}
+                  domStorageEnabled={true}
+                  allowsFullscreenVideo={true}
+                  mediaPlaybackRequiresUserAction={false}
+                />
+              ) : isYoutube ? (
+                <WebView
+                  source={{ 
+                    uri: getYoutubeEmbedUrl(selectedCamera.url)
+                  }}
+                  style={{ flex: 1, backgroundColor: 'black' }}
+                  javaScriptEnabled={true}
+                  domStorageEnabled={true}
+                  allowsFullscreenVideo={true}
+                  mediaPlaybackRequiresUserAction={false}
+                />
+              ) : isM3U8 ? (
+                 <Video
+                    key={selectedCamera.url}
+                    source={{ 
+                      uri: selectedCamera.url,
+                      overrideFileExtension: 'm3u8'
+                    }}
+                    rate={1.0}
+                    volume={isMuted ? 0.0 : 1.0}
+                    isMuted={isMuted}
+                    resizeMode={ResizeMode.CONTAIN}
+                    shouldPlay={true}
+                    isLooping={true}
+                    useNativeControls={true}
+                    style={{ flex: 1 }}
+                    onPlaybackStatusUpdate={(status: any) => {
+                      if (!status.isLoaded && status.error) {
+                        Alert.alert('Playback Error', status.error.toString());
+                      }
+                    }}
+                    onError={(err) => Alert.alert('Video Engine Error', err.toString())}
+                  />
+              ) : (
+                <View className="flex-1 items-center justify-center bg-black">
+                   <MaterialCommunityIcons name="alert-circle-outline" size={64} color="#EF4444" />
+                   <Text className="text-white font-black mt-4">Invalid Stream Source</Text>
+                </View>
+              )}
             </View>
           </View>
 
@@ -609,7 +696,7 @@ export default function LiveCameraScreen({ navigation, route }: any) {
                         <Text className={`text-[10px] font-black mb-3 uppercase tracking-[3px] ${colors.textTertiary}`}>Streaming URL</Text>
                         <TextInput 
                             className={`p-5 rounded-[24px] border ${colors.border} ${colors.text} font-bold bg-gray-50/50 dark:bg-black/20`}
-                            placeholder="https://ip-camera-url/stream"
+                            placeholder="M3U8, Twitch or YouTube Live URL"
                             placeholderTextColor="#9CA3AF"
                             value={formData.url}
                             onChangeText={(text) => setFormData({...formData, url: text})}

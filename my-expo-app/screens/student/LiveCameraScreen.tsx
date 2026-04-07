@@ -173,6 +173,7 @@ export default function LiveCameraScreen({ navigation, route }: any) {
   const [isTwitch, setIsTwitch] = useState(false);
   const [isYoutube, setIsYoutube] = useState(false);
   const [isM3U8, setIsM3U8] = useState(false);
+  const [isStreamReady, setIsStreamReady] = useState(false);
   const controlsTimer = React.useRef<NodeJS.Timeout | null>(null);
 
   const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -187,7 +188,7 @@ export default function LiveCameraScreen({ navigation, route }: any) {
       } else if (urlString.includes('v=')) {
         videoId = urlString.split('v=')[1].split(/[&?#]/)[0];
       }
-      return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=1&showinfo=0&rel=0&modestbranding=1`;
+      return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=1&showinfo=0&rel=0&modestbranding=1&origin=https://app.chithodehappykids.com&enablejsapi=1&widget_referrer=https://app.chithodehappykids.com`;
     } catch (e) {
       return urlString;
     }
@@ -223,9 +224,39 @@ export default function LiveCameraScreen({ navigation, route }: any) {
   }, []);
 
   const getTwitchEmbedUrl = (url: string) => {
-    const match = url.match(/twitch\.tv\/([a-zA-Z0-9_]+)/i);
-    const channel = match ? match[1] : url.split('/').pop();
-    return `https://player.twitch.tv/?channel=${channel}&parent=localhost&autoplay=true&muted=false`;
+    let channel = '';
+    
+    // Case 1: Full player URL with channel parameter
+    if (url.includes('channel=')) {
+      const match = url.match(/[?&]channel=([a-zA-Z0-9_]+)/i);
+      if (match) channel = match[1];
+    } 
+    
+    // Case 2: Standard twitch.tv/channelname
+    if (!channel && url.includes('twitch.tv/')) {
+       if (!url.includes('player.twitch.tv')) {
+         const match = url.match(/twitch\.tv\/([a-zA-Z0-9_]+)/i);
+         if (match) channel = match[1];
+       }
+    }
+
+    // Case 3: Fallback to last path segment
+    if (!channel) {
+       const segments = url.split('/');
+       const lastSegment = segments[segments.length - 1];
+       channel = lastSegment.split(/[?#]/)[0];
+    }
+
+    // Parent domain is MANDATORY for Twitch embeds. 
+    // We include both the production domain and common development hostnames.
+    const domains = [
+      'app.chithodehappykids.com',
+      'localhost',
+      '127.0.0.1'
+    ];
+    const parentParams = domains.map(d => `parent=${d}`).join('&');
+    
+    return `https://player.twitch.tv/?channel=${channel}&${parentParams}&autoplay=true&muted=true&migration=true`;
   };
 
   const checkAccess = useCallback(async () => {
@@ -368,11 +399,12 @@ export default function LiveCameraScreen({ navigation, route }: any) {
        return;
      }
 
-     setShowWebView(true);
-     setRotation(0);
-     setIsMuted(true);
-     setControlsVisible(true);
-     resetTimer();
+      setShowWebView(true);
+      setIsStreamReady(false);
+      setRotation(0);
+      setIsMuted(true);
+      setControlsVisible(true);
+      resetTimer();
    }, [resetTimer]);
 
   const openModal = useCallback((camera: any = null) => {
@@ -390,11 +422,11 @@ export default function LiveCameraScreen({ navigation, route }: any) {
      return (
        <View className="flex-1 bg-black">
          <StatusBar hidden={true} />
-         <TouchableOpacity 
-           activeOpacity={1} 
-           onPress={resetTimer}
-           className="flex-1 relative"
-         >
+                 <TouchableOpacity 
+                    activeOpacity={1} 
+                    onPress={resetTimer}
+                    className="flex-1 relative"
+                  >
           <View className="flex-1 justify-center items-center bg-black">
             <View 
                style={[
@@ -406,65 +438,117 @@ export default function LiveCameraScreen({ navigation, route }: any) {
                ]}
             >
               {controlsVisible && (
-                <View 
-                  style={{ 
-                    position: 'absolute', 
-                    top: 20, 
-                    left: 20, 
-                    zIndex: 1000,
-                  }}
-                  className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 flex-row items-center"
-                >
-                  <View className="w-1.5 h-1.5 rounded-full bg-red-500 mr-2 animate-pulse" />
-                  <Text className="text-white font-black text-[10px] uppercase tracking-[1px]">{selectedCamera.name}</Text>
-                </View>
-              )}
+                 <View 
+                   style={{ 
+                     position: 'absolute', 
+                     top: 20, 
+                     left: 20, 
+                     zIndex: 1000,
+                     flexDirection: 'row',
+                     alignItems: 'center',
+                     gap: 12
+                   }}
+                 >
+                   <TouchableOpacity 
+                      onPress={() => setShowWebView(false)}
+                      className="bg-black/60 backdrop-blur-md w-12 h-12 rounded-2xl items-center justify-center border border-white/20"
+                   >
+                     <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
+                   </TouchableOpacity>
 
+                   <View className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 flex-row items-center h-12">
+                     <View className="w-1.5 h-1.5 rounded-full bg-red-500 mr-2 animate-pulse" />
+                     <Text className="text-white font-black text-[10px] uppercase tracking-[1px]">{selectedCamera.name}</Text>
+                   </View>
+                 </View>
+              )}
               {isTwitch ? (
                 <WebView
                   source={{ 
                     uri: getTwitchEmbedUrl(selectedCamera.url),
-                    headers: { 'Referer': 'https://localhost' }
+                    headers: { 'Referer': 'https://app.chithodehappykids.com' }
                   }}
                   style={{ flex: 1, backgroundColor: 'black' }}
+                  pointerEvents="none"
                   javaScriptEnabled={true}
                   domStorageEnabled={true}
                   allowsFullscreenVideo={true}
                   mediaPlaybackRequiresUserAction={false}
+                  startInLoadingState={true}
+                  renderLoading={() => (
+                    <View className="absolute inset-0 items-center justify-center bg-[#9146FF]/10">
+                      <MaterialCommunityIcons name="twitch" size={80} color="#9146FF" />
+                      <Text className="text-[#9146FF] text-xs font-black uppercase tracking-[5px] mt-6">Twitch Loading</Text>
+                      <Text className="text-[#9146FF]/60 text-[10px] font-bold uppercase tracking-[2px] mt-2">Connecting to Secure Feed...</Text>
+                    </View>
+                  )}
+                  onLoadEnd={() => setIsStreamReady(true)}
+                  onHttpError={(syntheticEvent) => {
+                    const { nativeEvent } = syntheticEvent;
+                    console.warn('WebView HTTP error: ', nativeEvent);
+                  }}
+                  onError={(syntheticEvent) => {
+                    const { nativeEvent } = syntheticEvent;
+                    console.warn('WebView error: ', nativeEvent);
+                  }}
                 />
               ) : isYoutube ? (
                 <WebView
                   source={{ 
-                    uri: getYoutubeEmbedUrl(selectedCamera.url)
+                    uri: getYoutubeEmbedUrl(selectedCamera.url),
+                    headers: { 'Referer': 'https://app.chithodehappykids.com' }
                   }}
                   style={{ flex: 1, backgroundColor: 'black' }}
+                  pointerEvents="none"
                   javaScriptEnabled={true}
                   domStorageEnabled={true}
                   allowsFullscreenVideo={true}
                   mediaPlaybackRequiresUserAction={false}
+                  startInLoadingState={true}
+                  renderLoading={() => (
+                    <View className="absolute inset-0 items-center justify-center bg-[#FF0000]/10">
+                      <MaterialCommunityIcons name="youtube" size={80} color="#FF0000" />
+                      <Text className="text-[#FF0000] text-xs font-black uppercase tracking-[5px] mt-6">YouTube Live</Text>
+                      <Text className="text-[#FF0000]/60 text-[10px] font-bold uppercase tracking-[2px] mt-2">Establishing Stream...</Text>
+                    </View>
+                  )}
+                  onLoadEnd={() => setIsStreamReady(true)}
                 />
               ) : isM3U8 ? (
-                 <Video
-                    key={selectedCamera.url}
-                    source={{ 
-                      uri: selectedCamera.url,
-                      overrideFileExtension: 'm3u8'
-                    }}
-                    rate={1.0}
-                    volume={isMuted ? 0.0 : 1.0}
-                    isMuted={isMuted}
-                    resizeMode={ResizeMode.CONTAIN}
-                    shouldPlay={true}
-                    isLooping={true}
-                    useNativeControls={true}
-                    style={{ flex: 1 }}
-                    onPlaybackStatusUpdate={(status: any) => {
-                      if (!status.isLoaded && status.error) {
-                        Alert.alert('Playback Error', status.error.toString());
-                      }
-                    }}
-                    onError={(err) => Alert.alert('Video Engine Error', err.toString())}
-                  />
+                <View className="flex-1">
+                  <Video
+                     key={selectedCamera.url}
+                     source={{ 
+                       uri: selectedCamera.url,
+                       overrideFileExtension: 'm3u8'
+                     }}
+                     rate={1.0}
+                     volume={isMuted ? 0.0 : 1.0}
+                     isMuted={isMuted}
+                     resizeMode={ResizeMode.CONTAIN}
+                     shouldPlay={true}
+                     isLooping={true}
+                     useNativeControls={false}
+                     pointerEvents="none"
+                     style={{ flex: 1 }}
+                     onLoadStart={() => setIsStreamReady(false)}
+                     onLoad={() => setIsStreamReady(true)}
+                     onPlaybackStatusUpdate={(status: any) => {
+                       if (!status.isLoaded && status.error) {
+                         Alert.alert('Playback Error', status.error.toString());
+                       }
+                     }}
+                     onError={(err) => Alert.alert('Video Engine Error', err.toString())}
+                   />
+                   {!isStreamReady && (
+                     <View className="absolute inset-0 items-center justify-center bg-black">
+                        <MaterialCommunityIcons name="video" size={80} color="#F472B6" />
+                        <Text className="text-brand-pink text-xs font-black uppercase tracking-[5px] mt-6">Secure Feed</Text>
+                        <Text className="text-brand-pink/60 text-[10px] font-bold uppercase tracking-[2px] mt-2">Connecting to Video Server...</Text>
+                        <ActivityIndicator color="#F472B6" size="small" style={{ marginTop: 20 }} />
+                     </View>
+                   )}
+                 </View>
               ) : (
                 <View className="flex-1 items-center justify-center bg-black">
                    <MaterialCommunityIcons name="alert-circle-outline" size={64} color="#EF4444" />
@@ -542,10 +626,10 @@ export default function LiveCameraScreen({ navigation, route }: any) {
                )}
              </View>
            )}
-         </TouchableOpacity>
-       </View>
-     );
-   }
+          </TouchableOpacity>
+        </View>
+      );
+    }
 
   const insets = useSafeAreaInsets();
 

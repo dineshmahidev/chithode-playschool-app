@@ -39,7 +39,3 @@ workflows:
       email:
         recipients:
           - dineshwebdev2003@gmail.com
-      google_play:
-        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal
-        submit_as_draft: true

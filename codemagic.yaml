@@ -24,12 +24,13 @@ workflows:
             exit 1
           fi
       - name: Expo Prebuild
-        script: npx expo prebuild --platform android
+        script: npx expo prebuild --platform android --clean
       - name: Build Android AAB
         script: |
           export NODE_OPTIONS="--max-old-space-size=8192"
           cd android
           chmod +x gradlew
+          echo "org.gradle.jvmargs=-Xmx4096m" >> gradle.properties
           ./gradlew clean bundleRelease --no-daemon --stacktrace
     artifacts:
       - android/app/build/outputs/bundle/release/*.aab
@@ -38,3 +39,7 @@ workflows:
       email:
         recipients:
           - dineshwebdev2003@gmail.com
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true

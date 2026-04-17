@@ -40,7 +40,7 @@
         "monochromeImage": "./assets/images/chk_logo_4.png",
         "backgroundColor": "#FFFFFF"
       },
-      "package": "com.dineshwebdev.play1app",
+      "package": "com.chithode.happykids.app",
       "googleServicesFile": "./google-services.json",
       "splash": {
         "image": "./assets/images/splash-logo.png",

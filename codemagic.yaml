@@ -25,14 +25,15 @@ workflows:
           fi
       - name: Expo Prebuild
         script: npx expo prebuild --platform android
-      - name: Build Android APK
+      - name: Build Android AAB
         script: |
           export NODE_OPTIONS="--max-old-space-size=8192"
           cd android
           chmod +x gradlew
-          ./gradlew clean assembleRelease --no-daemon --stacktrace
+          ./gradlew clean bundleRelease --no-daemon --stacktrace
     artifacts:
-      - "**/build/outputs/apk/release/*.apk"
+      - android/app/build/outputs/bundle/release/*.aab
+      - android/app/build/outputs/apk/release/*.apk
     publishing:
       email:
         recipients:

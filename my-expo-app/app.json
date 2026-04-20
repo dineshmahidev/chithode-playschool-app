@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "CHK",
-    "slug": "chk",
-    "version": "1.0.0",
+    "slug": "playschool-chithode",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/chk_logo_4.png",
     "userInterfaceStyle": "light",
@@ -41,6 +41,7 @@
         "backgroundColor": "#FFFFFF"
       },
       "package": "com.chithode.happykids.app",
+      "versionCode": 2,
       "googleServicesFile": "./google-services.json",
       "splash": {
         "image": "./assets/images/splash-logo.png",
